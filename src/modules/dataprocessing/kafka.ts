@@ -82,7 +82,7 @@ function getConfig(config?: Partial<KafkaConfig>): KafkaConfig {
 
   return {
     brokers,
-    clientId: config?.clientId || process.env.KAFKA_CLIENT_ID || 'b0t-workflow',
+    clientId: config?.clientId || process.env.KAFKA_CLIENT_ID || 'odin-workflow',
     ssl: config?.ssl ?? (process.env.KAFKA_SSL === 'true'),
     sasl: config?.sasl || (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
       ? {

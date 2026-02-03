@@ -45,31 +45,31 @@ Use AskUserQuestion tool to gather:
 **CRITICAL: Use Read tool to load these reference files in order:**
 
 **1. Always read (required - load ALL of these):**
-- `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/yaml-format.md`
+- `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/yaml-format.md`
   - Complete YAML structure specification
   - Variable interpolation rules
   - Output formats and returnValue
   - Auto-wrapping explanation
 
-- `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/common-modules.md`
+- `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/common-modules.md`
   - All 16 module categories
   - Module search instructions
   - Common module patterns
 
-- `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/common-mistakes.md`
+- `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/common-mistakes.md`
   - Top 10 mistakes and how to avoid them
   - Rest parameters issue
   - Variable naming errors
   - YAML syntax gotchas
 
 **2. Read based on trigger type (required - load ONE):**
-- **Manual** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/manual-trigger.md`
-- **Webhook** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/webhook-trigger.md`
-- **Cron** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/cron-trigger.md`
-- **Chat** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/chat-trigger.md`
-- **Chat-Input** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/chat-input-trigger.md`
-- **Gmail** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/gmail-trigger.md`
-- **Outlook** → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/outlook-trigger.md`
+- **Manual** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/manual-trigger.md`
+- **Webhook** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/webhook-trigger.md`
+- **Cron** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/cron-trigger.md`
+- **Chat** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/chat-trigger.md`
+- **Chat-Input** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/chat-input-trigger.md`
+- **Gmail** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/gmail-trigger.md`
+- **Outlook** → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/outlook-trigger.md`
 - **Telegram/Discord** → Same as manual trigger (no special config needed)
 
 **Do NOT proceed without reading the core 3 files + your specific trigger file!**
@@ -77,13 +77,13 @@ Use AskUserQuestion tool to gather:
 **3. Optionally read module category references (as needed):**
 
 Based on what modules the user needs, read relevant category references:
-- AI/ML workflows → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/ai-modules.md`
-- Social media → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/social-modules.md`
-- Email/messaging → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/communication-modules.md`
-- CRM/invoicing → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/business-modules.md`
-- Databases/sheets → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/data-modules.md`
-- E-commerce → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/ecommerce-modules.md`
-- Other categories → `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/modules/other-categories.md`
+- AI/ML workflows → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/ai-modules.md`
+- Social media → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/social-modules.md`
+- Email/messaging → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/communication-modules.md`
+- CRM/invoicing → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/business-modules.md`
+- Databases/sheets → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/data-modules.md`
+- E-commerce → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/ecommerce-modules.md`
+- Other categories → `/Users/kenkai/Documents/odin/.claude/skills/workflow-generator-v2/references/modules/other-categories.md`
 
 These provide usage patterns, credential requirements, and examples for each category.
 

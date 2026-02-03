@@ -26,10 +26,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "b0t - Build Custom Automations",
+  title: "Odin - Build Custom Automations",
   description: "Visual automation platform for building custom workflows. Connect APIs, services, and platforms to create powerful automations.",
   icons: {
-    icon: '/bot-icon.svg',
+    icon: '/odin-icon.svg',
   },
 };
 

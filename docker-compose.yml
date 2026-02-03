@@ -2,12 +2,12 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: b0t-postgres
+    container_name: odin-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: b0t_dev
+      POSTGRES_DB: odin_dev
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5434:5432"
@@ -19,12 +19,12 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - b0t-network
+      - odin-network
 
   # Redis (for BullMQ queue and caching)
   redis:
     image: redis:7-alpine
-    container_name: b0t-redis
+    container_name: odin-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
@@ -37,12 +37,12 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - b0t-network
+      - odin-network
 
   # Redis Commander (Optional - Redis GUI)
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: b0t-redis-commander
+    container_name: odin-redis-commander
     restart: unless-stopped
     environment:
       REDIS_HOSTS: local:redis:6379
@@ -51,17 +51,17 @@ services:
     depends_on:
       - redis
     networks:
-      - b0t-network
+      - odin-network
     profiles:
       - debug  # Only runs with: docker compose --profile debug up
 
   # pgAdmin (Optional - PostgreSQL GUI)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: b0t-pgadmin
+    container_name: odin-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@b0t.dev
+      PGADMIN_DEFAULT_EMAIL: jake@odin.build
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -71,7 +71,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - b0t-network
+      - odin-network
     profiles:
       - debug  # Only runs with: docker compose --profile debug up
 
@@ -84,5 +84,5 @@ volumes:
     driver: local
 
 networks:
-  b0t-network:
+  odin-network:
     driver: bridge

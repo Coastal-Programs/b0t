@@ -424,7 +424,7 @@ export function analyzeWorkflowCredentials(
     }>;
   },
   trigger?: {
-    type: 'cron' | 'manual' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input';
+    type: 'cron' | 'manual' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'airtable' | 'gmail' | 'outlook';
     config: Record<string, unknown>;
   }
 ): RequiredCredential[] {

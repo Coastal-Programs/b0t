@@ -1,47 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
-/**
- * Initial app loading screen shown on page refresh
- * Fades out once the app is hydrated and ready
- */
-export function AppLoader() {
-  const [isVisible, setIsVisible] = useState(true);
-  const [isFadingOut, setIsFadingOut] = useState(false);
-
-  useEffect(() => {
-    // Start fade-out animation after 2 seconds
-    const fadeTimer = setTimeout(() => {
-      setIsFadingOut(true);
-    }, 2000);
-
-    // Remove component completely after fade animation completes
-    const removeTimer = setTimeout(() => {
-      setIsVisible(false);
-    }, 2600); // 2000ms delay + 600ms fade duration
-
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
-    };
-  }, []);
-
-  if (!isVisible) return null;
-
+export function OdinLoader() {
   return (
-    <div
-      className="fixed inset-0 z-[10000] bg-background flex items-center justify-center transition-all duration-[600ms] ease-out"
-      style={{
-        opacity: isFadingOut ? 0 : 1,
-        transform: isFadingOut ? 'scale(0.95)' : 'scale(1)',
-        isolation: 'isolate',
-        backfaceVisibility: 'hidden',
-      }}
-    >
-      {/* Darkened gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-background" />
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Animated background blobs */}
       <motion.div
         className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl"
@@ -162,6 +125,49 @@ export function AppLoader() {
             />
           ))}
         </div>
+
+        {/* Loading text */}
+        <motion.div
+          className="text-muted-foreground text-lg font-medium flex items-center gap-2"
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{
+            repeat: Infinity,
+            duration: 2,
+            ease: "easeInOut"
+          }}
+        >
+          Loading
+          <motion.span
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{
+              repeat: Infinity,
+              duration: 1.5,
+              delay: 0
+            }}
+          >
+            .
+          </motion.span>
+          <motion.span
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{
+              repeat: Infinity,
+              duration: 1.5,
+              delay: 0.3
+            }}
+          >
+            .
+          </motion.span>
+          <motion.span
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{
+              repeat: Infinity,
+              duration: 1.5,
+              delay: 0.6
+            }}
+          >
+            .
+          </motion.span>
+        </motion.div>
       </div>
     </div>
   );

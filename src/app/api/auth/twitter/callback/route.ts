@@ -248,12 +248,10 @@ export async function GET(request: NextRequest) {
           <div class="spinner"></div>
           <p>Closing window...</p>
           <script>
-            // Notify parent window of success
+            // Notify parent window of success (parent will close popup)
             if (window.opener) {
               window.opener.postMessage({ type: 'twitter-auth-success', username: '${twitterUser.username}' }, '*');
             }
-            // Close popup after 2 seconds
-            setTimeout(() => window.close(), 2000);
           </script>
         </body>
       </html>

@@ -20,6 +20,7 @@ export interface ActionStep {
   module: string;
   inputs: Record<string, unknown>;
   outputAs?: string;
+  when?: string; // Conditional execution based on variable (e.g., "{{shouldSend}}")
 }
 
 export interface ConditionStep {
@@ -216,6 +217,18 @@ async function executeActionStep(
   resolveVariablesFn: (inputs: Record<string, unknown>, variables: Record<string, unknown>) => Record<string, unknown>
 ): Promise<unknown> {
   logger.info({ stepId: step.id, module: step.module }, 'Executing action step');
+
+  // Check conditional execution (when field)
+  if (step.when) {
+    const whenResult = evaluateCondition(step.when, context.variables);
+    if (!whenResult) {
+      logger.info(
+        { stepId: step.id, when: step.when, result: whenResult },
+        'Skipping step due to when condition'
+      );
+      return null; // Skip execution
+    }
+  }
 
   const resolvedInputs = resolveVariablesFn(step.inputs, context.variables);
 

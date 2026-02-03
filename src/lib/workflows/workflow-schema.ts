@@ -218,6 +218,36 @@ export const cronTriggerSchema = {
 } as const;
 
 /**
+ * Airtable trigger specific schema
+ */
+export const airtableTriggerSchema = {
+  type: 'object',
+  required: ['baseId', 'tableName', 'triggerField'],
+  properties: {
+    baseId: {
+      type: 'string',
+      pattern: '^app[a-zA-Z0-9]{14}$',
+      description: 'Airtable base ID (e.g., appOtHs8KceHjArlC)'
+    },
+    tableName: {
+      type: 'string',
+      minLength: 1,
+      description: 'Airtable table name'
+    },
+    triggerField: {
+      type: 'string',
+      minLength: 1,
+      description: 'Field to watch for changes (e.g., "Created")'
+    },
+    pollInterval: {
+      type: 'number',
+      minimum: 1,
+      description: 'Poll interval in minutes (default: 1)'
+    }
+  }
+} as const;
+
+/**
  * Chat trigger specific schema
  */
 export const chatTriggerSchema = {

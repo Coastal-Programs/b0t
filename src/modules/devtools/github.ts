@@ -482,7 +482,7 @@ export async function getTrendingRepositories(options?: {
   const response = await fetch(url.toString(), {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'b0t-workflow-automation',
+      'User-Agent': 'odin-workflow-automation',
     },
   });
 

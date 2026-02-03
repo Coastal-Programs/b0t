@@ -60,14 +60,17 @@ export function Header() {
         {/* Left side - Logo/Brand */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-0.5">
-            <span className="text-xl font-bold bg-gradient-to-br from-primary via-blue-500 to-primary bg-clip-text text-transparent">
-              b
-            </span>
             <span className="text-xl font-bold bg-gradient-to-br from-blue-500 via-primary to-blue-500 bg-clip-text text-transparent">
-              0
+              O
             </span>
             <span className="text-xl font-bold bg-gradient-to-br from-primary via-blue-500 to-primary bg-clip-text text-transparent">
-              t
+              d
+            </span>
+            <span className="text-xl font-bold bg-gradient-to-br from-primary via-blue-500 to-primary bg-clip-text text-transparent">
+              i
+            </span>
+            <span className="text-xl font-bold bg-gradient-to-br from-primary via-blue-500 to-primary bg-clip-text text-transparent">
+              n
             </span>
           </div>
 

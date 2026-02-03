@@ -74,8 +74,8 @@ function generateOpenAPISpec(): OpenAPISpec {
   const spec: OpenAPISpec = {
     openapi: '3.0.0',
     info: {
-      title: 'b0t Workflow Modules API',
-      description: 'API specification for all workflow automation modules in b0t platform. Use these modules to build workflows.',
+      title: 'Odin Workflow Modules API',
+      description: 'API specification for all workflow automation modules in Odin platform. Use these modules to build workflows.',
       version: '1.0.0'
     },
     servers: [

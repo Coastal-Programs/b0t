@@ -14,7 +14,7 @@ import { db } from '../src/lib/db';
 import { usersTable } from '../src/lib/schema';
 import { eq } from 'drizzle-orm';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@b0t.dev';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'jake@odin.build';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 const ADMIN_USER_ID = '1';
 

@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { queueWorkflowExecution, isWorkflowQueueAvailable } from './workflow-queue';
 import { executeWorkflow } from './executor';
 import { emailTriggerPoller } from './email-triggers';
+import { airtableTriggerPoller } from './airtable-triggers';
 import { getRedisConnection } from '../redis-lock';
 
 /**
@@ -59,6 +60,9 @@ class WorkflowScheduler {
 
         // Initialize email trigger polling (only leader does this)
         await emailTriggerPoller.initialize();
+
+        // Initialize Airtable trigger polling (only leader does this)
+        await airtableTriggerPoller.initialize();
       } else {
         logger.info('Not scheduler leader - skipping cron scheduling (another worker is handling it)');
       }

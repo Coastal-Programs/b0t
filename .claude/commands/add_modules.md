@@ -1,6 +1,6 @@
 # Add New Module
 
-Create a new module for b0t with proper credential handling and system integration.
+Create a new module for odin with proper credential handling and system integration.
 
 ## Quick Start
 

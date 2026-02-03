@@ -28,6 +28,7 @@ import * as freshdesk from './freshdesk';
 import * as intercom from './intercom';
 import * as mailchimp from './mailchimp';
 import * as microsoftTeams from './microsoft-teams';
+import * as outlook from './outlook';
 
 export {
   email,
@@ -42,5 +43,6 @@ export {
   freshdesk,
   intercom,
   mailchimp,
-  microsoftTeams
+  microsoftTeams,
+  outlook
 };

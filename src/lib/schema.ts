@@ -162,7 +162,7 @@ export const workflowsTable = pgTable('workflows', {
     };
   }>(),
   trigger: text('trigger').notNull().$type<{
-    type: 'cron' | 'manual' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input';
+    type: 'cron' | 'manual' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'airtable' | 'gmail' | 'outlook';
     config: Record<string, unknown>;
   }>(),
   status: varchar('status', { length: 50 }).notNull().default('draft'),

@@ -22,3 +22,6 @@ export * as canva from './canva';
 export * as bannerbear from './bannerbear';
 export * as placid from './placid';
 export * as figma from './figma';
+
+// Document generation platforms
+export * as googledocs from './google-docs';

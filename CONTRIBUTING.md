@@ -1,4 +1,4 @@
-# Contributing to b0t
+# Contributing to Odin
 
 Most contributors use coding agents (like Claude Code) to contribute. This guide provides simple prompts you can use with your coding agent.
 
@@ -8,7 +8,7 @@ Most contributors use coding agents (like Claude Code) to contribute. This guide
 
 **Prompt for your coding agent:**
 ```
-Fork the b0t repository at https://github.com/kenkai/b0t, then:
+Fork the Odin repository at https://github.com/kenkai/odin, then:
 1. Clone my fork locally
 2. Run the setup script: npm run setup
 3. Start the dev environment: npm run dev:full
@@ -19,7 +19,7 @@ Fork the b0t repository at https://github.com/kenkai/b0t, then:
 
 **Prompt for your coding agent:**
 ```
-Create a new [SERVICE_NAME] module in b0t:
+Create a new [SERVICE_NAME] module in Odin:
 
 1. Look at existing modules in src/modules/[CATEGORY]/ for reference
 2. Create src/modules/[CATEGORY]/[service].ts with:
@@ -38,7 +38,7 @@ Service API docs: [PASTE_API_DOCS_URL]
 
 **Example:**
 ```
-Create a Linear module in b0t with functions to create issues and search issues.
+Create a Linear module in Odin with functions to create issues and search issues.
 API docs: https://linear.app/docs/api
 ```
 
@@ -59,7 +59,7 @@ Fix the bug described in GitHub issue #[NUMBER]:
 
 **Prompt for your coding agent:**
 ```
-Add [FEATURE_DESCRIPTION] to b0t:
+Add [FEATURE_DESCRIPTION] to Odin:
 1. Review existing code structure in relevant areas
 2. Implement the feature following existing patterns
 3. Add tests for new functionality
@@ -75,7 +75,7 @@ Submit my changes as a pull request:
 1. Create a feature branch: git checkout -b feature/[description]
 2. Commit changes with clear message: git commit -m "feat: [description]"
 3. Push to my fork: git push origin feature/[description]
-4. Open a PR to kenkai/b0t main branch
+4. Open a PR to kenkai/odin main branch
 5. Fill out the PR template that appears
 ```
 
@@ -123,8 +123,8 @@ src/modules/[category]/__tests__/[service].test.ts
 
 ## Questions?
 
-- [GitHub Issues](https://github.com/kenkai/b0t/issues) - Bug reports & feature requests
-- [GitHub Discussions](https://github.com/kenkai/b0t/discussions) - General questions
+- [GitHub Issues](https://github.com/kenkai/odin/issues) - Bug reports & feature requests
+- [GitHub Discussions](https://github.com/kenkai/odin/discussions) - General questions
 
 ## License
 

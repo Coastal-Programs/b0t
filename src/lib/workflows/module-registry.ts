@@ -1611,6 +1611,11 @@ export function getModuleRegistry(): ModuleCategory[] {
               description: "Get all Outlook categories",
               signature: 'getCategories(params)',
             },
+            {
+              name: 'sendEmail',
+              description: "Send email via Outlook using Microsoft Graph API",
+              signature: 'sendEmail(params)',
+            },
           ],
         },
         {
@@ -1975,6 +1980,41 @@ export function getModuleRegistry(): ModuleCategory[] {
               name: 'createTag',
               description: "Execute createTag",
               signature: 'createTag(config, tagData)',
+            },
+          ],
+        },
+        {
+          name: 'google-docs',
+          functions: [
+            {
+              name: 'createFromTemplate',
+              description: "Execute createFromTemplate",
+              signature: 'createFromTemplate(templateId, name, options?)',
+            },
+            {
+              name: 'replaceText',
+              description: "Execute replaceText",
+              signature: 'replaceText(documentId, replacements)',
+            },
+            {
+              name: 'insertImage',
+              description: "Execute insertImage",
+              signature: 'insertImage(documentId, imageUrl, index, options?)',
+            },
+            {
+              name: 'insertImages',
+              description: "Execute insertImages",
+              signature: 'insertImages(documentId, images)',
+            },
+            {
+              name: 'exportToPDF',
+              description: "Execute exportToPDF",
+              signature: 'exportToPDF(documentId)',
+            },
+            {
+              name: 'getDocument',
+              description: "Execute getDocument",
+              signature: 'getDocument(documentId)',
             },
           ],
         },
@@ -4353,6 +4393,71 @@ export function getModuleRegistry(): ModuleCategory[] {
       name: 'productivity',
       modules: [
         {
+          name: 'calcom',
+          functions: [
+            {
+              name: 'listBookings',
+              description: "Execute listBookings",
+              signature: 'listBookings(options?)',
+            },
+            {
+              name: 'getBooking',
+              description: "Execute getBooking",
+              signature: 'getBooking(bookingId, apiKey?)',
+            },
+            {
+              name: 'cancelBooking',
+              description: "Execute cancelBooking",
+              signature: 'cancelBooking(bookingId, options?)',
+            },
+            {
+              name: 'rescheduleBooking',
+              description: "Execute rescheduleBooking",
+              signature: 'rescheduleBooking(bookingId, options)',
+            },
+            {
+              name: 'listEventTypes',
+              description: "Execute listEventTypes",
+              signature: 'listEventTypes(apiKey?)',
+            },
+            {
+              name: 'getEventType',
+              description: "Execute getEventType",
+              signature: 'getEventType(eventTypeId, apiKey?)',
+            },
+            {
+              name: 'createEventType',
+              description: "Execute createEventType",
+              signature: 'createEventType(eventType)',
+            },
+            {
+              name: 'updateEventType',
+              description: "Execute updateEventType",
+              signature: 'updateEventType(eventTypeId, updates)',
+            },
+            {
+              name: 'deleteEventType',
+              description: "Execute deleteEventType",
+              signature: 'deleteEventType(eventTypeId, apiKey?)',
+            },
+            {
+              name: 'createWebhook',
+              description: "Execute createWebhook",
+              signature: 'createWebhook(webhook)',
+            },
+            {
+              name: 'listWebhooks',
+              description: "Execute listWebhooks",
+              signature: 'listWebhooks(apiKey?)',
+            },
+            {
+              name: 'deleteWebhook',
+              description: "Execute deleteWebhook",
+              signature: 'deleteWebhook(webhookId, apiKey?)',
+            },
+          ],
+        },
+        {
           name: 'calendar',
           functions: [
             {
@@ -4564,16 +4669,6 @@ export function getModuleRegistry(): ModuleCategory[] {
               name: 'submitPost',
               description: "Execute submitPost",
               signature: 'submitPost(options)',
-            },
-            {
-              name: 'commentOnPost',
-              description: "Comment on post",
-              signature: 'commentOnPost(options)',
-            },
-            {
-              name: 'replyToComment',
-              description: "Reply to comment",
-              signature: 'replyToComment(options)',
             },
             {
               name: 'getSubredditPosts',
@@ -6665,6 +6760,12 @@ export function getModuleRegistry(): ModuleCategory[] {
               name: 'extractEmails',
               description: "Extract email addresses from text",
               signature: 'extractEmails(str)',
+            },
+            {
+              name: 'extractFirstWord',
+              description: "Extract the first word from a string (useful for getting first name from full name)",
+              signature: 'extractFirstWord(str)',
+              example: "extractFirstWord('Anna Smith') => 'Anna'",
             },
             {
               name: 'normalizeWhitespace',
