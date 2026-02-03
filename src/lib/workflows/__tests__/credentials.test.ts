@@ -191,7 +191,7 @@ describe('credentials', () => {
 
       expect(result).toBe('sk-test-123');
       expect(decrypt).toHaveBeenCalledWith('encrypted:sk-test-123');
-      expect(db.update).toHaveBeenCalled(); // lastUsed timestamp
+      // Note: lastUsed timestamp update was removed for performance
     });
 
     it('should return null when credential not found', async () => {
@@ -236,29 +236,8 @@ describe('credentials', () => {
       expect(db.select).toHaveBeenCalled();
     });
 
-    it('should update lastUsed timestamp', async () => {
-      const { db } = await import('@/lib/db');
-
-      const mockCredential = {
-        id: 'cred-123',
-        userId: 'user-123',
-        platform: 'openai',
-        encryptedValue: 'encrypted:test',
-        type: 'api_key'
-      };
-
-      (db.select as any).mockReturnValue({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
-      });
-
-      await getCredential('user-123', 'openai');
-
-      expect(db.update).toHaveBeenCalled();
-    });
+    // Note: lastUsed timestamp update was removed from getCredential for performance
+    // See credentials.ts comment: "Credentials are cached, so this was creating unnecessary write load"
   });
 
   describe('getCredentialFields', () => {
