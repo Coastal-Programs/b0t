@@ -21,13 +21,27 @@ import { logger } from '@/lib/logger';
  * - File sharing
  */
 
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+// Cache Slack clients per token to avoid recreating them
+const clientCache = new Map<string, WebClient>();
 
-if (!SLACK_BOT_TOKEN) {
-  logger.warn('⚠️  SLACK_BOT_TOKEN not set. Slack features will not work.');
+function getSlackClient(token?: string): WebClient {
+  // Try token parameter first, then environment variable
+  const botToken = token || process.env.SLACK_BOT_TOKEN;
+
+  if (!botToken) {
+    throw new Error('Slack bot token not provided. Set SLACK_BOT_TOKEN environment variable or pass token via credentials.');
+  }
+
+  // Return cached client if exists
+  if (clientCache.has(botToken)) {
+    return clientCache.get(botToken)!;
+  }
+
+  // Create and cache new client
+  const client = new WebClient(botToken);
+  clientCache.set(botToken, client);
+  return client;
 }
-
-const slackClient = SLACK_BOT_TOKEN ? new WebClient(SLACK_BOT_TOKEN) : null;
 
 // Rate limiter: Slack allows ~1 req/sec per workspace
 const slackRateLimiter = createRateLimiter({
@@ -47,6 +61,7 @@ export interface SlackMessageOptions {
   username?: string;
   iconEmoji?: string;
   iconUrl?: string;
+  token?: string; // Bot token (from credentials or env)
 }
 
 export interface SlackMessageResponse {
@@ -60,9 +75,7 @@ export interface SlackMessageResponse {
 async function postMessageInternal(
   options: SlackMessageOptions
 ): Promise<SlackMessageResponse> {
-  if (!slackClient) {
-    throw new Error('Slack client not initialized. Set SLACK_BOT_TOKEN.');
-  }
+  const slackClient = getSlackClient(options.token);
 
   logger.info(
     {
@@ -142,11 +155,10 @@ export async function uploadFile(
   channel: string,
   file: Buffer | string,
   filename: string,
-  title?: string
+  title?: string,
+  token?: string
 ): Promise<{ fileId: string }> {
-  if (!slackClient) {
-    throw new Error('Slack client not initialized. Set SLACK_BOT_TOKEN.');
-  }
+  const slackClient = getSlackClient(token);
 
   logger.info({ channel, filename }, 'Uploading file to Slack');
 
@@ -173,11 +185,10 @@ export async function uploadFile(
 export async function addReaction(
   channel: string,
   timestamp: string,
-  emoji: string
+  emoji: string,
+  token?: string
 ): Promise<void> {
-  if (!slackClient) {
-    throw new Error('Slack client not initialized. Set SLACK_BOT_TOKEN.');
-  }
+  const slackClient = getSlackClient(token);
 
   logger.info({ channel, timestamp, emoji }, 'Adding reaction');
 

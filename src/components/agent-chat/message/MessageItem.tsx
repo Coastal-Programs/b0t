@@ -40,7 +40,7 @@ const MessageItemComponent = ({ message }: MessageItemProps) => {
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-foreground font-semibold text-14">b0t</span>
+        <span className="text-foreground font-semibold text-14">Odin</span>
         <span className="text-12 text-muted-foreground">
           {new Date(message.timestamp).toLocaleTimeString()}
         </span>

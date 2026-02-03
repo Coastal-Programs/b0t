@@ -488,6 +488,16 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     ]
   },
 
+  googledocs: {
+    id: 'googledocs',
+    name: 'Google Docs (Service Account)',
+    category: 'Content',
+    fields: [
+      { key: 'service_account_email', label: 'Service Account Email', type: 'email', required: true },
+      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'Paste the entire private key from your service account JSON' }
+    ]
+  },
+
   mongodb: {
     id: 'mongodb',
     name: 'MongoDB',
@@ -1326,6 +1336,22 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         description: 'Personal access token from Calendly integrations'
+      }
+    ]
+  },
+
+  calcom: {
+    id: 'calcom',
+    name: 'Cal.com',
+    category: 'Productivity',
+    fields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+        placeholder: 'cal_...',
+        description: 'API key from your Cal.com account settings'
       }
     ]
   },

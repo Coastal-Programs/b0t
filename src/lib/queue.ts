@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueOptions, WorkerOptions, Job } from 'bullmq';
+import { Queue, Worker, QueueOptions, WorkerOptions, Job, ConnectionOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 import { logger } from './logger';
 
@@ -94,7 +94,7 @@ const getWorkerRedisConnection = (): Redis => {
 
 // Default queue options with retry logic (uses singleton connection)
 const getDefaultQueueOptions = (): QueueOptions => ({
-  connection: getQueueRedisConnection(),
+  connection: getQueueRedisConnection() as ConnectionOptions,
   defaultJobOptions: {
     attempts: 3,               // Retry failed jobs 3 times
     backoff: {
@@ -198,7 +198,7 @@ export function createWorker<T = unknown, R = unknown>(
       }
     },
     {
-      connection: getWorkerRedisConnection(),
+      connection: getWorkerRedisConnection() as ConnectionOptions,
       ...defaultWorkerOptions,
       ...options,
     }

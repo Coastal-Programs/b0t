@@ -76,9 +76,11 @@ export async function GET() {
 
     // Build Microsoft OAuth URL
     const scopes = [
-      'https://graph.microsoft.com/Mail.Read',
-      'https://graph.microsoft.com/Mail.ReadWrite',
+      'openid',
+      'profile',
+      'email',
       'https://graph.microsoft.com/User.Read',
+      'https://graph.microsoft.com/Mail.Send',
       'offline_access', // Required for refresh token
     ];
 
@@ -89,6 +91,7 @@ export async function GET() {
     authUrl.searchParams.set('scope', scopes.join(' '));
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('response_mode', 'query');
+    authUrl.searchParams.set('prompt', 'select_account'); // Force account selection
 
     logger.info(
       { userId: session.user.id, provider: 'outlook' },

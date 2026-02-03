@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { userCredentialsTable } from '@/lib/schema';
+import { userCredentialsTable, accountsTable } from '@/lib/schema';
 import { encrypt, decrypt } from '@/lib/encryption';
 import { eq, and, isNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
@@ -147,6 +147,9 @@ export async function listCredentials(
     type: string;
     createdAt: Date | null;
     lastUsed: Date | null;
+    isVerified?: boolean;
+    isExpired?: boolean;
+    connectedAccount?: string;
   }>
 > {
   // Build where clause
@@ -172,7 +175,91 @@ export async function listCredentials(
     .from(userCredentialsTable)
     .where(and(...whereConditions));
 
-  return credentials;
+  // OAuth platforms that have status in accountsTable
+  const oauthPlatforms = ['outlook', 'google', 'youtube', 'twitter'];
+  const oauthAppPlatforms = ['outlook_oauth_app', 'google_oauth_app', 'youtube_oauth_app', 'twitter_oauth_app'];
+
+  // Enrich credentials with OAuth status
+  const enrichedCredentials = await Promise.all(
+    credentials.map(async (cred) => {
+      // Check if this is an OAuth user credential
+      if (oauthPlatforms.includes(cred.platform)) {
+        try {
+          // Query accountsTable for OAuth account info
+          const accounts = await db
+            .select({
+              accountName: accountsTable.account_name,
+              expiresAt: accountsTable.expires_at,
+            })
+            .from(accountsTable)
+            .where(
+              and(
+                eq(accountsTable.userId, userId),
+                eq(accountsTable.provider, cred.platform)
+              )
+            )
+            .limit(1);
+
+          if (accounts.length > 0) {
+            const account = accounts[0];
+            const now = Math.floor(Date.now() / 1000);
+            const isExpired = account.expiresAt ? account.expiresAt < now : false;
+
+            return {
+              ...cred,
+              isVerified: true,
+              isExpired,
+              connectedAccount: account.accountName || undefined,
+            };
+          }
+        } catch (error) {
+          logger.warn({ error, platform: cred.platform }, 'Failed to get OAuth status');
+        }
+      }
+
+      // Check if this is an OAuth app credential (needs to check for linked user account)
+      if (oauthAppPlatforms.includes(cred.platform)) {
+        try {
+          // Extract base platform (outlook_oauth_app -> outlook)
+          const basePlatform = cred.platform.replace('_oauth_app', '');
+
+          // Check if there's a linked user OAuth account
+          const accounts = await db
+            .select({
+              accountName: accountsTable.account_name,
+              expiresAt: accountsTable.expires_at,
+            })
+            .from(accountsTable)
+            .where(
+              and(
+                eq(accountsTable.userId, userId),
+                eq(accountsTable.provider, basePlatform)
+              )
+            )
+            .limit(1);
+
+          if (accounts.length > 0) {
+            const account = accounts[0];
+            const now = Math.floor(Date.now() / 1000);
+            const isExpired = account.expiresAt ? account.expiresAt < now : false;
+
+            return {
+              ...cred,
+              isVerified: true,
+              isExpired,
+              connectedAccount: account.accountName || undefined,
+            };
+          }
+        } catch (error) {
+          logger.warn({ error, platform: cred.platform }, 'Failed to get OAuth app status');
+        }
+      }
+
+      return cred;
+    })
+  );
+
+  return enrichedCredentials;
 }
 
 /**
@@ -286,6 +373,78 @@ export async function updateCredentialName(
       timestamp: new Date().toISOString()
     },
     'Credential name updated'
+  );
+}
+
+/**
+ * Update a multi-field credential's fields
+ */
+export async function updateMultiFieldCredential(
+  userId: string,
+  credentialId: string,
+  newFields: Record<string, string>
+): Promise<void> {
+  logger.info(
+    {
+      userId,
+      credentialId,
+      action: 'multi_field_credential_update_attempt',
+      timestamp: new Date().toISOString()
+    },
+    'Updating multi-field credential'
+  );
+
+  // Get existing credential to preserve other metadata
+  const [existingCred] = await db
+    .select()
+    .from(userCredentialsTable)
+    .where(
+      and(
+        eq(userCredentialsTable.id, credentialId),
+        eq(userCredentialsTable.userId, userId)
+      )
+    )
+    .limit(1);
+
+  if (!existingCred) {
+    throw new Error('Credential not found');
+  }
+
+  // Parse existing metadata
+  const metadata = typeof existingCred.metadata === 'string'
+    ? JSON.parse(existingCred.metadata)
+    : existingCred.metadata || {};
+
+  // Encrypt new fields
+  const encryptedFields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(newFields)) {
+    encryptedFields[key] = encrypt(value);
+  }
+
+  // Update metadata with new encrypted fields
+  const updatedMetadata = {
+    ...metadata,
+    fields: encryptedFields
+  };
+
+  await db
+    .update(userCredentialsTable)
+    .set({ metadata: updatedMetadata as Record<string, unknown> })
+    .where(
+      and(
+        eq(userCredentialsTable.id, credentialId),
+        eq(userCredentialsTable.userId, userId)
+      )
+    );
+
+  logger.info(
+    {
+      userId,
+      credentialId,
+      action: 'multi_field_credential_updated',
+      timestamp: new Date().toISOString()
+    },
+    'Multi-field credential updated'
   );
 }
 

@@ -126,6 +126,11 @@ export function buildDependencyGraph(
       extractVariableReferences(step.condition, variableRefs);
     }
 
+    // Extract variable references from conditional execution (when field)
+    if ('when' in step && step.when) {
+      extractVariableReferences(step.when, variableRefs);
+    }
+
     // Filter out built-in variables and resolve step dependencies
     const stepDependencies = new Set<string>();
     for (const varRef of variableRefs) {

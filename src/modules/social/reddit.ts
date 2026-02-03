@@ -110,7 +110,7 @@ class RedditClient {
     logger.info('Refreshing Reddit access token');
 
     const { clientId, clientSecret, username, password } = this.credentials;
-    const userAgent = this.credentials.userAgent || 'b0t:v1.0.0 (by /u/bot)';
+    const userAgent = this.credentials.userAgent || 'odin:v1.0.0 (by /u/odinbot)';
 
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const params = new URLSearchParams();
@@ -151,7 +151,7 @@ class RedditClient {
     const token = await this.getAccessToken();
 
     const url = endpoint.startsWith('http') ? endpoint : `https://oauth.reddit.com${endpoint}`;
-    const userAgent = this.credentials.userAgent || 'b0t:v1.0.0 (by /u/bot)';
+    const userAgent = this.credentials.userAgent || 'odin:v1.0.0 (by /u/odinbot)';
 
     const response = await fetch(url, {
       ...options,

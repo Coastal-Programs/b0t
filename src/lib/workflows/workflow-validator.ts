@@ -8,7 +8,7 @@
 import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import ajvKeywords from 'ajv-keywords';
-import { workflowSchema, chatInputTriggerSchema, cronTriggerSchema, chatTriggerSchema } from './workflow-schema';
+import { workflowSchema, chatInputTriggerSchema, cronTriggerSchema, chatTriggerSchema, airtableTriggerSchema } from './workflow-schema';
 import { getModuleRegistry } from './module-registry';
 import { logger } from '@/lib/logger';
 
@@ -32,6 +32,7 @@ const validateWorkflow = ajv.compile(workflowSchema);
 const validateChatInputTrigger = ajv.compile(chatInputTriggerSchema);
 const validateCronTrigger = ajv.compile(cronTriggerSchema);
 const validateChatTrigger = ajv.compile(chatTriggerSchema);
+const validateAirtableTrigger = ajv.compile(airtableTriggerSchema);
 
 export interface ValidationResult {
   valid: boolean;
@@ -139,6 +140,9 @@ export function validateTrigger(trigger: { type: string; config: Record<string, 
       break;
     case 'chat':
       triggerValidator = validateChatTrigger;
+      break;
+    case 'airtable':
+      triggerValidator = validateAirtableTrigger;
       break;
     // manual, webhook, telegram, discord don't require specific config
     default:

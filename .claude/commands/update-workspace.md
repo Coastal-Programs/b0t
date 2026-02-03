@@ -16,9 +16,9 @@ When you update skills or commands, they need to exist in **TWO** locations with
 - **Purpose:** Local development
 
 ### 2. Workspace Version (deployed to users)
-- **Location:** `.claude/skills-workspace/` (gets copied to `~/Documents/b0t/.claude/skills/`)
+- **Location:** `.claude/skills-workspace/` (gets copied to `~/Documents/odin/.claude/skills/`)
 - **Commands:** HTTP API (`curl "http://localhost:3123/api/modules/search..."`)
-- **Paths:** Absolute (`/Users/.../Documents/b0t/.claude/skills/...`)
+- **Paths:** Absolute (`/Users/.../Documents/odin/.claude/skills/...`)
 - **Purpose:** Build mode for users
 
 ## Update Process
@@ -60,7 +60,7 @@ In the workspace version, update reference paths:
 cd .claude/skills-workspace/SKILL_NAME/
 
 # Update paths in skill.md
-sed -i '' 's|`.claude/skills/|`/Users/kenkai/Documents/b0t/.claude/skills/|g' skill.md
+sed -i '' 's|`.claude/skills/|`/Users/kenkai/Documents/odin/.claude/skills/|g' skill.md
 ```
 
 ### Step 5: Verify
@@ -74,12 +74,12 @@ grep "npm run" .claude/skills-workspace/SKILL_NAME/skill.md
 grep "curl.*api" .claude/skills-workspace/SKILL_NAME/skill.md
 
 # Should find absolute paths
-grep "/Documents/b0t/" .claude/skills-workspace/SKILL_NAME/skill.md
+grep "/Documents/odin/" .claude/skills-workspace/SKILL_NAME/skill.md
 ```
 
 ## Deployment
 
-Files in `.claude/skills-workspace/` automatically deploy to users' `~/Documents/b0t/.claude/skills/` when they initialize their workspace (via `src/lib/agent-workspace.ts`).
+Files in `.claude/skills-workspace/` automatically deploy to users' `~/Documents/odin/.claude/skills/` when they initialize their workspace (via `src/lib/agent-workspace.ts`).
 
 ## Quick Reference
 
@@ -87,7 +87,7 @@ Files in `.claude/skills-workspace/` automatically deploy to users' `~/Documents
 |------|---------|-----------|
 | Module Search | `npm run modules:search` | `curl "http://localhost:3123/api/modules/search..."` |
 | Workflow Build | `npm run workflow:build` | `curl -X POST .../build-from-plan` |
-| Paths | `.claude/skills/...` | `/Users/.../Documents/b0t/.claude/skills/...` |
+| Paths | `.claude/skills/...` | `/Users/.../Documents/odin/.claude/skills/...` |
 
 ## Common Patterns
 
@@ -97,11 +97,11 @@ Files in `.claude/skills-workspace/` automatically deploy to users' `~/Documents
 
 **For any skill referencing other files:**
 - Project: Relative paths like `.claude/skills/SKILL_NAME/references/file.md`
-- Workspace: Absolute paths like `/Users/kenkai/Documents/b0t/.claude/skills/SKILL_NAME/references/file.md`
+- Workspace: Absolute paths like `/Users/kenkai/Documents/odin/.claude/skills/SKILL_NAME/references/file.md`
 
 **For plans directory:**
 - Project: `plans/`
-- Workspace: `/Users/kenkai/Documents/b0t/plans/`
+- Workspace: `/Users/kenkai/Documents/odin/plans/`
 
 ## Checklist
 

@@ -57,13 +57,11 @@ export async function connectToMCPServer(
     // Create client
     const client = new Client(
       {
-        name: `b0t-mcp-client-${name}`,
+        name: `odin-mcp-client-${name}`,
         version: '1.0.0',
       },
       {
-        capabilities: {
-          tools: {},
-        },
+        capabilities: {},
       }
     );
 

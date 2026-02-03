@@ -89,7 +89,7 @@ export async function GET() {
     authUrl.searchParams.set('scope', scopes.join(' '));
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('access_type', 'offline'); // Request refresh token
-    authUrl.searchParams.set('prompt', 'consent'); // Force consent to get refresh token
+    authUrl.searchParams.set('prompt', 'select_account consent'); // Force account selection and consent
 
     logger.info(
       { userId: session.user.id, provider: 'google' },

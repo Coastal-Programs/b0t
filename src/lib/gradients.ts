@@ -1,5 +1,5 @@
 /**
- * Centralized gradient theme constants for b0t
+ * Centralized gradient theme constants for Odin
  * Use these constants throughout the app for consistent gradient styling
  */
 

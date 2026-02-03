@@ -8,11 +8,11 @@ const PROJECT_ROOT = process.cwd();
 const ALLOWED_COMMANDS = ['workflow.md', 'new-module.md', 'agent-builder.md'];
 
 /**
- * Get the agent workspace directory (~/Documents/b0t)
+ * Get the agent workspace directory (~/Documents/odin)
  */
 export function getAgentWorkspaceDir(): string {
   const homeDir = homedir();
-  return join(homeDir, 'Documents', 'b0t');
+  return join(homeDir, 'Documents', 'odin');
 }
 
 /**
@@ -96,9 +96,9 @@ export function initializeAgentWorkspace(): void {
   // Create README explaining the workspace
   const readmePath = join(workspaceDir, 'README.md');
   if (!existsSync(readmePath)) {
-    const readme = `# b0t Agent Workspace
+    const readme = `# Odin Agent Workspace
 
-This directory is used by the b0t Build agent.
+This directory is used by the Odin Build agent.
 
 ## Directory Structure
 
@@ -109,7 +109,7 @@ This directory is used by the b0t Build agent.
 
 ## How It Works
 
-The agent creates workflow plans (YAML) in the plans/ folder, then uses the b0t API
+The agent creates workflow plans (YAML) in the plans/ folder, then uses the Odin API
 to build and import them directly to your application. No manual setup required.
 `;
     writeFileSync(readmePath, readme);

@@ -47,6 +47,7 @@ declare module 'next-auth' {
     id: string;
     email: string;
     name: string;
+    rememberMe?: boolean;
   }
 }
 
@@ -56,12 +57,49 @@ declare module '@auth/core/jwt' {
     id?: string;
     organizationId?: string;
     role?: OrganizationRole;
+    rememberMe?: boolean;
   }
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   debug: false, // Disable debug warnings in development
   trustHost: true, // Required for production deployments (Railway, Vercel, etc.)
+
+  // Custom logger to suppress JWT decryption errors for old/invalid session cookies
+  logger: {
+    error: (error) => {
+      // Suppress JWT decryption errors (happens with old session cookies)
+      if (error.message?.includes('no matching decryption secret')) {
+        logger.debug(
+          {
+            error: error.message,
+            action: 'jwt_decryption_failed',
+            timestamp: new Date().toISOString(),
+          },
+          'Suppressed JWT decryption error (old session cookie)'
+        );
+        return;
+      }
+      // Log other errors normally
+      logger.error(
+        {
+          error: error.message || String(error),
+          action: 'auth_error',
+          timestamp: new Date().toISOString(),
+        },
+        'NextAuth error occurred'
+      );
+    },
+    warn: (code) => {
+      // Suppress JWT-related warnings
+      if (code?.includes('JWT')) {
+        return;
+      }
+      logger.warn({ code }, 'NextAuth warning');
+    },
+    debug: () => {}, // Suppress debug logs
+  },
+
   providers: [
     // Simple Email/Password Authentication
     // For single user app - credentials stored in environment variables
@@ -70,6 +108,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        rememberMe: { label: 'Remember Me', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -87,6 +126,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const email = credentials.email as string;
+        const rememberMe = credentials.rememberMe === 'true';
 
         // First check database users
         if (process.env.NEXT_RUNTIME !== 'edge') {
@@ -116,7 +156,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     email: user.email,
                     action: 'user_signin_success',
                     timestamp: new Date().toISOString(),
-                    metadata: { provider: 'credentials', userSource: 'database' },
+                    metadata: { provider: 'credentials', userSource: 'database', rememberMe },
                   },
                   'User signed in successfully'
                 );
@@ -124,6 +164,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   id: user.id,
                   email: user.email,
                   name: user.name || user.email,
+                  rememberMe,
                 };
               } else {
                 logger.warn(
@@ -184,7 +225,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 email: adminEmail,
                 action: 'user_signin_success',
                 timestamp: new Date().toISOString(),
-                metadata: { provider: 'credentials', userSource: 'environment' },
+                metadata: { provider: 'credentials', userSource: 'environment', rememberMe },
               },
               'Admin user signed in successfully'
             );
@@ -192,6 +233,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               id: '1',
               email: adminEmail,
               name: 'Admin',
+              rememberMe,
             };
           }
         }
@@ -303,9 +345,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, trigger }) {
-      // Add user id to token on first sign in
+      // Add user id and remember me preference to token on first sign in
       if (user) {
         token.id = user.id;
+        token.rememberMe = user.rememberMe ?? false;
+
+        // Set custom expiration based on remember me preference
+        // If remember me is unchecked, expire after 24 hours instead of default 30 days
+        if (!user.rememberMe) {
+          const now = Math.floor(Date.now() / 1000);
+          token.exp = now + (24 * 60 * 60); // 24 hours from now
+        }
       }
 
       // Load organization context if not already present

@@ -24,6 +24,11 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
     // Minify server code in production
     serverMinification: true,
+    // Explicitly set Turbopack root to silence multiple lockfiles warning
+    // @ts-expect-error - turbopack.root exists but not in type definitions yet
+    turbopack: {
+      root: __dirname,
+    },
   },
 
   // Production-only optimizations

@@ -367,3 +367,77 @@ export async function getCategories(params: {
     color: cat.color,
   }));
 }
+
+/**
+ * Send email via Outlook using Microsoft Graph API
+ */
+export async function sendEmail(params: {
+  userId: string;
+  to: string | string[];
+  subject: string;
+  body: string;
+  bodyType?: 'html' | 'text';
+  cc?: string | string[];
+  bcc?: string | string[];
+  replyTo?: string;
+  importance?: 'low' | 'normal' | 'high';
+}): Promise<{ success: boolean; messageId?: string }> {
+  const {
+    userId,
+    to,
+    subject,
+    body,
+    bodyType = 'html',
+    cc,
+    bcc,
+    replyTo,
+    importance = 'normal',
+  } = params;
+
+  logger.info({ userId, to, subject }, 'Sending Outlook email');
+
+  const client = await getGraphClient(userId);
+
+  // Build recipients arrays
+  const toRecipients = (Array.isArray(to) ? to : [to]).map((email) => ({
+    emailAddress: { address: email },
+  }));
+
+  const ccRecipients = cc
+    ? (Array.isArray(cc) ? cc : [cc]).map((email) => ({
+        emailAddress: { address: email },
+      }))
+    : undefined;
+
+  const bccRecipients = bcc
+    ? (Array.isArray(bcc) ? bcc : [bcc]).map((email) => ({
+        emailAddress: { address: email },
+      }))
+    : undefined;
+
+  // Build message
+  const message = {
+    subject,
+    body: {
+      contentType: bodyType === 'html' ? 'HTML' : 'Text',
+      content: body,
+    },
+    toRecipients,
+    ...(ccRecipients && { ccRecipients }),
+    ...(bccRecipients && { bccRecipients }),
+    ...(replyTo && {
+      replyTo: [{ emailAddress: { address: replyTo } }],
+    }),
+    importance,
+  };
+
+  // Send the email
+  await client.api('/me/sendMail').post({
+    message,
+    saveToSentItems: true,
+  });
+
+  logger.info({ userId, to, subject }, 'Outlook email sent successfully');
+
+  return { success: true };
+}

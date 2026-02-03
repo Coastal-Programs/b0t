@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { oauthStateTable, userCredentialsTable, accountsTable } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { encrypt } from '@/lib/encryption';
@@ -101,15 +101,31 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         redirect_uri: callbackUrl,
         grant_type: 'authorization_code',
-        scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read offline_access',
+        scope: 'openid profile email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Send offline_access',
       }),
     });
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
       logger.error({ error: errorData }, 'Failed to exchange Microsoft authorization code');
-      return NextResponse.redirect(
-        new URL('/dashboard/credentials?error=token_exchange_failed', request.url)
+      return new NextResponse(
+        `<!DOCTYPE html>
+        <html>
+          <head><title>Authentication Failed</title></head>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'token_exchange_failed' }, '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+            <p>Authentication failed. Please try again.</p>
+          </body>
+        </html>`,
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }
       );
     }
 
@@ -118,19 +134,70 @@ export async function GET(request: NextRequest) {
 
     if (!access_token || !refresh_token) {
       logger.error('Microsoft did not return access_token or refresh_token');
-      return NextResponse.redirect(
-        new URL('/dashboard/credentials?error=missing_tokens', request.url)
+      return new NextResponse(
+        `<!DOCTYPE html>
+        <html>
+          <head><title>Authentication Failed</title></head>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'missing_tokens' }, '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+            <p>Authentication failed. Please try again.</p>
+          </body>
+        </html>`,
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }
       );
     }
 
-    // Calculate expiry date
-    const expiresAt = new Date(Date.now() + expires_in * 1000);
+    // Calculate expiry timestamp (Unix timestamp in seconds)
+    const expiresAt = Math.floor(Date.now() / 1000) + expires_in;
+
+    // Fetch user info from Microsoft Graph API
+    const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+      },
+    });
+
+    if (!userInfoResponse.ok) {
+      logger.error({ status: userInfoResponse.status }, 'Failed to fetch Microsoft user info');
+      return new NextResponse(
+        `<!DOCTYPE html>
+        <html>
+          <head><title>Authentication Failed</title></head>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'user_info_failed' }, '*');
+              }
+            </script>
+            <p>Failed to fetch user information. Please try again.</p>
+          </body>
+        </html>`,
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }
+      );
+    }
+
+    const userInfo = await userInfoResponse.json();
+    const accountEmail = userInfo.mail || userInfo.userPrincipalName || 'Unknown';
+    const providerAccountId = userInfo.id;
+
+    logger.info({ userId, accountEmail, providerAccountId }, 'Fetched Microsoft user info');
 
     // Store credentials in database (tokens are stored as JSON and encrypted)
     const credentialData = JSON.stringify({
       access_token,
       refresh_token,
-      expires_at: expiresAt.toISOString(),
+      expires_at: new Date(expiresAt * 1000).toISOString(),
     });
 
     const encryptedValue = encrypt(credentialData);
@@ -144,14 +211,56 @@ export async function GET(request: NextRequest) {
       encryptedValue,
     });
 
+    // Create or update account record (encrypt tokens for security)
+    const encryptedAccessToken = encrypt(access_token);
+    const encryptedRefreshToken = encrypt(refresh_token);
+
+    await db
+      .insert(accountsTable)
+      .values({
+        id: randomUUID(),
+        userId,
+        type: 'oauth',
+        provider: 'outlook',
+        providerAccountId,
+        account_name: accountEmail,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
+        expires_at: expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: [accountsTable.provider, accountsTable.providerAccountId],
+        set: {
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: expiresAt,
+          account_name: accountEmail,
+        },
+      });
+
     // Clean up state record
     await db.delete(oauthStateTable).where(eq(oauthStateTable.state, state));
 
     logger.info({ userId, provider: 'outlook' }, 'Microsoft OAuth completed successfully');
 
-    // Redirect back to credentials page with success message
-    return NextResponse.redirect(
-      new URL('/dashboard/credentials?success=outlook_connected', request.url)
+    // Send success message to parent window (parent will close popup)
+    return new NextResponse(
+      `<!DOCTYPE html>
+      <html>
+        <head><title>Authentication Complete</title></head>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'outlook-auth-success' }, '*');
+            }
+          </script>
+          <p>Authentication successful! This window will close automatically.</p>
+        </body>
+      </html>`,
+      {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }
     );
   } catch (error) {
     logger.error({ error }, 'Error in Microsoft OAuth callback');

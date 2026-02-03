@@ -89,7 +89,7 @@ export async function GET() {
         'https://www.googleapis.com/auth/youtube',
       ],
       state,
-      prompt: 'consent', // Force consent screen to ensure refresh token
+      prompt: 'select_account consent', // Force account selection and consent
       code_challenge: codeChallenge,
       // @ts-expect-error - googleapis types don't match actual API
       code_challenge_method: 'S256',

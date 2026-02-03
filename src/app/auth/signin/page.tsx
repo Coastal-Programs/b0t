@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,24 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
+const REMEMBERED_EMAIL_KEY = 'odin_remembered_email';
+
 export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Load remembered email on component mount
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,12 +37,19 @@ export default function SignInPage() {
       const result = await signIn('credentials', {
         email,
         password,
+        rememberMe: rememberMe.toString(),
         redirect: false,
       });
 
       if (result?.error) {
         setError('Invalid email or password');
       } else {
+        // Save or remove email from localStorage based on remember me preference
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+          localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
         router.push('/dashboard');
       }
     } catch {
@@ -63,6 +82,7 @@ export default function SignInPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="h-9 bg-background border-border text-sm"
+                autoComplete="email"
                 required
               />
             </div>
@@ -79,8 +99,33 @@ export default function SignInPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="h-9 bg-background border-border text-sm"
+                autoComplete="current-password"
                 required
               />
+            </div>
+
+            {/* Remember Me */}
+            <div className="flex items-center gap-2">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setRememberMe(checked);
+                  // If unchecking, immediately remove saved email
+                  if (!checked) {
+                    localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+                  }
+                }}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              />
+              <Label
+                htmlFor="remember-me"
+                className="text-xs text-secondary cursor-pointer"
+              >
+                Remember me for 30 days
+              </Label>
             </div>
 
             {/* Error Message */}

@@ -167,7 +167,7 @@ const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
-        scope: 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite offline_access',
+        scope: 'openid profile email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Send offline_access',
       });
 
       return {
@@ -502,7 +502,8 @@ function isTokenExpired(expiresAt: number | null): boolean {
 export async function refreshOAuthToken(
   userId: string,
   provider: string,
-  accountId: string
+  accountId: string,
+  organizationId?: string
 ): Promise<string> {
   const providerConfig = OAUTH_PROVIDERS[provider.toLowerCase()];
 
@@ -543,14 +544,25 @@ export async function refreshOAuthToken(
   try {
     const { getCredentialFields } = await import('@/lib/workflows/credentials');
 
-    // Try provider-specific credential first (e.g., 'twitter_oauth2_app')
-    const appCredentialName = `${provider.toLowerCase()}_oauth2_app`;
-    const fields = await getCredentialFields(userId, appCredentialName);
+    // Try provider-specific credential patterns
+    const credentialPatterns = [
+      `${provider.toLowerCase()}_oauth2_app`, // e.g., 'twitter_oauth2_app'
+      `${provider.toLowerCase()}_oauth_app`,  // e.g., 'outlook_oauth_app'
+    ];
 
-    if (fields) {
-      clientId = fields.client_id || fields.clientId;
-      clientSecret = fields.client_secret || fields.clientSecret;
-      logger.info({ provider, credentialName: appCredentialName }, 'Loaded OAuth app credentials from database');
+    for (const appCredentialName of credentialPatterns) {
+      try {
+        const fields = await getCredentialFields(userId, appCredentialName, organizationId);
+        if (fields) {
+          clientId = fields.client_id || fields.clientId;
+          clientSecret = fields.client_secret || fields.clientSecret;
+          logger.info({ provider, credentialName: appCredentialName, organizationId }, 'Loaded OAuth app credentials from database');
+          break;
+        }
+      } catch {
+        // Try next pattern
+        continue;
+      }
     }
   } catch (error) {
     logger.warn({
@@ -653,7 +665,8 @@ export async function refreshOAuthToken(
  */
 export async function getValidOAuthToken(
   userId: string,
-  provider: string
+  provider: string,
+  organizationId?: string
 ): Promise<string> {
   logger.debug({ userId, provider }, 'Getting valid OAuth token');
 
@@ -683,10 +696,10 @@ export async function getValidOAuthToken(
   const needsRefresh = isTokenExpired(account.expires_at);
 
   if (needsRefresh) {
-    logger.info({ userId, provider, expiresAt: account.expires_at }, 'Token expired, refreshing');
+    logger.info({ userId, provider, expiresAt: account.expires_at, organizationId }, 'Token expired, refreshing');
 
     // Refresh the token
-    return await refreshOAuthToken(userId, provider, account.id);
+    return await refreshOAuthToken(userId, provider, account.id, organizationId);
   }
 
   // Token is still valid

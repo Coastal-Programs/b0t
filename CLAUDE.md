@@ -1,4 +1,4 @@
-# b0t - Workflow Automation Platform
+# Odin - Workflow Automation Platform
 
 Open-source, self-hostable workflow automation platform where you describe workflows in plain English to Claude Code, which generates, validates, and executes production-grade automations across 140+ integrated services.
 

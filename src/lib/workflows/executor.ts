@@ -3,7 +3,7 @@ import {
   workflowsTable,
   workflowRunsTable
 } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { randomUUID } from 'crypto';
 import { executeStep, normalizeStep, type WorkflowStep } from './control-flow';
@@ -110,8 +110,8 @@ export async function executeWorkflow(
 
     logger.info({ workflowId, stepCount: config.steps.length }, 'Executing workflow steps');
 
-    // Load user credentials
-    const userCredentials = await loadUserCredentials(userId);
+    // Load user credentials (pass organizationId for organization-scoped OAuth app credentials)
+    const userCredentials = await loadUserCredentials(userId, workflow.organizationId || undefined);
 
     // DEBUG: Log credential keys
     logger.info({
@@ -120,6 +120,17 @@ export async function executeWorkflow(
       hasAnthropicKey: 'anthropic_api_key' in userCredentials,
       hasOpenaiKey: 'openai_api_key' in userCredentials,
     }, 'DEBUG: User credentials loaded for workflow execution');
+
+    // DEBUG: Log trigger data for Airtable workflows
+    const triggerDataUnknown = triggerData as unknown as { body?: { id?: string } } | undefined;
+    logger.info({
+      workflowId,
+      runId,
+      triggerType,
+      triggerData,
+      hasBodyId: triggerDataUnknown?.body?.id ? true : false,
+      bodyId: triggerDataUnknown?.body?.id || 'MISSING'
+    }, 'DEBUG: Trigger data for workflow execution');
 
     // Initialize execution context
     const context: ExecutionContext = {
@@ -375,7 +386,10 @@ function resolveValue(value: unknown, variables: Record<string, unknown>): unkno
  * Supports: variable.property, variable[0], variable[0].property
  */
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split(PATH_SPLIT_PATTERN).filter(Boolean);
+  const keys = path.split(PATH_SPLIT_PATTERN).filter(Boolean).map(key => {
+    // Remove surrounding quotes from keys (e.g., "'First Name'" -> "First Name")
+    return key.replace(/^['"]|['"]$/g, '');
+  });
   let current: unknown = obj;
 
   for (const key of keys) {
@@ -620,7 +634,7 @@ async function executeModuleFunction(
         })
         .filter(Boolean);
 
-      logger.debug({
+      logger.info({
         functionParams: paramNames,
         inputKeys: Object.keys(actualInputs),
         msg: 'Parameter mapping analysis'
@@ -677,7 +691,7 @@ async function executeModuleFunction(
 
       if (hasAllParams && orderedValues.length === paramNames.length) {
         // Successfully mapped all parameters
-        logger.debug({
+        logger.info({
           msg: 'Mapped parameters to function signature order (with aliases)',
           mapping: mappingLog
         });
@@ -687,7 +701,7 @@ async function executeModuleFunction(
       // Allow partial parameter matching for optional parameters
       // If we mapped some parameters but not all, try calling with what we have
       if (orderedValues.length > 0 && orderedValues.length <= paramNames.length) {
-        logger.debug({
+        logger.info({
           msg: 'Calling function with partial parameters (remaining are optional)',
           providedParams: orderedValues.length,
           totalParams: paramNames.length,
@@ -770,18 +784,23 @@ const CREDENTIAL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  *
  * Performance: 3x faster with Redis cache (10-20ms vs 250-600ms DB query)
  */
-export async function loadUserCredentials(userId: string): Promise<Record<string, string | Record<string, string>>> {
+export async function loadUserCredentials(userId: string, organizationId?: string): Promise<Record<string, string | Record<string, string>>> {
   // Try Redis cache first (shared across all instances)
   const { getCacheOrCompute, CacheKeys, CacheTTL } = await import('@/lib/cache');
 
   const startTime = Date.now();
+  // Include organizationId in cache key to ensure organization-specific credentials are cached correctly
+  const cacheKey = organizationId
+    ? `${CacheKeys.userCredentials(userId)}:${organizationId}`
+    : CacheKeys.userCredentials(userId);
+
   const result = await getCacheOrCompute(
-    CacheKeys.userCredentials(userId),
+    cacheKey,
     CacheTTL.CREDENTIALS,
     async () => {
       // Redis miss - load from database
-      logger.info({ userId, optimization: 'REDIS_CREDENTIAL_CACHE' }, '❌ Cache MISS - Loading credentials from DB');
-      return await loadUserCredentialsFromDB(userId);
+      logger.info({ userId, organizationId, optimization: 'REDIS_CREDENTIAL_CACHE' }, '❌ Cache MISS - Loading credentials from DB');
+      return await loadUserCredentialsFromDB(userId, organizationId);
     }
   );
   const duration = Date.now() - startTime;
@@ -789,6 +808,7 @@ export async function loadUserCredentials(userId: string): Promise<Record<string
   // Log cache hit/miss performance (cache hits <50ms, DB queries 100-300ms)
   logger.info({
     userId,
+    organizationId,
     duration,
     optimization: 'REDIS_CREDENTIAL_CACHE',
     cached: duration < 50
@@ -801,11 +821,13 @@ export async function loadUserCredentials(userId: string): Promise<Record<string
  * Internal function: Load credentials directly from database
  * Called by loadUserCredentials when cache misses
  */
-async function loadUserCredentialsFromDB(userId: string): Promise<Record<string, string | Record<string, string>>> {
+async function loadUserCredentialsFromDB(userId: string, organizationId?: string): Promise<Record<string, string | Record<string, string>>> {
   // Check in-memory cache (process-local, faster than Redis)
-  const cached = globalForCredentials._credentialCache!.get(userId);
+  // IMPORTANT: Include organizationId in cache key to avoid returning wrong credentials
+  const cacheKey = organizationId ? `${userId}:${organizationId}` : userId;
+  const cached = globalForCredentials._credentialCache!.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CREDENTIAL_CACHE_TTL) {
-    logger.info({ userId, cacheAge: Math.round((Date.now() - cached.timestamp) / 1000) }, '⚡ Using in-memory cached credentials');
+    logger.info({ userId, organizationId, cacheAge: Math.round((Date.now() - cached.timestamp) / 1000) }, '⚡ Using in-memory cached credentials');
     return cached.credentials;
   }
 
@@ -832,29 +854,36 @@ async function loadUserCredentialsFromDB(userId: string): Promise<Record<string,
           // Check if this provider supports automatic token refresh
           if (supportsTokenRefresh(account.provider)) {
             // Get valid token (auto-refreshes if expired)
-            validToken = await getValidOAuthToken(userId, account.provider);
-            logger.info({ provider: account.provider }, 'Loaded OAuth token with auto-refresh support');
+            validToken = await getValidOAuthToken(userId, account.provider, organizationId);
+            logger.info({ provider: account.provider, organizationId }, 'Loaded OAuth token with auto-refresh support');
           } else {
             // Fallback to direct decryption for unsupported providers
             validToken = await decrypt(account.access_token);
-            logger.debug({ provider: account.provider }, 'Loaded OAuth token (no auto-refresh support)');
+            logger.info({ provider: account.provider }, 'Loaded OAuth token (no auto-refresh support)');
           }
           return { provider: account.provider, token: validToken };
         } catch (error) {
           logger.error({
             error,
             provider: account.provider,
-            userId
+            userId,
+            organizationId
           }, 'Failed to load OAuth token');
           return null; // Don't throw - allow workflow to continue with other credentials
         }
       });
 
     // 2. Load API keys from user_credentials table (OpenAI, RapidAPI, Stripe, etc.)
+    // Filter by organizationId if provided (for organization-scoped workflows)
+    const whereConditions = [eq(userCredentialsTable.userId, userId)];
+    if (organizationId) {
+      whereConditions.push(eq(userCredentialsTable.organizationId, organizationId));
+    }
+
     const credentials = await db
       .select()
       .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.userId, userId));
+      .where(and(...whereConditions));
 
     // Parallelize credential decryption for 5-10x speedup
     const credentialPromises = credentials.map(async (cred) => {
@@ -967,8 +996,9 @@ async function loadUserCredentialsFromDB(userId: string): Promise<Record<string,
       'User credentials loaded (OAuth + API keys + aliases)'
     );
 
-    // Store in cache
-    globalForCredentials._credentialCache!.set(userId, {
+    // Store in cache (use same cache key as the GET operation)
+    const cacheKey = organizationId ? `${userId}:${organizationId}` : userId;
+    globalForCredentials._credentialCache!.set(cacheKey, {
       credentials: credentialMap,
       timestamp: Date.now(),
     });

@@ -107,8 +107,8 @@ export async function executeWorkflowWithProgress(
       totalSteps: config.steps.length,
     });
 
-    // Load user credentials
-    const userCredentials = await loadUserCredentials(userId);
+    // Load user credentials (pass organizationId for organization-scoped OAuth app credentials)
+    const userCredentials = await loadUserCredentials(userId, workflow.organizationId || undefined);
 
     // Initialize execution context
     const context = {
@@ -762,7 +762,7 @@ async function executeModuleFunction(
   }
 }
 
-async function loadUserCredentials(userId: string): Promise<Record<string, string>> {
+async function loadUserCredentials(userId: string, organizationId?: string): Promise<Record<string, string>> {
   try {
     const credentialMap: Record<string, string> = {};
 
@@ -780,9 +780,9 @@ async function loadUserCredentials(userId: string): Promise<Record<string, strin
           // Check if this provider supports automatic token refresh
           if (supportsTokenRefresh(account.provider)) {
             // Get valid token (auto-refreshes if expired)
-            const validToken = await getValidOAuthToken(userId, account.provider);
+            const validToken = await getValidOAuthToken(userId, account.provider, organizationId);
             credentialMap[account.provider] = validToken;
-            logger.info({ provider: account.provider }, 'Loaded OAuth token with auto-refresh support');
+            logger.info({ provider: account.provider, organizationId }, 'Loaded OAuth token with auto-refresh support');
           } else {
             // Fallback to direct decryption for unsupported providers
             const { decrypt } = await import('@/lib/encryption');
@@ -794,7 +794,8 @@ async function loadUserCredentials(userId: string): Promise<Record<string, strin
           logger.error({
             error,
             provider: account.provider,
-            userId
+            userId,
+            organizationId
           }, 'Failed to load OAuth token');
           // Don't throw - allow workflow to continue with other credentials
         }

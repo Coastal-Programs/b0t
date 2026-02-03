@@ -13,7 +13,7 @@
   "readme": "none",
   "plugin": [],
   "theme": "default",
-  "name": "b0t Module Documentation",
+  "name": "Odin Module Documentation",
   "includeVersion": true,
   "sort": ["source-order"],
   "kindSortOrder": ["Function", "Variable", "TypeAlias", "Interface"],

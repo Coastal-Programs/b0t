@@ -413,7 +413,6 @@ export async function GET(request: NextRequest) {
           channelTitle: '${channel.snippet?.title?.replace(/'/g, "\\'")}',
         }, '*');
       }
-      setTimeout(() => window.close(), 2000);
     </script>
   </body>
 </html>`,

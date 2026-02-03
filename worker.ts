@@ -35,7 +35,7 @@ const concurrency = parseInt(process.env.WORKFLOW_CONCURRENCY || '50', 10);
 const skipModulePreload = process.env.SKIP_MODULE_PRELOAD === 'true';
 
 console.log('╔════════════════════════════════════════╗');
-console.log('║   B0T Workflow Worker                  ║');
+console.log('║   ODIN Workflow Worker                 ║');
 console.log('╚════════════════════════════════════════╝');
 console.log('');
 console.log(`Worker: ${workerName}`);

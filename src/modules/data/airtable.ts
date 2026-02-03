@@ -20,15 +20,27 @@ import { logger } from '@/lib/logger';
  * - Structured data storage
  */
 
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
+// Cache Airtable clients per API key to avoid recreating them
+const clientCache = new Map<string, Airtable>();
 
-if (!AIRTABLE_API_KEY) {
-  logger.warn('⚠️  AIRTABLE_API_KEY not set. Airtable features will not work.');
+function getAirtableClient(apiKey?: string): Airtable {
+  // Try apiKey parameter first, then environment variable
+  const key = apiKey || process.env.AIRTABLE_API_KEY;
+
+  if (!key) {
+    throw new Error('Airtable API key not provided. Set AIRTABLE_API_KEY environment variable or pass apiKey via credentials.');
+  }
+
+  // Return cached client if exists
+  if (clientCache.has(key)) {
+    return clientCache.get(key)!;
+  }
+
+  // Create and cache new client
+  const client = new Airtable({ apiKey: key });
+  clientCache.set(key, client);
+  return client;
 }
-
-const airtableClient = AIRTABLE_API_KEY
-  ? new Airtable({ apiKey: AIRTABLE_API_KEY })
-  : null;
 
 // Rate limiter: Airtable allows 5 req/sec per base
 const airtableRateLimiter = createRateLimiter({
@@ -53,6 +65,7 @@ export interface AirtableQueryOptions {
   maxRecords?: number;
   sort?: Array<{ field: string; direction?: 'asc' | 'desc' }>;
   view?: string;
+  apiKey?: string; // Optional API key (uses env var if not provided)
 }
 
 /**
@@ -61,9 +74,7 @@ export interface AirtableQueryOptions {
 async function selectRecordsInternal(
   options: AirtableQueryOptions
 ): Promise<AirtableRecord[]> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(options.apiKey);
 
   logger.info(
     {
@@ -74,7 +85,7 @@ async function selectRecordsInternal(
     'Selecting Airtable records'
   );
 
-  const base = airtableClient.base(options.baseId);
+  const base = client.base(options.baseId);
   const table = base(options.tableName);
 
   const queryOptions: {
@@ -125,15 +136,14 @@ export async function selectRecords(
 export async function createRecord(
   baseId: string,
   tableName: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  apiKey?: string
 ): Promise<AirtableRecord> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, fields }, 'Creating Airtable record');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   const record = await table.create(fields as FieldSet);
@@ -153,15 +163,14 @@ export async function createRecord(
 export async function createRecords(
   baseId: string,
   tableName: string,
-  records: Array<Record<string, unknown>>
+  records: Array<Record<string, unknown>>,
+  apiKey?: string
 ): Promise<AirtableRecord[]> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, recordCount: records.length }, 'Creating Airtable records');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   const createdRecords = await table.create(
@@ -184,15 +193,14 @@ export async function updateRecord(
   baseId: string,
   tableName: string,
   recordId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  apiKey?: string
 ): Promise<AirtableRecord> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, recordId, fields }, 'Updating Airtable record');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   const record = await table.update(recordId, fields as FieldSet);
@@ -212,15 +220,14 @@ export async function updateRecord(
 export async function updateRecords(
   baseId: string,
   tableName: string,
-  records: Array<{ id: string; fields: Record<string, unknown> }>
+  records: Array<{ id: string; fields: Record<string, unknown> }>,
+  apiKey?: string
 ): Promise<AirtableRecord[]> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, recordCount: records.length }, 'Updating Airtable records');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   const updatedRecords = await table.update(
@@ -242,15 +249,14 @@ export async function updateRecords(
 export async function deleteRecord(
   baseId: string,
   tableName: string,
-  recordId: string
+  recordId: string,
+  apiKey?: string
 ): Promise<void> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, recordId }, 'Deleting Airtable record');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   await table.destroy(recordId);
@@ -264,15 +270,14 @@ export async function deleteRecord(
 export async function deleteRecords(
   baseId: string,
   tableName: string,
-  recordIds: string[]
+  recordIds: string[],
+  apiKey?: string
 ): Promise<void> {
-  if (!airtableClient) {
-    throw new Error('Airtable client not initialized. Set AIRTABLE_API_KEY.');
-  }
+  const client = getAirtableClient(apiKey);
 
   logger.info({ baseId, tableName, recordCount: recordIds.length }, 'Deleting Airtable records');
 
-  const base = airtableClient.base(baseId);
+  const base = client.base(baseId);
   const table = base(tableName);
 
   await table.destroy(recordIds);

@@ -488,7 +488,7 @@ export function convertToICal(event: CalendarEvent): string {
   try {
     const comp = new ICAL.Component(['vcalendar', [], []]);
     comp.updatePropertyWithValue('version', '2.0');
-    comp.updatePropertyWithValue('prodid', '-//b0t//Workflow Automation//EN');
+    comp.updatePropertyWithValue('prodid', '-//Odin//Workflow Automation//EN');
 
     const vevent = new ICAL.Component('vevent');
     const icalEvent = new ICAL.Event(vevent);

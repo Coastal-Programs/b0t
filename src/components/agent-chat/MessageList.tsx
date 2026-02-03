@@ -61,7 +61,7 @@ const MessageListComponent = ({ messages, isLoading, isLoadingSession, scrollCon
       ) : messages.length === 0 ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-center space-y-4">
-            <h2 className="text-2xl font-semibold text-foreground">Chat with b0t</h2>
+            <h2 className="text-2xl font-semibold text-foreground">Chat with Odin</h2>
             <p className="text-muted-foreground">Ask me anything about your workflows and automations</p>
           </div>
         </div>

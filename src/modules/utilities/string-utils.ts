@@ -187,6 +187,15 @@ export function extractEmails(str: string): string[] {
 }
 
 /**
+ * Extract the first word from a string
+ * Example: "Anna Smith" -> "Anna"
+ */
+export function extractFirstWord(str: string): string {
+  if (!str || typeof str !== 'string') return '';
+  return str.trim().split(/\s+/)[0] || '';
+}
+
+/**
  * Remove extra whitespace
  */
 export function normalizeWhitespace(str: string): string {

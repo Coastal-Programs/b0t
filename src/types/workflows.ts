@@ -23,4 +23,7 @@ export interface CredentialListItem {
   type: string;
   createdAt: Date | null;
   lastUsed: Date | null;
+  isVerified?: boolean;        // OAuth account verified/connected
+  isExpired?: boolean;          // OAuth token expired
+  connectedAccount?: string;    // Connected account name/email
 }

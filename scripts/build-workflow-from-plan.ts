@@ -50,6 +50,7 @@ interface StepPlan {
   name?: string;
   inputs?: Record<string, unknown>;  // Optional - defaults to {} for modules with no params
   outputAs?: string;
+  when?: string;  // Conditional execution based on previous step output
 }
 
 /**
@@ -426,6 +427,7 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
           module: step.module,
           inputs: finalInputs,
           ...(step.outputAs && { outputAs: step.outputAs }),
+          ...(step.when && { when: step.when }),
         };
       }),
       outputDisplay: {

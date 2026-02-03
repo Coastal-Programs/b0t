@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
           const contentBlocks: unknown[] = [];
 
-          // Initialize agent workspace (creates ~/Documents/b0t and copies necessary folders)
+          // Initialize agent workspace (creates ~/Documents/odin and copies necessary folders)
           initializeAgentWorkspace();
           const workingDir = getAgentWorkspaceDir();
 
