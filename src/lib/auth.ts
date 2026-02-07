@@ -40,6 +40,7 @@ declare module 'next-auth' {
       id: string;
       organizationId: string;
       role: OrganizationRole;
+      isPlatformAdmin: boolean;
     } & DefaultSession['user'];
   }
 
@@ -58,6 +59,7 @@ declare module '@auth/core/jwt' {
     organizationId?: string;
     role?: OrganizationRole;
     rememberMe?: boolean;
+    isPlatformAdmin?: boolean;
   }
 }
 
@@ -341,6 +343,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role;
       }
 
+      // Add platform admin flag
+      session.user.isPlatformAdmin = token.isPlatformAdmin ?? false;
+
       return session;
     },
 
@@ -357,6 +362,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.exp = now + (24 * 60 * 60); // 24 hours from now
         }
       }
+
+      // Recompute isPlatformAdmin on every JWT refresh so changes to ADMIN_EMAIL take effect
+      token.isPlatformAdmin = !!(process.env.ADMIN_EMAIL && token.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
 
       // Load organization context if not already present
       // or if session is being updated

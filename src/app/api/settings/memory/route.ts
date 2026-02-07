@@ -25,6 +25,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail || session.user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const settings = await settingsCache.get('memory');
 
     return NextResponse.json({
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    if (session.user.email !== adminEmail) {
+    if (session.user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
       return NextResponse.json(
         { error: 'Forbidden: Admin access required' },
         { status: 403 }

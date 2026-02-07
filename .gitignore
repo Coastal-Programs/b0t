@@ -22,6 +22,7 @@
 
 # misc
 *.pem
+*.key
 
 # database
 /data/
@@ -63,6 +64,9 @@ next-env.d.ts
 Thumbs.db
 *.AppleDouble
 *.LSOverride
+
+# n8n workflow exports (may contain embedded credentials)
+/n8n-workflows/
 
 # Generated files
 openapi.json

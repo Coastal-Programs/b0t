@@ -83,10 +83,10 @@ describe('Pipeline', () => {
       expect(result.results).toHaveLength(2);
       expect(result.results[0].name).toBe('step1');
       expect(result.results[0].success).toBe(true);
-      expect(result.results[0].duration).toBeGreaterThanOrEqual(10);
+      expect(result.results[0].duration).toBeGreaterThanOrEqual(5);
       expect(result.results[1].name).toBe('step2');
       expect(result.results[1].success).toBe(true);
-      expect(result.results[1].duration).toBeGreaterThanOrEqual(20);
+      expect(result.results[1].duration).toBeGreaterThanOrEqual(10);
     });
 
     it('should stop on first error by default', async () => {

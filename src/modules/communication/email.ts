@@ -2,6 +2,10 @@ import { Resend } from 'resend';
 import { createCircuitBreaker } from '@/lib/resilience';
 import { createRateLimiter, withRateLimit } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
+import { db } from '@/lib/db';
+import { appSettingsTable } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import { decrypt } from '@/lib/encryption';
 
 /**
  * Email Module (Resend)
@@ -19,13 +23,77 @@ import { logger } from '@/lib/logger';
  * - User communications
  */
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+// Cached values with TTL
+let cachedApiKey: { value: string | null; expiresAt: number } = { value: null, expiresAt: 0 };
+let cachedFromEmail: { value: string | null; expiresAt: number } = { value: null, expiresAt: 0 };
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-if (!RESEND_API_KEY) {
-  logger.warn('⚠️  RESEND_API_KEY not set. Email features will not work.');
+let resendClient: Resend | null = null;
+
+async function getSettingValue(key: string): Promise<string | null> {
+  try {
+    const rows = await (db as any)
+      .select()
+      .from(appSettingsTable)
+      .where(eq(appSettingsTable.key, key))
+      .limit(1);
+    if (rows[0]?.value) {
+      try {
+        return decrypt(rows[0].value);
+      } catch {
+        return rows[0].value;
+      }
+    }
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'Failed to read app setting');
+  }
+  return null;
 }
 
-const resendClient = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+async function getResendApiKey(): Promise<string | null> {
+  // Env var takes priority
+  if (process.env.RESEND_API_KEY) {
+    return process.env.RESEND_API_KEY;
+  }
+
+  const now = Date.now();
+  if (cachedApiKey.expiresAt > now) {
+    return cachedApiKey.value;
+  }
+
+  const value = await getSettingValue('communication_resend_api_key');
+  cachedApiKey = { value, expiresAt: now + CACHE_TTL };
+  return value;
+}
+
+export async function getResendFromEmail(): Promise<string> {
+  // Env var takes priority
+  if (process.env.RESEND_FROM_EMAIL) {
+    return process.env.RESEND_FROM_EMAIL;
+  }
+
+  const now = Date.now();
+  if (cachedFromEmail.expiresAt > now && cachedFromEmail.value) {
+    return cachedFromEmail.value;
+  }
+
+  const value = await getSettingValue('communication_resend_from_email');
+  cachedFromEmail = { value, expiresAt: now + CACHE_TTL };
+  return value || 'Odin <noreply@odin.build>';
+}
+
+async function getResendClient(): Promise<Resend> {
+  const apiKey = await getResendApiKey();
+  if (!apiKey) {
+    throw new Error('Resend API key not configured. Set RESEND_API_KEY env var or add it in Settings > Keys.');
+  }
+
+  // Recreate client if key may have changed (cache expired)
+  if (!resendClient) {
+    resendClient = new Resend(apiKey);
+  }
+  return resendClient;
+}
 
 // Rate limiter: 100 emails per minute (conservative for Resend free tier)
 const emailRateLimiter = createRateLimiter({
@@ -57,9 +125,7 @@ export interface EmailResponse {
  * Internal send email function (unprotected)
  */
 async function sendEmailInternal(options: EmailOptions): Promise<EmailResponse> {
-  if (!resendClient) {
-    throw new Error('Resend client not initialized. Set RESEND_API_KEY.');
-  }
+  const client = await getResendClient();
 
   logger.info(
     {
@@ -93,7 +159,7 @@ async function sendEmailInternal(options: EmailOptions): Promise<EmailResponse> 
   if (options.replyTo) emailPayload.replyTo = options.replyTo;
   if (options.tags) emailPayload.tags = options.tags;
 
-  const { data, error } = await resendClient.emails.send(emailPayload as never);
+  const { data, error } = await client.emails.send(emailPayload as never);
 
   if (error) {
     logger.error({ error }, 'Failed to send email');

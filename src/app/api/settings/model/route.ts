@@ -17,6 +17,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail || session.user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Fetch model setting from database
      
     const settings = await (db as any)
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    if (session.user.email !== adminEmail) {
+    if (session.user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
       logger.warn(
         { userId: session.user.id, userEmail: session.user.email },
         'Unauthorized attempt to change model setting'

@@ -22,6 +22,7 @@ interface ClientContextType {
   setCurrentClient: (client: Client | null) => void;
   isLoading: boolean;
   refetchClients: () => Promise<void>;
+  isPlatformAdmin: boolean;
 }
 
 const ClientContext = createContext<ClientContextType>({
@@ -30,6 +31,7 @@ const ClientContext = createContext<ClientContextType>({
   setCurrentClient: () => {},
   isLoading: true,
   refetchClients: async () => {},
+  isPlatformAdmin: false,
 });
 
 // Fetcher function for SWR
@@ -42,6 +44,7 @@ const fetcher = async (url: string) => {
 
 export function ClientProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
+  const isPlatformAdmin = (session?.user as { isPlatformAdmin?: boolean } | undefined)?.isPlatformAdmin ?? false;
   const [currentClient, setCurrentClientState] = useState<Client | null>(null);
 
   // Use SWR for caching clients data
@@ -61,6 +64,9 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   };
 
   const setCurrentClient = (client: Client | null) => {
+    // Block non-admins from entering Admin mode (client === null)
+    if (!client && !isPlatformAdmin) return;
+
     // Only show toast if there's a previous client (user is switching, not initial load)
     if (currentClient && client && currentClient.id !== client.id) {
       toast.success(`Switched to ${client.name}`, {
@@ -90,10 +96,10 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     if (clients.length > 0 && !currentClient) {
       const storedClientId = localStorage.getItem('currentClientId');
 
-      if (storedClientId === 'admin') {
-        // User had Admin selected
+      if (storedClientId === 'admin' && isPlatformAdmin) {
+        // User had Admin selected — only restore for platform admins
         setCurrentClientState(null);
-      } else if (storedClientId) {
+      } else if (storedClientId && storedClientId !== 'admin') {
         // Try to find the stored client
         const stored = clients.find(c => c.id === storedClientId);
         if (stored) {
@@ -103,15 +109,15 @@ export function ClientProvider({ children }: { children: ReactNode }) {
           setCurrentClientState(clients[0]);
         }
       } else {
-        // No stored preference, default to first client
+        // No stored preference or non-admin with 'admin' stored, default to first client
         setCurrentClientState(clients[0]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clients]);
+  }, [clients, isPlatformAdmin]);
 
   return (
-    <ClientContext.Provider value={{ currentClient, clients, setCurrentClient, isLoading, refetchClients: fetchClients }}>
+    <ClientContext.Provider value={{ currentClient, clients, setCurrentClient, isLoading, refetchClients: fetchClients, isPlatformAdmin }}>
       {children}
     </ClientContext.Provider>
   );

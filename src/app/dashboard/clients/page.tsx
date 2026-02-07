@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Building2, Plus, Trash2, Pencil, UserPlus, Users, CheckCircle2, Search, ChevronsUpDown, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useClient, type Client } from '@/components/providers/ClientProvider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -41,7 +42,8 @@ const getStatusBadgeVariant = (status: string): 'gradient-success' | 'outline' =
 };
 
 export default function ClientsPage() {
-  const { clients, setCurrentClient, isLoading, refetchClients } = useClient();
+  const { clients, setCurrentClient, isLoading, refetchClients, isPlatformAdmin } = useClient();
+  const router = useRouter();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -206,6 +208,17 @@ export default function ClientsPage() {
 
     return { total, active, totalMembers };
   }, [clients]);
+
+  // Redirect non-admins away from the clients management page
+  useEffect(() => {
+    if (!isLoading && !isPlatformAdmin) {
+      router.push('/dashboard');
+    }
+  }, [isLoading, isPlatformAdmin, router]);
+
+  if (!isPlatformAdmin) {
+    return null;
+  }
 
   return (
     <DashboardLayout>
