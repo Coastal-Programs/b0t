@@ -26,7 +26,7 @@ const unsplashRateLimiter = createRateLimiter({
 });
 
 // Unsplash circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createUnsplashCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

@@ -12,7 +12,7 @@ description: "YOU MUST USE THIS SKILL when the user wants to create an AI agent 
 Create a YAML plan and use:
 
 ```bash
-npm run workflow:build plans/agent-plan.yaml
+curl -X POST http://localhost:3123/api/workflows/build-from-plan -H "Content-Type: application/json" -d '{"planPath": "plans/agent-plan.yaml"}'
 ```
 
 **All validation automatic - same as regular workflows!**
@@ -209,7 +209,7 @@ steps:
 **Same process as regular workflows:**
 
 1. Create YAML plan in `plans/` directory
-2. Run: `npm run workflow:build plans/agent-plan.yaml`
+2. Run: `curl -X POST http://localhost:3123/api/workflows/build-from-plan -H "Content-Type: application/json" -d '{"planPath": "plans/agent-plan.yaml"}'`
 3. Done!
 
 **All 12 validation layers apply:**
@@ -315,7 +315,7 @@ steps:
 
 **Build it:**
 ```bash
-npm run workflow:build plans/universal-assistant.yaml
+curl -X POST http://localhost:3123/api/workflows/build-from-plan -H "Content-Type: application/json" -d '{"planPath": "plans/universal-assistant.yaml"}'
 ```
 
 **Result:**

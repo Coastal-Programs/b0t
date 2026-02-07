@@ -33,7 +33,7 @@ export async function DELETE(
     }
 
     // Get the member to be removed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const [member] = await (db as any)
       .select()
       .from(organizationMembersTable)

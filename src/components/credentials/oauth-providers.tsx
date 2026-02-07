@@ -27,8 +27,10 @@ export function OAuthProviders({ connectedProviders = [] }: OAuthProvidersProps)
 
   const handleConnect = async (provider: OAuthProvider) => {
     setConnecting(provider.id);
-    // Redirect to OAuth authorization URL
-    window.location.href = provider.authorizeUrl;
+    // Use effect to perform navigation after state update
+    setTimeout(() => {
+      window.location.href = provider.authorizeUrl;
+    }, 0);
   };
 
   // Don't render anything if there are no providers

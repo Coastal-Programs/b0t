@@ -10,7 +10,7 @@ const getRandomUUID = () => {
     return crypto.randomUUID();
   }
   // Fallback for Node.js
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   return require('crypto').randomUUID();
 };
 
@@ -31,7 +31,7 @@ export async function createOrganization(
     let slug = slugify(name, { lower: true, strict: true });
 
     // Check if slug exists, append number if needed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const existing = await (db as any)
       .select()
       .from(organizationsTable)
@@ -53,7 +53,7 @@ export async function createOrganization(
     }
 
     // Create organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(organizationsTable).values({
       id,
       name,
@@ -64,7 +64,7 @@ export async function createOrganization(
     });
 
     // Add owner as member
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(organizationMembersTable).values({
       id: getRandomUUID(),
       organizationId: id,
@@ -72,7 +72,7 @@ export async function createOrganization(
       role: 'owner',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const [org] = await (db as any)
       .select()
       .from(organizationsTable)
@@ -110,7 +110,7 @@ export async function createOrganization(
  * Get all organizations a user belongs to
  */
 export async function getUserOrganizations(userId: string): Promise<Array<Organization & { role: OrganizationRole }>> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const memberships = await (db as any)
     .select({
       organization: organizationsTable,
@@ -123,7 +123,7 @@ export async function getUserOrganizations(userId: string): Promise<Array<Organi
     )
     .where(eq(organizationMembersTable.userId, userId));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return memberships.map((m: any) => ({
     ...m.organization,
     role: m.role as OrganizationRole,
@@ -134,7 +134,7 @@ export async function getUserOrganizations(userId: string): Promise<Array<Organi
  * Get a specific organization by ID
  */
 export async function getOrganizationById(orgId: string): Promise<Organization | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [org] = await (db as any)
     .select()
     .from(organizationsTable)
@@ -151,7 +151,7 @@ export async function getUserRoleInOrganization(
   userId: string,
   organizationId: string
 ): Promise<OrganizationRole | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [membership] = await (db as any)
     .select()
     .from(organizationMembersTable)
@@ -186,7 +186,7 @@ export async function getOrganizationWithRole(
   userId: string,
   organizationId: string
 ): Promise<{ organization: Organization; role: OrganizationRole } | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [result] = await (db as any)
     .select({
       id: organizationsTable.id,
@@ -225,7 +225,7 @@ export async function getOrganizationWithRole(
  * Get all members of an organization
  */
 export async function getOrganizationMembers(organizationId: string): Promise<Array<OrganizationMember>> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const members = await (db as any)
     .select()
     .from(organizationMembersTable)
@@ -245,7 +245,7 @@ export async function addOrganizationMember(
   const id = getRandomUUID();
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(organizationMembersTable).values({
       id,
       organizationId,
@@ -253,7 +253,7 @@ export async function addOrganizationMember(
       role,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const [member] = await (db as any)
       .select()
       .from(organizationMembersTable)
@@ -296,7 +296,7 @@ export async function removeOrganizationMember(
   organizationId: string,
   userId: string
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await (db as any)
     .delete(organizationMembersTable)
     .where(
@@ -315,7 +315,7 @@ export async function updateOrganizationMemberRole(
   userId: string,
   role: OrganizationRole
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await (db as any)
     .update(organizationMembersTable)
     .set({ role })
@@ -334,7 +334,7 @@ export async function updateOrganization(
   organizationId: string,
   updates: { name?: string; status?: 'active' | 'inactive'; plan?: 'free' | 'pro' | 'enterprise' }
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await (db as any)
     .update(organizationsTable)
     .set(updates)
@@ -352,13 +352,13 @@ export async function deleteOrganization(organizationId: string, userId: string)
   }
 
   // Delete all members first
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await (db as any)
     .delete(organizationMembersTable)
     .where(eq(organizationMembersTable.organizationId, organizationId));
 
   // Delete organization
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   await (db as any)
     .delete(organizationsTable)
     .where(eq(organizationsTable.id, organizationId));

@@ -19,7 +19,7 @@ class CatSoundManager {
 
   private getAudioContext(): AudioContext {
     if (!this.audioContext) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     return this.audioContext;

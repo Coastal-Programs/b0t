@@ -1,4 +1,4 @@
-/* eslint-disable */
+ 
 import weaviate, { WeaviateClient, ApiKey } from 'weaviate-ts-client';
 import { createCircuitBreaker } from '@/lib/resilience';
 import { createRateLimiter, withRateLimit } from '@/lib/rate-limiter';

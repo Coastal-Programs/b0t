@@ -5,13 +5,61 @@ import { logger } from '@/lib/logger';
  * OAuth Credential Helper
  *
  * Standardized helper to read OAuth app credentials (client_id, client_secret)
- * from the database. Handles both TEXT-stored metadata (requires JSON.parse)
- * and object metadata.
+ * from environment variables (platform-wide) or database (user-specific).
+ * Handles both TEXT-stored metadata (requires JSON.parse) and object metadata.
  */
 
 export interface OAuthAppCredentials {
   clientId: string;
   clientSecret: string;
+  tenantId?: string; // For Microsoft OAuth
+}
+
+/**
+ * Provider-specific environment variable mappings
+ */
+const ENV_VAR_MAP: Record<string, { clientId: string; clientSecret: string; tenantId?: string }> = {
+  google: {
+    clientId: 'GOOGLE_CLIENT_ID',
+    clientSecret: 'GOOGLE_CLIENT_SECRET',
+  },
+  microsoft: {
+    clientId: 'MICROSOFT_CLIENT_ID',
+    clientSecret: 'MICROSOFT_CLIENT_SECRET',
+    tenantId: 'MICROSOFT_TENANT_ID',
+  },
+  outlook: {
+    clientId: 'MICROSOFT_CLIENT_ID',
+    clientSecret: 'MICROSOFT_CLIENT_SECRET',
+    tenantId: 'MICROSOFT_TENANT_ID',
+  },
+  calcom: {
+    clientId: 'CAL_COM_CLIENT_ID',
+    clientSecret: 'CAL_COM_CLIENT_SECRET',
+  },
+  youtube: {
+    clientId: 'GOOGLE_CLIENT_ID',
+    clientSecret: 'GOOGLE_CLIENT_SECRET',
+  },
+};
+
+/**
+ * Get OAuth credentials from environment variables (platform-wide)
+ *
+ * @param provider - Provider name (e.g., 'google', 'microsoft', 'calcom')
+ * @returns OAuth credentials from env vars, or null if not configured
+ */
+export function getPlatformOAuthCredentials(provider: string): OAuthAppCredentials | null {
+  const envVars = ENV_VAR_MAP[provider.toLowerCase()];
+  if (!envVars) return null;
+
+  const clientId = process.env[envVars.clientId];
+  const clientSecret = process.env[envVars.clientSecret];
+  const tenantId = envVars.tenantId ? process.env[envVars.tenantId] : undefined;
+
+  if (!clientId || !clientSecret) return null;
+
+  return { clientId, clientSecret, tenantId };
 }
 
 /**

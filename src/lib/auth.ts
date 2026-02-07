@@ -135,7 +135,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const { usersTable } = await import('./schema');
             const { eq } = await import('drizzle-orm');
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const [user] = await (db as any)
               .select()
               .from(usersTable)

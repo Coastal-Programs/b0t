@@ -66,7 +66,7 @@ class Scheduler {
 
           // Log success to database
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (db as any).insert(jobLogsTable).values({
               jobName: job.name,
               status: 'success',
@@ -85,7 +85,7 @@ class Scheduler {
 
           // Log error to database
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await (db as any).insert(jobLogsTable).values({
               jobName: job.name,
               status: 'error',

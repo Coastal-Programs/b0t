@@ -26,7 +26,7 @@ const bannerbearRateLimiter = createRateLimiter({
 });
 
 // Bannerbear circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createBannerbearCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

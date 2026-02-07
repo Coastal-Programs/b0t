@@ -31,7 +31,7 @@ export interface CacheStats {
  * Pre-loading credentials for all users ensures fast first execution
  */
 async function getActiveUsers(limit: number = 100): Promise<string[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const dbAny = db as any;
 
   const users = await dbAny

@@ -25,36 +25,40 @@ interface OutputRendererProps {
 }
 
 export function OutputRenderer({ output, modulePath, displayHint, onClose }: OutputRendererProps) {
-
-  // Auto-parse JSON strings for table display
-  // If output is a JSON string and displayHint expects a table, parse it
-  let parsedOutput = output;
-  if (typeof output === 'string' && displayHint?.type === 'table') {
-    try {
-      // Try to parse as JSON
-      const trimmed = output.trim();
-      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
-        parsedOutput = JSON.parse(output);
-      }
-    } catch (error) {
-      // If parsing fails, keep original output
-      logger.warn({ error }, 'Failed to parse output as JSON');
-    }
-  }
-
-  // Extract table data from context object if needed
-  // If output is an object (not array) and we expect a table, look for common table data keys
-  if (typeof parsedOutput === 'object' && parsedOutput !== null && !Array.isArray(parsedOutput) && displayHint?.type === 'table') {
-    const outputObj = parsedOutput as Record<string, unknown>;
-    const possibleDataKeys = ['finalAnalysisTable', 'finalTableData', 'tableData', 'results', 'data', 'output'];
-
-    for (const key of possibleDataKeys) {
-      if (key in outputObj && Array.isArray(outputObj[key])) {
-        parsedOutput = outputObj[key];
-        break;
+  // Process output to avoid external variable modification (use useMemo for performance)
+  const parsedOutput = (() => {
+    // Auto-parse JSON strings for table display
+    // If output is a JSON string and displayHint expects a table, parse it
+    let processed = output;
+    if (typeof output === 'string' && displayHint?.type === 'table') {
+      try {
+        // Try to parse as JSON
+        const trimmed = output.trim();
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+          processed = JSON.parse(output);
+        }
+      } catch (error) {
+        // If parsing fails, keep original output
+        logger.warn({ error }, 'Failed to parse output as JSON');
       }
     }
-  }
+
+    // Extract table data from context object if needed
+    // If output is an object (not array) and we expect a table, look for common table data keys
+    if (typeof processed === 'object' && processed !== null && !Array.isArray(processed) && displayHint?.type === 'table') {
+      const outputObj = processed as Record<string, unknown>;
+      const possibleDataKeys = ['finalAnalysisTable', 'finalTableData', 'tableData', 'results', 'data', 'output'];
+
+      for (const key of possibleDataKeys) {
+        if (key in outputObj && Array.isArray(outputObj[key])) {
+          processed = outputObj[key];
+          break;
+        }
+      }
+    }
+
+    return processed;
+  })();
 
   // Priority: 1) displayHint from workflow config, 2) module-based detection, 3) structure-based detection
   const display = displayHint || detectOutputDisplay(modulePath || '', parsedOutput);
@@ -100,7 +104,9 @@ function FloatingActionButtons({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => {
+      setMounted(true);
+    });
   }, []);
 
   const handleCopy = async () => {

@@ -1,25 +1,28 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { appSettingsTable, oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { decrypt } from '@/lib/encryption';
 import { logger } from '@/lib/logger';
-import { getOAuthAppCredentials } from '@/lib/oauth-credential-helper';
+import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
+import { validateAndCombineScopes } from '@/lib/oauth-service-configs';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
 /**
- * Microsoft Outlook OAuth 2.0 Authorization Endpoint
+ * Microsoft OAuth 2.0 Authorization Endpoint
  *
  * Generates an OAuth 2.0 authorization URL and redirects the user to Microsoft
- * to authorize the application for Outlook access.
+ * to authorize the application for Microsoft services (Outlook, Teams, OneDrive).
  *
  * Flow:
  * 1. Check if user is authenticated
- * 2. Generate OAuth 2.0 authorization link
- * 3. Store state in database for verification
- * 4. Redirect user to Microsoft authorization page
+ * 2. Accept and validate requested scopes from query parameters
+ * 3. Generate OAuth 2.0 authorization link with validated scopes
+ * 4. Store state and scope metadata in database for verification
+ * 5. Redirect user to Microsoft authorization page
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check if user is authenticated
     const session = await auth();
@@ -30,32 +33,82 @@ export async function GET() {
       );
     }
 
-    // Get Outlook OAuth app credentials from database
-    const [appCred] = await db
-      .select()
-      .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.platform, 'outlook_oauth_app'))
-      .limit(1);
+    // Get service ID and requested scopes from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const service = searchParams.get('service') || 'outlook';
+    const scopesParam = searchParams.get('scopes');
+    const mode = searchParams.get('mode'); // 'update' if editing permissions
+    const credentialId = searchParams.get('credentialId'); // Existing credential ID if updating
+    const organizationId = searchParams.get('organizationId'); // Organization/client context
 
-    if (!appCred) {
-      logger.error('Outlook OAuth app credentials not configured');
+    // Parse requested scopes
+    const requestedScopes = scopesParam ? scopesParam.split(',') : [];
+
+    // Validate and combine with required scopes
+    const finalScopes = validateAndCombineScopes(service, requestedScopes);
+
+    if (finalScopes.length === 0) {
+      logger.error({ service }, 'No valid scopes provided');
       return NextResponse.json(
-        { error: 'Outlook OAuth app not configured. Please add Outlook OAuth App Credentials in the credentials page.' },
-        { status: 500 }
+        { error: 'No valid permissions selected' },
+        { status: 400 }
       );
     }
 
-    // Get client credentials
-    let clientId: string;
-    try {
-      const creds = getOAuthAppCredentials(appCred, 'Outlook');
-      clientId = creds.clientId;
-    } catch (error) {
-      logger.error({ error }, 'Failed to get Outlook OAuth app credentials');
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid Outlook OAuth app credentials' },
-        { status: 500 }
-      );
+    // Try platform-wide OAuth credentials (env vars) first
+    let clientId: string | undefined;
+    const platformCreds = getPlatformOAuthCredentials('outlook');
+
+    if (platformCreds) {
+      // Use platform-wide credentials from environment variables
+      clientId = platformCreds.clientId;
+      logger.info({ userId: session.user.id }, 'Using platform-wide Microsoft OAuth credentials');
+    }
+
+    // Try Platform Settings (appSettingsTable)
+    if (!clientId) {
+      const [clientIdSetting] = await db
+        .select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.key, 'oauth_microsoft_client_id'))
+        .limit(1);
+
+      if (clientIdSetting) {
+        try {
+          clientId = decrypt(clientIdSetting.value);
+          logger.info({ userId: session.user.id }, 'Using Platform Settings OAuth credentials');
+        } catch (e) {
+          logger.warn({ error: e }, 'Failed to decrypt Platform Settings OAuth credentials');
+        }
+      }
+    }
+
+    // Fallback to user-specific OAuth credentials
+    if (!clientId) {
+      const [appCred] = await db
+        .select()
+        .from(userCredentialsTable)
+        .where(eq(userCredentialsTable.platform, 'outlook_oauth_app'))
+        .limit(1);
+
+      if (!appCred) {
+        logger.error('Microsoft OAuth app credentials not configured');
+        return NextResponse.json(
+          { error: 'Microsoft OAuth app not configured. Please contact admin or add your own Microsoft OAuth App Credentials in the credentials page.' },
+          { status: 500 }
+        );
+      }
+
+      try {
+        const creds = getOAuthAppCredentials(appCred, 'Microsoft');
+        clientId = creds.clientId;
+      } catch (error) {
+        logger.error({ error }, 'Failed to get Microsoft OAuth app credentials');
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid Microsoft OAuth app credentials' },
+          { status: 500 }
+        );
+      }
     }
 
     // Generate callback URL
@@ -66,35 +119,32 @@ export async function GET() {
     // Generate random state for CSRF protection
     const state = crypto.randomBytes(32).toString('hex');
 
-    // Store state in database
+    // Store state in database with scope metadata
     await db.insert(oauthStateTable).values({
       state,
       codeVerifier: '', // Microsoft doesn't require PKCE for this flow
       userId: session.user.id,
       provider: 'outlook',
+      metadata: JSON.stringify({
+        requestedScopes: finalScopes,
+        service,
+        mode,
+        credentialId,
+        organizationId, // Preserve organization context
+      }),
     });
-
-    // Build Microsoft OAuth URL
-    const scopes = [
-      'openid',
-      'profile',
-      'email',
-      'https://graph.microsoft.com/User.Read',
-      'https://graph.microsoft.com/Mail.Send',
-      'offline_access', // Required for refresh token
-    ];
 
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', callbackUrl);
     authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', scopes.join(' '));
+    authUrl.searchParams.set('scope', finalScopes.join(' '));
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('response_mode', 'query');
     authUrl.searchParams.set('prompt', 'select_account'); // Force account selection
 
     logger.info(
-      { userId: session.user.id, provider: 'outlook' },
+      { userId: session.user.id, provider: 'outlook', service, scopes: finalScopes },
       'Generated Microsoft OAuth authorization URL'
     );
 

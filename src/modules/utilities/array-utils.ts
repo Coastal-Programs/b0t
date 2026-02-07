@@ -393,7 +393,7 @@ export function repeat<T>(pattern: T[], times: number): T[] {
  * Transform array by applying a module to each item
  * This is a workflow-specific function that executes a module for each array item
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export async function forEach<T>(_options: {
   arr: T[];
   module: string;

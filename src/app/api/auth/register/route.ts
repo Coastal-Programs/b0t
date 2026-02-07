@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find invitation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const [invitation] = await (db as any)
       .select()
       .from(invitationsTable)
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const [existingUser] = await (db as any)
       .select()
       .from(usersTable)
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Create user
     const userId = nanoid();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(usersTable).values({
       id: userId,
       email: email.toLowerCase(),
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Add user to organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(organizationMembersTable).values({
       id: nanoid(),
       organizationId: invitation.organizationId,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Mark invitation as accepted
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any)
       .update(invitationsTable)
       .set({ acceptedAt: new Date() })

@@ -146,7 +146,7 @@ class RedditClient {
     return this.accessToken!;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async request(endpoint: string, options: RequestInit = {}): Promise<any> {
     const token = await this.getAccessToken();
 
@@ -170,7 +170,7 @@ class RedditClient {
     return response.json();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   async post(endpoint: string, form: Record<string, any>): Promise<any> {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(form)) {
@@ -362,7 +362,7 @@ export async function getSubredditPosts(
 
     logger.info({ postCount: posts.length }, 'Reddit posts fetched (authenticated)');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return posts.map((item: any) => {
       const post = item.data;
       return {
@@ -395,13 +395,13 @@ export async function getSubredditPosts(
     throw new Error(`Reddit API error: ${response.status} ${response.statusText}`);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const data: any = await response.json();
   const posts = data.data.children;
 
   logger.info({ postCount: posts.length }, 'Reddit posts fetched (public API)');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return posts.map((item: any) => {
     const post = item.data;
     return {
@@ -441,7 +441,7 @@ export async function searchPosts(
 
   logger.info({ resultCount: results.length }, 'Reddit search completed');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return results.map((item: any) => {
     const post = item.data;
     return {

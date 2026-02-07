@@ -32,7 +32,7 @@ export const workflowSchema = {
       properties: {
         type: {
           type: 'string',
-          enum: ['manual', 'cron', 'webhook', 'telegram', 'discord', 'chat', 'chat-input'],
+          enum: ['manual', 'cron', 'webhook', 'telegram', 'discord', 'chat', 'chat-input', 'gmail', 'outlook'],
           description: 'Trigger type'
         },
         config: {

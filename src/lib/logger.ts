@@ -33,7 +33,7 @@ if (isEdgeRuntime) {
 } else {
   // Node.js runtime - load full logger from separate file
   // This avoids bundling Node.js APIs into Edge Runtime
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   const { createNodeLogger } = require('./logger.node');
   pinoLogger = createNodeLogger();
 }

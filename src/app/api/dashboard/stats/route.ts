@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
           : and(eq(workflowsTable.status, 'active'), isNull(workflowsTable.organizationId));
 
         // Fetch all stats in parallel for better performance
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const dbAny = db as any;
         const [
           successfulRuns,

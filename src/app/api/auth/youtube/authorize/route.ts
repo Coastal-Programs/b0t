@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { appSettingsTable, oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { decrypt } from '@/lib/encryption';
 import { logger } from '@/lib/logger';
-import { getOAuthAppCredentials } from '@/lib/oauth-credential-helper';
+import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
+import { validateAndCombineScopes } from '@/lib/oauth-service-configs';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -16,11 +18,12 @@ import crypto from 'crypto';
  *
  * Flow:
  * 1. Check if user is authenticated
- * 2. Generate OAuth 2.0 authorization link with PKCE
- * 3. Store state and codeVerifier in database
- * 4. Redirect user to Google authorization page
+ * 2. Accept and validate requested scopes from query parameters
+ * 3. Generate OAuth 2.0 authorization link with validated scopes
+ * 4. Store state and scope metadata in database for verification
+ * 5. Redirect user to Google authorization page
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check if user is authenticated
     const session = await auth();
@@ -31,85 +34,124 @@ export async function GET() {
       );
     }
 
-    // Get YouTube OAuth app credentials from database
-    const [appCred] = await db
-      .select()
-      .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.platform, 'youtube_oauth_app'))
-      .limit(1);
+    // Get service ID and requested scopes from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const service = searchParams.get('service') || 'youtube';
+    const scopesParam = searchParams.get('scopes');
+    const mode = searchParams.get('mode'); // 'update' if editing permissions
+    const credentialId = searchParams.get('credentialId'); // Existing credential ID if updating
+    const organizationId = searchParams.get('organizationId'); // Organization/client context
 
-    if (!appCred) {
-      logger.error('YouTube OAuth app credentials not configured');
+    // Parse requested scopes
+    const requestedScopes = scopesParam ? scopesParam.split(',') : [];
+
+    // Validate and combine with required scopes
+    const finalScopes = validateAndCombineScopes(service, requestedScopes);
+
+    if (finalScopes.length === 0) {
+      logger.error({ service }, 'No valid scopes provided');
       return NextResponse.json(
-        { error: 'YouTube OAuth app not configured. Please add YouTube OAuth App Credentials in the credentials page.' },
-        { status: 500 }
+        { error: 'No valid permissions selected' },
+        { status: 400 }
       );
     }
 
-    // Get client credentials
-    let clientId: string;
-    let clientSecret: string;
-    try {
-      const creds = getOAuthAppCredentials(appCred, 'YouTube');
-      clientId = creds.clientId;
-      clientSecret = creds.clientSecret;
-    } catch (error) {
-      logger.error({ error }, 'Failed to get YouTube OAuth app credentials');
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid YouTube OAuth app credentials' },
-        { status: 500 }
-      );
+    // Try platform-wide OAuth credentials (env vars) first
+    let clientId: string | undefined;
+    const platformCreds = getPlatformOAuthCredentials('youtube');
+
+    if (platformCreds) {
+      // Use platform-wide credentials from environment variables (shares Google's)
+      clientId = platformCreds.clientId;
+      logger.info({ userId: session.user.id }, 'Using platform-wide YouTube OAuth credentials (Google env vars)');
     }
 
-    // Initialize Google OAuth2 client
+    // Try Platform Settings (appSettingsTable) - YouTube shares Google's OAuth credentials
+    if (!clientId) {
+      const [clientIdSetting] = await db
+        .select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.key, 'oauth_google_client_id'))
+        .limit(1);
+
+      if (clientIdSetting) {
+        try {
+          clientId = decrypt(clientIdSetting.value);
+          logger.info({ userId: session.user.id }, 'Using Platform Settings OAuth credentials');
+        } catch (e) {
+          logger.warn({ error: e }, 'Failed to decrypt Platform Settings OAuth credentials');
+        }
+      }
+    }
+
+    // Fallback to user-specific OAuth credentials
+    if (!clientId) {
+      const [appCred] = await db
+        .select()
+        .from(userCredentialsTable)
+        .where(eq(userCredentialsTable.platform, 'youtube_oauth_app'))
+        .limit(1);
+
+      if (!appCred) {
+        logger.error('YouTube OAuth app credentials not configured');
+        return NextResponse.json(
+          { error: 'YouTube OAuth app not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your environment variables, or add your own YouTube OAuth App Credentials in the credentials page.' },
+          { status: 500 }
+        );
+      }
+
+      try {
+        const creds = getOAuthAppCredentials(appCred, 'YouTube');
+        clientId = creds.clientId;
+      } catch (error) {
+        logger.error({ error }, 'Failed to get YouTube OAuth app credentials');
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid YouTube OAuth app credentials' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Generate callback URL
     const callbackUrl = process.env.NEXTAUTH_URL
       ? `${process.env.NEXTAUTH_URL}/api/auth/youtube/callback`
       : 'http://localhost:3123/api/auth/youtube/callback';
 
-    const oauth2Client = new google.auth.OAuth2(
-      clientId,
-      clientSecret,
-      callbackUrl
-    );
-
-    // Generate state and code verifier for PKCE
+    // Generate random state for CSRF protection
     const state = crypto.randomBytes(32).toString('hex');
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
 
-    // Generate authorization URL
-    const codeChallenge = crypto
-      .createHash('sha256')
-      .update(codeVerifier)
-      .digest('base64url');
-
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline', // Required for refresh token
-      scope: [
-        'https://www.googleapis.com/auth/youtube.force-ssl',
-        'https://www.googleapis.com/auth/youtube',
-      ],
-      state,
-      prompt: 'select_account consent', // Force account selection and consent
-      code_challenge: codeChallenge,
-      // @ts-expect-error - googleapis types don't match actual API
-      code_challenge_method: 'S256',
-    });
-
-    // Store state and code verifier in database for callback verification
+    // Store state in database with scope metadata
     await db.insert(oauthStateTable).values({
       state,
-      codeVerifier,
+      codeVerifier: '', // YouTube doesn't use PKCE in this flow
       userId: session.user.id,
       provider: 'youtube',
+      metadata: JSON.stringify({
+        requestedScopes: finalScopes,
+        service,
+        mode,
+        credentialId,
+        organizationId, // Preserve organization context
+      }),
     });
 
+    // Manually construct authorization URL (matching Google/Gmail pattern)
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', callbackUrl);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', finalScopes.join(' '));
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('access_type', 'offline'); // Request refresh token
+    authUrl.searchParams.set('prompt', 'select_account consent'); // Force account selection and consent
+
     logger.info(
-      { userId: session.user.id, provider: 'youtube' },
-      'YouTube OAuth state stored'
+      { userId: session.user.id, provider: 'youtube', service, scopes: finalScopes },
+      'Generated YouTube OAuth authorization URL'
     );
 
-    // Redirect to Google OAuth authorization page
-    return NextResponse.redirect(authUrl);
+    // Redirect to Google authorization page
+    return NextResponse.redirect(authUrl.toString());
   } catch (error) {
     logger.error({ error }, 'YouTube OAuth authorization error');
     return NextResponse.json(

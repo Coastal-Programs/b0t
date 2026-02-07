@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GET, POST } from '../route';
 import { NextRequest } from 'next/server';

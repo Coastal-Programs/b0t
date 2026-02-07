@@ -31,7 +31,7 @@ interface CircuitBreakerConfig {
 /**
  * Create a circuit breaker for an async function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   config?: CircuitBreakerConfig
@@ -104,7 +104,7 @@ export function createCircuitBreaker<T extends (...args: any[]) => Promise<any>>
 
 // Twitter API circuit breaker
 // More lenient timeout (15s) due to rate limiting delays
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createTwitterCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -119,7 +119,7 @@ export function createTwitterCircuitBreaker<T extends (...args: any[]) => Promis
 
 // YouTube API circuit breaker
 // Stricter settings due to quota limits
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createYouTubeCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -134,7 +134,7 @@ export function createYouTubeCircuitBreaker<T extends (...args: any[]) => Promis
 
 // OpenAI API circuit breaker
 // Longer timeout for AI generation (can take 30+ seconds)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createOpenAICircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -148,7 +148,7 @@ export function createOpenAICircuitBreaker<T extends (...args: any[]) => Promise
 }
 
 // Instagram API circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createInstagramCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -162,7 +162,7 @@ export function createInstagramCircuitBreaker<T extends (...args: any[]) => Prom
 }
 
 // RapidAPI circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createRapidAPICircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -176,7 +176,7 @@ export function createRapidAPICircuitBreaker<T extends (...args: any[]) => Promi
 }
 
 // WordPress API circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function createWordPressCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
@@ -192,7 +192,7 @@ export function createWordPressCircuitBreaker<T extends (...args: any[]) => Prom
 /**
  * Helper: Create circuit breaker with fallback
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function withFallback<T extends (...args: any[]) => Promise<any>>(
   breaker: CircuitBreaker<Parameters<T>, ReturnType<T>>,
   fallbackFn: (...args: Parameters<T>) => ReturnType<T>

@@ -5,7 +5,7 @@ import { oauthStateTable, accountsTable, userCredentialsTable } from '@/lib/sche
 import { logger } from '@/lib/logger';
 import { eq, and } from 'drizzle-orm';
 import { encrypt } from '@/lib/encryption';
-import { getOAuthAppCredentials } from '@/lib/oauth-credential-helper';
+import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 
 /**
  * YouTube OAuth 2.0 Callback Handler
@@ -119,32 +119,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get YouTube OAuth app credentials from database
-    const [appCred] = await db
-      .select()
-      .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.platform, 'youtube_oauth_app'))
-      .limit(1);
-
-    if (!appCred) {
-      logger.error('YouTube OAuth app credentials not configured');
-      return NextResponse.json(
-        { error: 'YouTube OAuth is not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Get client credentials
+    // Try platform-wide OAuth credentials (env vars) first
     let clientId: string;
     let clientSecret: string;
-    try {
-      const creds = getOAuthAppCredentials(appCred, 'YouTube');
-      clientId = creds.clientId;
-      clientSecret = creds.clientSecret;
-    } catch (error) {
-      logger.error({ error }, 'Failed to get YouTube OAuth app credentials');
-      return new NextResponse(
-        `<!DOCTYPE html>
+    const platformCreds = getPlatformOAuthCredentials('youtube');
+
+    if (platformCreds) {
+      // Use platform-wide credentials from environment variables (shares Google's)
+      clientId = platformCreds.clientId;
+      clientSecret = platformCreds.clientSecret;
+      logger.info({}, 'Using platform-wide YouTube OAuth credentials (Google env vars)');
+    } else {
+      // Fallback: Get user-specific OAuth app credentials from database
+      const [appCred] = await db
+        .select()
+        .from(userCredentialsTable)
+        .where(eq(userCredentialsTable.platform, 'youtube_oauth_app'))
+        .limit(1);
+
+      if (!appCred) {
+        logger.error('YouTube OAuth app credentials not configured');
+        return NextResponse.json(
+          { error: 'YouTube OAuth is not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your environment variables, or add your own YouTube OAuth App Credentials in the credentials page.' },
+          { status: 500 }
+        );
+      }
+
+      // Get client credentials
+      try {
+        const creds = getOAuthAppCredentials(appCred, 'YouTube');
+        clientId = creds.clientId;
+        clientSecret = creds.clientSecret;
+      } catch (error) {
+        logger.error({ error }, 'Failed to get YouTube OAuth app credentials');
+        return new NextResponse(
+          `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
@@ -214,11 +223,12 @@ export async function GET(request: NextRequest) {
     </script>
   </body>
 </html>`,
-        {
-          status: 500,
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        }
-      );
+          {
+            status: 500,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }
+        );
+      }
     }
 
     // Look up OAuth state in database
@@ -247,11 +257,8 @@ export async function GET(request: NextRequest) {
       callbackUrl
     );
 
-    // Exchange code for tokens
-    const { tokens } = await oauth2Client.getToken({
-      code,
-      codeVerifier: oauthState.codeVerifier,
-    });
+    // Exchange code for tokens (no PKCE codeVerifier needed)
+    const { tokens } = await oauth2Client.getToken(code);
 
     if (!tokens.access_token) {
       throw new Error('No access token received from Google');

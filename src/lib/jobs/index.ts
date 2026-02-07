@@ -81,7 +81,7 @@ const jobs: ScheduledJob[] = [
 async function loadJobSettings(jobName: string): Promise<{ enabled?: boolean; interval?: string }> {
   try {
     const prefix = `${jobName}_`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const allSettings = await (db as any)
       .select()
       .from(appSettingsTable) as Array<{ id: number; key: string; value: string; updatedAt: Date | null }>;

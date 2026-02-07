@@ -1,0 +1,637 @@
+{
+  "name": "Gmail Labeling",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "2a41e2da-19f7-4c31-ab93-3a534db3179e",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        544,
+        64
+      ],
+      "typeVersion": 1.2,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=Subject: {{ $('Gmail Trigger').item.json.subject }}\nFrom: {{ $('Gmail Trigger').item.json.from.value[0].address }}\nHas Attachments: {{ $(\"Gmail Trigger\").item.binary ? 'Yes' : 'No' }}\n",
+        "categories": {
+          "categories": [
+            {
+              "category": "Alerts",
+              "description": "Error messages, failures, critical notifications from automations or dev tools where something broke or needs immediate attention. Examples: N8N workflow failed, GitHub Actions error, Supabase connection down, Make.com automation stopped, deployment failed, google reviews, google search console warnings"
+            },
+            {
+              "category": "Finance/Billing",
+              "description": "Finance/Billing related emails including invoices, payment notifications, banking alerts, subscription charges, accounting system emails, and financial services. Examples: Stripe invoices or payment confirmations, Wise Banking notifications, Xero accounting emails, hosting bills, Apple/Canva subscription charges, DigitalOcean invoices, payment received notifications, outgoing invoices sent to clients."
+            },
+            {
+              "category": "Platform Updates",
+              "description": "Tool notifications, new feature announcements, security updates from software platforms you use. Examples: GitHub new feature, Supabase status update, Netlify deployment notification, N8N security patch. Non-urgent notifications. Examples: \"We've added dark mode,\" \"API v2 available.\""
+            },
+            {
+              "category": "Reply",
+              "description": " Emails requiring your direct response. Includes questions, requests for information, meeting confirmations, decisions needed from you, or conversations where you're actively involved. If in doubt, this is Reply."
+            },
+            {
+              "category": "Waiting",
+              "description": "Emails where you've sent a proposal, waiting for a decision, or expecting a response from the other person. Examples: \"Awaiting client approval on quote,\" \"Proposal sent - waiting for feedback,\" \"Email sent to prospect - follow up pending.\" These are emails YOU sent that need follow-up."
+            },
+            {
+              "category": "Webinar Request",
+              "description": "Requests for you to speak, teach, present, or participate in webinars, podcasts, or training events. Includes speaking opportunities, panel invitations, and educational collaboration requests."
+            },
+            {
+              "category": "Mentorship",
+              "description": "Emails from business founders, thought leaders, or educational content from Dan Martell, Russell Brunson, Chris Bailey, or similar. Includes newsletters, course announcements, and strategic insights designed for learning. Do not include marketing emails or promotional content"
+            },
+            {
+              "category": "Community",
+              "description": "Community engagement emails: LinkedIn notifications, X/Twitter replies, Skool, Discord/Slack community messages, YouTube comments. Includes non-work social engagement, community discussions, networking chatter."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        -32
+      ],
+      "id": "283c9451-1edd-4c38-8d97-5348b242a257",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_35"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -208
+      ],
+      "id": "bbbdf144-fbe8-4e8e-bff6-ff160a9afbfb",
+      "name": "Platform Update",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_1971706428606290487"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -528
+      ],
+      "id": "006b2e95-4276-4257-9763-160ca6b02d77",
+      "name": "Alerts",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_1916355624532571631"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -48
+      ],
+      "id": "c390b641-9986-411a-a097-c63eade79765",
+      "name": "Reply",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_14"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -384
+      ],
+      "id": "dd69af3c-8914-442c-94f1-3f097da88484",
+      "name": "Finance/Billing",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_6528725511955391740"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        112
+      ],
+      "id": "4672b7ed-44f2-4348-8618-90ec16ca4795",
+      "name": "Waiting",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_31"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        272
+      ],
+      "id": "fa90c869-bf3a-45b1-801e-1244f8d782c3",
+      "name": "Webinar Request",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_5859998043046772390"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        432
+      ],
+      "id": "6f14f43b-1617-4da7-86b7-4c8f3e867730",
+      "name": "Mentorship",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "CATEGORY_SOCIAL"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        576
+      ],
+      "id": "4932bb32-0078-44b5-b6e5-8be902272b08",
+      "name": "Social",
+      "webhookId": "4a685af4-6619-47e5-8ea3-dcb8065429f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-haiku-4.5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        688,
+        352
+      ],
+      "id": "7ab1e12e-8dd3-462f-b025-0b0812eca57a",
+      "name": "Claude Haiku 4.5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "qwWDv3OYTrEgISC5",
+          "name": "Costal Programs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "attachment_0",
+        "name": "={{ $(\"Gmail Trigger\").item.binary.attachment_0.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "12m2FyHuCaWUpeH0abV0fbtryWsrKTRlR",
+          "mode": "list",
+          "cachedResultName": "June 2025 - 2026",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/12m2FyHuCaWUpeH0abV0fbtryWsrKTRlR"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2048,
+        -496
+      ],
+      "id": "d646b3fb-9daf-472d-8ea0-7f30bd2e3155",
+      "name": "Upload Invoice",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "fCnZsL5lKnIO6IRc",
+          "name": "Coastal Programs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "INBOX"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1712,
+        -48
+      ],
+      "id": "4e51617f-8f21-4236-8577-9114428e4550",
+      "name": "Archive",
+      "webhookId": "5f97ca66-0105-4f62-8ecb-f147b4b5fd60",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=Subject: {{ $('Gmail Trigger').item.json.subject }}\nFrom: {{ $('Gmail Trigger').item.json.from.value[0].address }}\nHas Attachments: {{ $(\"Gmail Trigger\").item.binary ? 'Yes' : 'No' }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Invoice to Pay",
+              "description": "Bills and invoices FROM vendors that need to be paid.\n\nCRITICAL RULE: If \"Has Attachments: Yes\" appears in the text, this is ALWAYS an Invoice to Pay category. The presence of attachments is the primary determining factor.\n\nMust have PDF invoice attached. Examples: Stripe invoices (with PDF), X/Twitter subscription invoice (with PDF), DigitalOcean bill (with PDF), Claude invoice (with PDF), Supabase bill (with PDF), Netlify invoice (with PDF), GitHub subscription (with PDF), instantly.ai invoice (with PDF).\n\nThese are business expenses owed to vendors WITH the invoice file attached."
+            },
+            {
+              "category": "Not an Invoice",
+              "description": "Everything else including: payment received notifications, payment taken confirmations, outgoing invoices sent to clients, receipts, banking notifications, AND invoice notifications without PDF attachments (like \"view your invoice online\" emails). If \"Has Attachments\" shows \"No\", select this category."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        -400
+      ],
+      "id": "c293e82e-ed83-4928-ac53-f227e6cc30c2",
+      "name": "Text Classifier1"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-haiku-4.5",
+        "options": {
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        -192
+      ],
+      "id": "e1e7a178-09bd-49df-bc6e-1a8b67c502ab",
+      "name": "Claude Haiku 4.6",
+      "credentials": {
+        "openRouterApi": {
+          "id": "qwWDv3OYTrEgISC5",
+          "name": "Costal Programs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        -336
+      ],
+      "id": "04b8d49c-5f07-4101-8789-f24b107450d4",
+      "name": "Mark a message as read",
+      "webhookId": "9af5c222-c8b3-406c-b359-0985aa424c3c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pRgN5eEK4rueBsfg",
+          "name": "Jake Schepis"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Classifier1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Finance/Billing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Platform Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Waiting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Webinar Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mentorship",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Social",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply": {
+      "main": [
+        []
+      ]
+    },
+    "Claude Haiku 4.5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finance/Billing": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webinar Request": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mentorship": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Social": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Platform Update": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier1": {
+      "main": [
+        [
+          {
+            "node": "Upload Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark a message as read",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    "Claude Haiku 4.6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Invoice": {
+      "main": [
+        []
+      ]
+    },
+    "Alerts": {
+      "main": [
+        [
+          {
+            "node": "Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "91a8378d-d12c-45f1-8e4c-97d740a01329",
+  "meta": {
+    "templateId": "2740",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7d99b113824870e356016f1278cb900d6cde6456828bbb804d1a3d32ddcca910"
+  },
+  "id": "Z3UnKQIjsdSUcLij",
+  "tags": [
+    {
+      "updatedAt": "2025-08-21T10:51:33.988Z",
+      "createdAt": "2025-08-21T10:51:33.988Z",
+      "id": "gecFJE7wWNMIYcel",
+      "name": "Coastal Programs"
+    }
+  ]
+}

@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
       name: workflow.name,
       description: workflow.description,
       prompt: `Imported by LLM: ${workflow.name}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       config: JSON.stringify(workflow.config) as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       trigger: JSON.stringify(workflow.trigger || { type: 'manual', config: {} }) as any,
       status: 'draft',
     });

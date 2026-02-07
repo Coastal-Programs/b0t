@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,6 @@ import {
 import { Loader2, MessageSquare } from 'lucide-react';
 import { OutputRenderer } from './output-renderer';
 import { OutputDisplayConfig } from '@/lib/workflows/analyze-output-display';
-import { useState, useEffect } from 'react';
 import { ChatInterface } from './chat-interface';
 import { logger } from '@/lib/logger';
 
@@ -65,10 +65,12 @@ export function RunOutputModal({
   // Determine if this is a chat workflow
   const isChatWorkflow = triggerType === 'chat';
 
-  // Fetch conversations if this is a chat workflow
+  // Fetch conversations if this is a chat workflow - use queueMicrotask to avoid cascading renders
   useEffect(() => {
     if (open && isChatWorkflow && workflowId) {
-      setLoadingConversations(true);
+      queueMicrotask(() => {
+        setLoadingConversations(true);
+      });
       fetch(`/api/workflows/${workflowId}/conversations`)
         .then((res) => res.json())
         .then((data) => {
@@ -84,106 +86,112 @@ export function RunOutputModal({
     }
   }, [open, isChatWorkflow, workflowId]);
 
-  // For chat workflows, we show conversation history even without a specific run
-  if (!run && !isChatWorkflow) return null;
+  // Process workflow config and output (move external variable modifications to useMemo)
+  // Must be before early return to satisfy hooks rules
+  const { parsedConfig, outputDisplayHint, processedOutput, returnValue } = React.useMemo(() => {
+    // Extract outputDisplay config from workflow config if provided
+    // Transform from workflow JSON format to OutputDisplayConfig format
+    // workflowConfig might be: { config: { outputDisplay: {...} } } OR { steps: [...], outputDisplay: {...} }
+    // OR it might be a string that needs parsing
+    let config = workflowConfig;
 
-  // Extract outputDisplay config from workflow config if provided
-  // Transform from workflow JSON format to OutputDisplayConfig format
-  // workflowConfig might be: { config: { outputDisplay: {...} } } OR { steps: [...], outputDisplay: {...} }
-  // OR it might be a string that needs parsing
-  let parsedConfig = workflowConfig;
-
-  // If workflowConfig is a string, parse it
-  if (typeof workflowConfig === 'string') {
-    try {
-      parsedConfig = JSON.parse(workflowConfig);
-    } catch (error) {
-      logger.error({ error }, 'Failed to parse workflowConfig');
-      parsedConfig = undefined;
+    // If workflowConfig is a string, parse it
+    if (typeof workflowConfig === 'string') {
+      try {
+        config = JSON.parse(workflowConfig);
+      } catch (error) {
+        logger.error({ error }, 'Failed to parse workflowConfig');
+        config = undefined;
+      }
     }
-  }
 
-  // Try to get config object and outputDisplay
-  // Handle two cases: parsedConfig might be the full workflow object OR just the config object
-  const parsedConfigRecord = parsedConfig as Record<string, unknown> | undefined;
-  const hasConfigProperty = parsedConfigRecord?.config !== undefined;
-  const configObj = hasConfigProperty
-    ? (parsedConfigRecord.config as Record<string, unknown>)
-    : parsedConfigRecord;
+    // Try to get config object and outputDisplay
+    // Handle two cases: parsedConfig might be the full workflow object OR just the config object
+    const parsedConfigRecord = config as Record<string, unknown> | undefined;
+    const hasConfigProperty = parsedConfigRecord?.config !== undefined;
+    const configObj = hasConfigProperty
+      ? (parsedConfigRecord.config as Record<string, unknown>)
+      : parsedConfigRecord;
 
-  const outputDisplay = configObj?.outputDisplay as Record<string, unknown> | undefined;
+    const outputDisplay = configObj?.outputDisplay as Record<string, unknown> | undefined;
 
-  // Extract returnValue - check both correct location (config.returnValue) and legacy location (outputDisplay.returnValue)
-  const returnValue = (configObj?.returnValue as string | undefined) || (outputDisplay?.returnValue as string | undefined);
+    // Extract returnValue - check both correct location (config.returnValue) and legacy location (outputDisplay.returnValue)
+    const returnValue = (configObj?.returnValue as string | undefined) || (outputDisplay?.returnValue as string | undefined);
 
-  // Apply returnValue to extract the specific data from run.output if configured
-  // NOTE: As of the executor fix, run.output already contains the extracted value from returnValue
-  // This code handles backward compatibility for old runs that stored full context.variables
-  let processedOutput = run?.output;
-  if (returnValue && run?.output && typeof run.output === 'object' && !Array.isArray(run.output)) {
-    // Only try to extract if run.output is an object (not already an array)
-    // Parse template string like "{{sortedProducts}}" or "{{result.data}}"
-    const match = returnValue.match(/^\{\{([^}]+)\}\}$/);
-    if (match) {
-      const path = match[1].trim();
-      const keys = path.split('.');
-      let value: unknown = run.output;
+    // Apply returnValue to extract the specific data from run.output if configured
+    // NOTE: As of the executor fix, run.output already contains the extracted value from returnValue
+    // This code handles backward compatibility for old runs that stored full context.variables
+    let output = run?.output;
+    if (returnValue && run?.output && typeof run.output === 'object' && !Array.isArray(run.output)) {
+      // Only try to extract if run.output is an object (not already an array)
+      // Parse template string like "{{sortedProducts}}" or "{{result.data}}"
+      const match = returnValue.match(/^\{\{([^}]+)\}\}$/);
+      if (match) {
+        const path = match[1].trim();
+        const keys = path.split('.');
+        let value: unknown = run.output;
 
-      for (const key of keys) {
-        if (value && typeof value === 'object' && key in value) {
-          value = (value as Record<string, unknown>)[key];
-        } else {
-          // Path not found - this is expected when executor already extracted the value
-          // Only warn if the output doesn't look like it was already extracted
-          if (value === run?.output && typeof value === 'object' && !Array.isArray(value)) {
-            logger.warn({ path, returnValue, outputType: typeof value }, 'RunOutputModal: returnValue path not found in output, using full output');
+        for (const key of keys) {
+          if (value && typeof value === 'object' && key in value) {
+            value = (value as Record<string, unknown>)[key];
+          } else {
+            // Path not found - this is expected when executor already extracted the value
+            // Only warn if the output doesn't look like it was already extracted
+            if (value === run?.output && typeof value === 'object' && !Array.isArray(value)) {
+              logger.warn({ path, returnValue, outputType: typeof value }, 'RunOutputModal: returnValue path not found in output, using full output');
+            }
+            value = run?.output;
+            break;
           }
-          value = run?.output;
-          break;
         }
+
+        output = value;
+      }
+    } else if (returnValue && run?.output && Array.isArray(run.output)) {
+      // run.output is already the extracted array (new behavior after executor fix)
+      logger.debug({ returnValue, outputLength: run.output.length }, 'RunOutputModal: returnValue configured and run.output is already extracted array');
+      output = run.output;
+    } else if (returnValue && run?.output) {
+      // Only log if there's actual output but it couldn't be applied
+      logger.debug({ returnValue, hasOutput: !!run?.output, isObject: typeof run?.output === 'object' }, 'RunOutputModal: returnValue configured but not applied');
+    } else if (!returnValue && run?.output && typeof run.output === 'object' && !Array.isArray(run.output)) {
+      // No returnValue specified - auto-filter internal variables
+      logger.debug({}, 'RunOutputModal: No returnValue - applying auto-detection filter');
+      const internalKeys = ['user', 'trigger'];
+      const filteredOutput: Record<string, unknown> = {};
+
+      for (const [key, value] of Object.entries(run.output as Record<string, unknown>)) {
+        // Skip internal variables
+        if (internalKeys.includes(key)) continue;
+        // Skip credential variables
+        if (key.includes('_apikey') || key.includes('_api_key')) continue;
+        // Skip known credential platforms
+        if (['openai', 'anthropic', 'youtube', 'slack', 'twitter', 'github', 'reddit'].includes(key)) continue;
+
+        filteredOutput[key] = value;
       }
 
-      processedOutput = value;
-    }
-  } else if (returnValue && run?.output && Array.isArray(run.output)) {
-    // run.output is already the extracted array (new behavior after executor fix)
-    logger.debug({ returnValue, outputLength: run.output.length }, 'RunOutputModal: returnValue configured and run.output is already extracted array');
-    processedOutput = run.output;
-  } else if (returnValue && run?.output) {
-    // Only log if there's actual output but it couldn't be applied
-    logger.debug({ returnValue, hasOutput: !!run?.output, isObject: typeof run?.output === 'object' }, 'RunOutputModal: returnValue configured but not applied');
-  } else if (!returnValue && run?.output && typeof run.output === 'object' && !Array.isArray(run.output)) {
-    // No returnValue specified - auto-filter internal variables
-    logger.debug({}, 'RunOutputModal: No returnValue - applying auto-detection filter');
-    const internalKeys = ['user', 'trigger'];
-    const filteredOutput: Record<string, unknown> = {};
-
-    for (const [key, value] of Object.entries(run.output as Record<string, unknown>)) {
-      // Skip internal variables
-      if (internalKeys.includes(key)) continue;
-      // Skip credential variables
-      if (key.includes('_apikey') || key.includes('_api_key')) continue;
-      // Skip known credential platforms
-      if (['openai', 'anthropic', 'youtube', 'slack', 'twitter', 'github', 'reddit'].includes(key)) continue;
-
-      filteredOutput[key] = value;
+      // If we have filtered variables, use them; otherwise use original (backward compat)
+      if (Object.keys(filteredOutput).length > 0) {
+        logger.debug({ filteredKeys: Object.keys(filteredOutput) }, 'RunOutputModal: Filtered output keys');
+        output = filteredOutput;
+      }
     }
 
-    // If we have filtered variables, use them; otherwise use original (backward compat)
-    if (Object.keys(filteredOutput).length > 0) {
-      logger.debug({ filteredKeys: Object.keys(filteredOutput) }, 'RunOutputModal: Filtered output keys');
-      processedOutput = filteredOutput;
-    }
-  }
+    const hint = outputDisplay
+      ? ({
+          type: outputDisplay.type as string,
+          config: {
+            columns: outputDisplay.columns,
+          },
+        } as OutputDisplayConfig)
+      : undefined;
 
-  const outputDisplayHint = outputDisplay
-    ? ({
-        type: outputDisplay.type as string,
-        config: {
-          columns: outputDisplay.columns,
-        },
-      } as OutputDisplayConfig)
-    : undefined;
+    return { parsedConfig: config, outputDisplayHint: hint, processedOutput: output, returnValue };
+  }, [workflowConfig, run]);
+
+  // For chat workflows, we show conversation history even without a specific run
+  if (!run && !isChatWorkflow) return null;
 
   // Hide default close button for all output types (we have floating buttons now)
   const hasOutput = run?.status === 'success' && run.output;

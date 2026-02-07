@@ -1,0 +1,113 @@
+name: Gmail Auto-Labeling for Coastal Programs
+description: Automatically categorize incoming emails with AI and apply Gmail labels
+trigger: gmail
+gmailFilters:
+  label: inbox
+  isUnread: true
+gmailPollInterval: 60
+output: json
+returnValue: "{{result}}"
+steps:
+  - module: utilities.javascript.execute
+    id: prepare-email-data
+    inputs:
+      code: |
+        return {
+          subject: trigger.subject || "(no subject)",
+          from: trigger.from || "unknown",
+          hasAttachments: (trigger.attachments && trigger.attachments.length > 0) ? 'Yes' : 'No',
+          messageId: trigger.messageId,
+          body: trigger.body || ""
+        };
+    outputAs: emailData
+  - module: ai.ai-sdk.generateJSON
+    id: classify-category
+    inputs:
+      prompt: |
+        Classify this email into ONE of the following categories. Analyze the subject and sender to determine the best fit.
+
+        Email Details:
+        Subject: {{emailData.subject}}
+        From: {{emailData.from}}
+        Has Attachments: {{emailData.hasAttachments}}
+
+        Categories (return the exact category name):
+
+        1. Alerts - Error messages, failures, critical notifications from automations or dev tools. Examples: N8N workflow failed, GitHub Actions error, deployment failed, Google reviews alerts
+
+        2. Finance/Billing - Invoices, payment notifications, banking alerts, subscription charges. Examples: Stripe invoices, Wise Banking, Xero, DigitalOcean bills, Apple/Canva charges
+
+        3. Platform Updates - Tool notifications, new features, security updates. Examples: GitHub new feature, Supabase status, Netlify deployment notification
+
+        4. Reply - Emails requiring direct response: questions, meeting confirmations, decisions needed. If in doubt, choose Reply.
+
+        5. Waiting - Proposals sent waiting for response, follow-ups pending. Emails YOU sent that need follow-up.
+
+        6. Webinar Request - Speaking requests, podcast invitations, training events, panel invitations
+
+        7. Mentorship - Educational content from Dan Martell, Russell Brunson, Chris Bailey. Newsletters, course announcements, strategic insights.
+
+        8. Community - LinkedIn notifications, Twitter/X replies, Skool, Discord/Slack messages, YouTube comments
+
+        Return the category name EXACTLY as shown above.
+      model: claude-3-5-haiku-20241022
+      provider: anthropic
+      schema:
+        type: object
+        properties:
+          category:
+            type: string
+            enum:
+              - Alerts
+              - Finance/Billing
+              - Platform Updates
+              - Reply
+              - Waiting
+              - Webinar Request
+              - Mentorship
+              - Community
+        required:
+          - category
+      apiKey: "{{credential.anthropic_api_key}}"
+    outputAs: classification
+  - module: communication.gmail.addLabels
+    id: add-label
+    inputs:
+      messageId: "{{emailData.messageId}}"
+      labels:
+        - "{{classification.category}}"
+    outputAs: labeled
+  - module: utilities.javascript.execute
+    id: check-archive
+    inputs:
+      code: |
+        const shouldArchive = category !== "Reply";
+        return { shouldArchive };
+      context:
+        category: "{{classification.category}}"
+    outputAs: archiveDecision
+  - module: communication.gmail.archiveEmail
+    id: archive
+    inputs:
+      messageId: "{{emailData.messageId}}"
+    outputAs: archiveResult
+  - module: utilities.javascript.execute
+    id: build-response
+    inputs:
+      code: |
+        return {
+          success: true,
+          from: emailData.from,
+          subject: emailData.subject,
+          category: classification.category,
+          labeled: true,
+          attemptedArchive: archiveDecision.shouldArchive,
+          note: archiveDecision.shouldArchive
+            ? "Email labeled and archived"
+            : "Email labeled (Reply category - kept in inbox)"
+        };
+      context:
+        emailData: "{{emailData}}"
+        classification: "{{classification}}"
+        archiveDecision: "{{archiveDecision}}"
+    outputAs: result

@@ -111,7 +111,7 @@ export async function PATCH(
     }
 
     // Update organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any)
       .update(organizationsTable)
       .set({

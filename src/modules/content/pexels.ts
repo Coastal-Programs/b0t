@@ -26,7 +26,7 @@ const pexelsRateLimiter = createRateLimiter({
 });
 
 // Pexels circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createPexelsCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

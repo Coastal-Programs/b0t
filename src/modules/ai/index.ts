@@ -16,6 +16,7 @@ import * as aiAgent from './ai-agent';
 import * as aiAgentStream from './ai-agent-stream';
 import * as aiTools from './ai-tools';
 import * as cohere from './cohere';
+import * as memorySearch from './memory-search';
 
 // Vector Databases
 import * as pinecone from './pinecone';
@@ -39,6 +40,7 @@ export {
   aiAgentStream,
   aiTools,
   cohere,
+  memorySearch,
   pinecone,
   chroma,
   weaviate,
