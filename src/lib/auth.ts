@@ -354,7 +354,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.rememberMe = user.rememberMe ?? false;
-        token.isPlatformAdmin = !!(process.env.ADMIN_EMAIL && user.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
 
         // Set custom expiration based on remember me preference
         // If remember me is unchecked, expire after 24 hours instead of default 30 days
@@ -363,6 +362,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.exp = now + (24 * 60 * 60); // 24 hours from now
         }
       }
+
+      // Recompute isPlatformAdmin on every JWT refresh so changes to ADMIN_EMAIL take effect
+      token.isPlatformAdmin = !!(process.env.ADMIN_EMAIL && token.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
 
       // Load organization context if not already present
       // or if session is being updated

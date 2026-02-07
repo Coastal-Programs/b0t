@@ -108,10 +108,12 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Verify user has permission (must be owner or admin)
-    const userRole = await getUserRoleInOrganization(session.user.id, id);
-    if (userRole !== 'owner' && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only owners and admins can invite members' }, { status: 403 });
+    // Verify user has permission (must be owner, admin, or platform admin)
+    if (!session.user.isPlatformAdmin) {
+      const userRole = await getUserRoleInOrganization(session.user.id, id);
+      if (userRole !== 'owner' && userRole !== 'admin') {
+        return NextResponse.json({ error: 'Only owners and admins can invite members' }, { status: 403 });
+      }
     }
 
     // Generate invitation token
