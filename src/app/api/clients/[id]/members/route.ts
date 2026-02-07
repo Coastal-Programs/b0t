@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getOrganizationMembers, getUserRoleInOrganization } from '@/lib/organizations';
+import { getOrganizationMembers, getOrganizationById, getUserRoleInOrganization } from '@/lib/organizations';
 import { logger } from '@/lib/logger';
 import { db } from '@/lib/db';
-import { accountsTable, invitationsTable } from '@/lib/schema';
+import { accountsTable, usersTable, invitationsTable } from '@/lib/schema';
 import { inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { sendEmail, getResendFromEmail } from '@/modules/communication/email';
+import { getInvitationEmailHtml } from '@/lib/email-templates';
 
 /**
  * GET /api/clients/[id]/members
@@ -33,28 +35,32 @@ export async function GET(
     // Get all members with account details in a single query (fixes N+1 problem)
     const members = await getOrganizationMembers(id);
 
-    // Fetch all account details in one query
+    // Fetch account details and user details in parallel
     const userIds = members.map(m => m.userId);
-    const accounts = userIds.length > 0
-      ? await db
-          .select()
-          .from(accountsTable)
-          .where(inArray(accountsTable.userId, userIds))
-      : [];
+    const [accounts, users] = userIds.length > 0
+      ? await Promise.all([
+          db.select().from(accountsTable).where(inArray(accountsTable.userId, userIds)),
+          db.select().from(usersTable).where(inArray(usersTable.id, userIds)),
+        ])
+      : [[], []];
 
-    // Create lookup map for O(1) access
+    // Create lookup maps for O(1) access
     const accountMap = new Map(
       accounts.map(acc => [acc.userId, acc])
     );
+    const userMap = new Map(
+      users.map(u => [u.id, u])
+    );
 
-    // Map members with their account details
+    // Map members with their details (prefer usersTable for name/email)
     const membersWithDetails = members.map((member) => {
       const account = accountMap.get(member.userId);
+      const user = userMap.get(member.userId);
       return {
         id: member.id,
         userId: member.userId,
-        email: account?.account_name || member.userId,
-        name: account?.account_name,
+        email: user?.email || account?.account_name || member.userId,
+        name: user?.name || account?.account_name || undefined,
         role: member.role,
         joinedAt: member.joinedAt,
       };
@@ -131,12 +137,40 @@ export async function POST(
     // Generate invitation link
     const inviteUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3123'}/auth/register?token=${token}&email=${encodeURIComponent(email)}`;
 
-    // TODO: Send email with invitation link
+    // Send invitation email (graceful degradation — if sending fails, the invite record still exists)
+    let emailSent = false;
+    try {
+      const org = await getOrganizationById(id);
+      const orgName = org?.name || 'your organization';
+      const inviterName = session.user.name || session.user.email || 'A team member';
+      const fromAddress = await getResendFromEmail();
+      const html = getInvitationEmailHtml({
+        organizationName: orgName,
+        inviterName,
+        role,
+        inviteUrl,
+        expiresInDays: 7,
+      });
+
+      await sendEmail({
+        from: fromAddress,
+        to: email.toLowerCase(),
+        subject: `You've been invited to join ${orgName}`,
+        html,
+      });
+      emailSent = true;
+    } catch (emailError) {
+      logger.warn(
+        { error: emailError instanceof Error ? emailError.message : String(emailError), email, organizationId: id },
+        'Failed to send invitation email — invitation record created, link can be shared manually'
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Invitation created successfully',
-      inviteUrl, // Include URL in response for development
+      message: emailSent ? 'Invitation sent successfully' : 'Invitation created (email could not be sent — share the link manually)',
+      inviteUrl,
+      emailSent,
     });
   } catch (error) {
     const { id } = await params;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { updateOrganization, deleteOrganization } from '@/lib/organizations';
+import { updateOrganization, deleteOrganization, getUserRoleInOrganization } from '@/lib/organizations';
 import { db } from '@/lib/db';
 import { workflowsTable } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
@@ -22,6 +22,15 @@ export async function PATCH(
     }
 
     const { id } = await params;
+
+    // Check role: must be owner, admin, or platform admin
+    if (!session.user.isPlatformAdmin) {
+      const role = await getUserRoleInOrganization(session.user.id, id);
+      if (role !== 'owner' && role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
     const body = await request.json();
     const { name, status } = body;
 
@@ -88,6 +97,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+
+    // Check role: must be owner or platform admin
+    if (!session.user.isPlatformAdmin) {
+      const role = await getUserRoleInOrganization(session.user.id, id);
+      if (role !== 'owner') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
 
     // Delete the organization
     await deleteOrganization(id, session.user.id);

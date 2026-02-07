@@ -40,6 +40,7 @@ declare module 'next-auth' {
       id: string;
       organizationId: string;
       role: OrganizationRole;
+      isPlatformAdmin: boolean;
     } & DefaultSession['user'];
   }
 
@@ -58,6 +59,7 @@ declare module '@auth/core/jwt' {
     organizationId?: string;
     role?: OrganizationRole;
     rememberMe?: boolean;
+    isPlatformAdmin?: boolean;
   }
 }
 
@@ -341,6 +343,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role;
       }
 
+      // Add platform admin flag
+      session.user.isPlatformAdmin = token.isPlatformAdmin ?? false;
+
       return session;
     },
 
@@ -349,6 +354,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.rememberMe = user.rememberMe ?? false;
+        token.isPlatformAdmin = !!(process.env.ADMIN_EMAIL && user.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
 
         // Set custom expiration based on remember me preference
         // If remember me is unchecked, expire after 24 hours instead of default 30 days

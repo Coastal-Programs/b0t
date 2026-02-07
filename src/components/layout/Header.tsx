@@ -27,7 +27,7 @@ export function Header() {
   const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [mindMapOpen, setMindMapOpen] = useState(false);
   const { data: session, status } = useSession();
-  const { currentClient, clients, setCurrentClient, isLoading: clientsLoading } = useClient();
+  const { currentClient, clients, setCurrentClient, isLoading: clientsLoading, isPlatformAdmin } = useClient();
   const { display: weatherDisplay } = useWeather();
   // Initialize timezone once - use queueMicrotask to avoid cascading renders
   useEffect(() => {
@@ -84,8 +84,8 @@ export function Header() {
             </span>
           </div>
 
-          {/* System Status Badge - Only show in development or for admins */}
-          {(process.env.NODE_ENV === 'development' || !currentClient) && session?.user && (
+          {/* System Status Badge - Only show for platform admins */}
+          {isPlatformAdmin && session?.user && (
             <SystemStatusBadge />
           )}
 
@@ -109,50 +109,64 @@ export function Header() {
         <div className="flex items-center gap-3">
           {/* Client Switcher */}
           {session?.user && clients.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-xs text-gray-700 hover:text-gray-900"
-                  disabled={clientsLoading}
-                >
+            <>
+              {/* Non-admin with single org: just show the name, no dropdown */}
+              {!isPlatformAdmin && clients.length === 1 ? (
+                <div className="flex items-center h-8 px-2 text-xs text-gray-700">
                   <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="hidden sm:inline">
-                    {currentClient?.name || 'Admin'}
-                  </span>
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem
-                  onClick={() => setCurrentClient(null)}
-                  className="text-xs cursor-pointer"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>Admin</span>
-                    {!currentClient && (
-                      <span className="text-blue-500">✓</span>
+                  <span className="hidden sm:inline">{clients[0].name}</span>
+                </div>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-gray-700 hover:text-gray-900"
+                      disabled={clientsLoading}
+                    >
+                      <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                      <span className="hidden sm:inline">
+                        {currentClient?.name || 'Admin'}
+                      </span>
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px]">
+                    {isPlatformAdmin && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() => setCurrentClient(null)}
+                          className="text-xs cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>Admin</span>
+                            {!currentClient && (
+                              <span className="text-blue-500">✓</span>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
                     )}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {clients.map((client) => (
-                  <DropdownMenuItem
-                    key={client.id}
-                    onClick={() => setCurrentClient(client)}
-                    className="text-xs cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span>{client.name}</span>
-                      {currentClient?.id === client.id && (
-                        <span className="text-blue-500">✓</span>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {clients.map((client) => (
+                      <DropdownMenuItem
+                        key={client.id}
+                        onClick={() => setCurrentClient(client)}
+                        className="text-xs cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span>{client.name}</span>
+                          {currentClient?.id === client.id && (
+                            <span className="text-blue-500">✓</span>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
           )}
 
           {/* User Avatar Dropdown */}
@@ -171,28 +185,32 @@ export function Header() {
                 <DropdownMenuLabel className="font-normal">
                   <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setSettingsOpen(true)}
-                  className="text-xs cursor-pointer"
-                >
-                  <KeyRound className="h-3.5 w-3.5 mr-2" />
-                  Keys
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setMemorySettingsOpen(true)}
-                  className="text-xs cursor-pointer"
-                >
-                  <Brain className="h-3.5 w-3.5 mr-2" />
-                  Memories
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setMindMapOpen(true)}
-                  className="text-xs cursor-pointer"
-                >
-                  <Network className="h-3.5 w-3.5 mr-2" />
-                  Mind Map
-                </DropdownMenuItem>
+                {isPlatformAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setSettingsOpen(true)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <KeyRound className="h-3.5 w-3.5 mr-2" />
+                      Keys
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setMemorySettingsOpen(true)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <Brain className="h-3.5 w-3.5 mr-2" />
+                      Memories
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setMindMapOpen(true)}
+                      className="text-xs cursor-pointer"
+                    >
+                      <Network className="h-3.5 w-3.5 mr-2" />
+                      Mind Map
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => signOut({ callbackUrl: '/auth/signin' })}
@@ -225,9 +243,13 @@ export function Header() {
       </nav>
 
       {/* Dialogs rendered outside the dropdown */}
-      <PlatformSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <MemorySettingsDialog open={memorySettingsOpen} onOpenChange={setMemorySettingsOpen} />
-      <MindMapDialog open={mindMapOpen} onOpenChange={setMindMapOpen} />
+      {isPlatformAdmin && (
+        <>
+          <PlatformSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <MemorySettingsDialog open={memorySettingsOpen} onOpenChange={setMemorySettingsOpen} />
+          <MindMapDialog open={mindMapOpen} onOpenChange={setMindMapOpen} />
+        </>
+      )}
     </header>
   );
 }
