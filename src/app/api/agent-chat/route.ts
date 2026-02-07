@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { getAgentWorkspaceDir, initializeAgentWorkspace } from '@/lib/agent-workspace';
 import { expandSlashCommand } from '@/lib/slash-command-expander';
+import { MemoryManager } from '@/lib/memory/memory-manager';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -100,6 +101,22 @@ export async function POST(request: Request) {
             systemPrompt = fs.readFileSync(customPromptPath, 'utf-8');
           }
 
+          // Inject memory context into system prompt
+          try {
+            const memMgr = new MemoryManager(
+              session.user.id,
+              session.user.organizationId || undefined
+            );
+            const memoryContext = await memMgr.getFactsForContext();
+            if (memoryContext) {
+              systemPrompt = systemPrompt
+                ? `${systemPrompt}\n\n${memoryContext}`
+                : memoryContext;
+            }
+          } catch (memErr) {
+            logger.warn({ error: memErr }, 'Failed to load memory context - continuing without it');
+          }
+
           // Handle /clear command - clear context but keep visual history
           if (message.trim() === '/clear') {
             logger.info('🧹 /clear command - clearing SDK session');
@@ -134,6 +151,35 @@ export async function POST(request: Request) {
             // Send to client
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'content_block', block: clearMessage[0] })}\n\n`)
+            );
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+
+          // Handle memory commands
+          const memoryManager = new MemoryManager(
+            session.user.id,
+            session.user.organizationId || undefined
+          );
+
+          const trimmedMsg = message.trim();
+          if (trimmedMsg.startsWith('/remember ') || trimmedMsg.startsWith('/recall ') || trimmedMsg.startsWith('/forget ')) {
+            const memoryResult = await handleMemoryCommand(trimmedMsg, memoryManager);
+
+            const memoryBlock = [{ type: 'text', text: memoryResult }];
+            await db.insert(agentChatMessagesTable).values({
+              id: nanoid(),
+              sessionId,
+              role: 'assistant',
+              content: JSON.stringify(memoryBlock),
+              metadata: null,
+            });
+
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'content_block', block: memoryBlock[0] })}\n\n`)
             );
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
@@ -264,4 +310,73 @@ export async function POST(request: Request) {
     logger.error({ error }, 'Agent chat request error');
     return new Response('Internal server error', { status: 500 });
   }
+}
+
+/**
+ * Handle memory commands: /remember, /recall, /forget
+ */
+async function handleMemoryCommand(command: string, memoryManager: MemoryManager): Promise<string> {
+  const parts = command.split(' ');
+  const cmd = parts[0];
+  const rest = parts.slice(1).join(' ');
+
+  if (cmd === '/remember') {
+    // Format: /remember [category] [subject]: [content]
+    const colonIdx = rest.indexOf(':');
+    if (colonIdx === -1) {
+      return 'Usage: `/remember [category] [subject]: [content]`\n\nCategories: user_info, preferences, projects, people, work, notes, decisions';
+    }
+
+    const beforeColon = rest.substring(0, colonIdx).trim();
+    const content = rest.substring(colonIdx + 1).trim();
+    const spaceIdx = beforeColon.indexOf(' ');
+
+    if (spaceIdx === -1 || !content) {
+      return 'Usage: `/remember [category] [subject]: [content]`\n\nExample: `/remember preferences theme: dark mode`';
+    }
+
+    const category = beforeColon.substring(0, spaceIdx).trim();
+    const subject = beforeColon.substring(spaceIdx + 1).trim();
+
+    const validCategories = ['user_info', 'preferences', 'projects', 'people', 'work', 'notes', 'decisions'];
+    if (!validCategories.includes(category)) {
+      return `Invalid category "${category}". Valid categories: ${validCategories.join(', ')}`;
+    }
+
+    const result = await memoryManager.saveFact(category, subject, content);
+    return `Remembered: **${subject}** (${category})\n> ${content}\n\nFact ID: \`${result.id}\``;
+  }
+
+  if (cmd === '/recall') {
+    if (!rest.trim()) {
+      return 'Usage: `/recall [query]`\n\nExample: `/recall what are my notification preferences?`';
+    }
+
+    const results = await memoryManager.searchFacts(rest, 5);
+    if (results.length === 0) {
+      return `No memories found for "${rest}"`;
+    }
+
+    let response = `Found ${results.length} matching memories:\n\n`;
+    for (const r of results) {
+      const score = (r.score * 100).toFixed(0);
+      response += `- **${r.subject}** (${r.category}) [${score}%]\n  ${r.content}\n\n`;
+    }
+    return response;
+  }
+
+  if (cmd === '/forget') {
+    if (!rest.trim()) {
+      return 'Usage: `/forget [fact-id]`\n\nUse `/recall` first to find the fact ID.';
+    }
+
+    try {
+      await memoryManager.deleteFact(rest.trim());
+      return `Deleted memory fact \`${rest.trim()}\``;
+    } catch {
+      return `Failed to delete fact. Make sure the ID is correct.`;
+    }
+  }
+
+  return 'Unknown memory command.';
 }

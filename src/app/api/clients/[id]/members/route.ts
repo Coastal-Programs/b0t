@@ -116,7 +116,7 @@ export async function POST(
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await (db as any).insert(invitationsTable).values({
       id: invitationId,
       token,

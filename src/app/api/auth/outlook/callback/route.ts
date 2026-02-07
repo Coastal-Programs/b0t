@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { oauthStateTable, userCredentialsTable, accountsTable } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { encrypt } from '@/lib/encryption';
-import { getOAuthAppCredentials } from '@/lib/oauth-credential-helper';
+import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 import { randomUUID } from 'crypto';
 
 /**
- * Microsoft Outlook OAuth 2.0 Callback Endpoint
+ * Microsoft OAuth 2.0 Callback Endpoint
  *
- * Handles the callback from Microsoft after user authorization.
+ * Handles the callback from Microsoft after user authorization for multiple services
+ * (Outlook, Teams, OneDrive).
  *
  * Flow:
  * 1. Verify state parameter (CSRF protection)
@@ -56,32 +57,42 @@ export async function GET(request: NextRequest) {
 
     const userId = stateRecord.userId;
 
-    // Get Outlook OAuth app credentials from database
-    const [appCred] = await db
-      .select()
-      .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.platform, 'outlook_oauth_app'))
-      .limit(1);
-
-    if (!appCred) {
-      logger.error('Outlook OAuth app credentials not configured');
-      return NextResponse.redirect(
-        new URL('/dashboard/credentials?error=config_missing', request.url)
-      );
-    }
-
-    // Get client credentials
+    // Try platform-wide OAuth credentials (env vars) first
     let clientId: string;
     let clientSecret: string;
-    try {
-      const creds = getOAuthAppCredentials(appCred, 'Outlook');
-      clientId = creds.clientId;
-      clientSecret = creds.clientSecret;
-    } catch (error) {
-      logger.error({ error }, 'Failed to get Outlook OAuth app credentials');
-      return NextResponse.redirect(
-        new URL('/dashboard/credentials?error=config_missing', request.url)
-      );
+    const platformCreds = getPlatformOAuthCredentials('outlook');
+
+    if (platformCreds) {
+      // Use platform-wide credentials from environment variables
+      clientId = platformCreds.clientId;
+      clientSecret = platformCreds.clientSecret;
+      logger.info({ userId }, 'Using platform-wide Microsoft OAuth credentials for callback');
+    } else {
+      // Fallback: Get user-specific OAuth app credentials from database
+      const [appCred] = await db
+        .select()
+        .from(userCredentialsTable)
+        .where(eq(userCredentialsTable.platform, 'outlook_oauth_app'))
+        .limit(1);
+
+      if (!appCred) {
+        logger.error('Microsoft OAuth app credentials not configured');
+        return NextResponse.redirect(
+          new URL('/dashboard/credentials?error=config_missing', request.url)
+        );
+      }
+
+      // Get client credentials
+      try {
+        const creds = getOAuthAppCredentials(appCred, 'Microsoft');
+        clientId = creds.clientId;
+        clientSecret = creds.clientSecret;
+      } catch (error) {
+        logger.error({ error }, 'Failed to get Microsoft OAuth app credentials');
+        return NextResponse.redirect(
+          new URL('/dashboard/credentials?error=config_missing', request.url)
+        );
+      }
     }
 
     // Generate callback URL (must match the one in authorize route)
@@ -90,6 +101,7 @@ export async function GET(request: NextRequest) {
       : 'http://localhost:3123/api/auth/outlook/callback';
 
     // Exchange authorization code for tokens
+    // Note: scope parameter is omitted - the authorization code already contains the granted scopes
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: {
@@ -101,7 +113,6 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         redirect_uri: callbackUrl,
         grant_type: 'authorization_code',
-        scope: 'openid profile email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Send offline_access',
       }),
     });
 
@@ -158,6 +169,22 @@ export async function GET(request: NextRequest) {
     // Calculate expiry timestamp (Unix timestamp in seconds)
     const expiresAt = Math.floor(Date.now() / 1000) + expires_in;
 
+    // Parse metadata from OAuth state
+    let metadata: { requestedScopes?: string[]; service?: string; mode?: string; credentialId?: string; organizationId?: string } = {};
+    try {
+      if (stateRecord.metadata) {
+        metadata = typeof stateRecord.metadata === 'string'
+          ? JSON.parse(stateRecord.metadata)
+          : stateRecord.metadata;
+      }
+    } catch (error) {
+      logger.error({ error }, 'Failed to parse OAuth state metadata');
+    }
+
+    // Use the scopes the user originally requested, not what Microsoft returned
+    // (Microsoft may return additional scopes we didn't ask for)
+    const grantedScopes = metadata.requestedScopes || [];
+
     // Fetch user info from Microsoft Graph API
     const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: {
@@ -202,18 +229,66 @@ export async function GET(request: NextRequest) {
 
     const encryptedValue = encrypt(credentialData);
 
-    await db.insert(userCredentialsTable).values({
-      id: randomUUID(),
-      userId,
-      platform: 'outlook',
-      name: 'Microsoft Outlook',
-      type: 'oauth',
-      encryptedValue,
-    });
+    // If updating existing credential, update it; otherwise, insert new
+    if (metadata.mode === 'update' && metadata.credentialId) {
+      await db
+        .update(userCredentialsTable)
+        .set({
+          name: accountEmail, // Update name to reflect current connected email
+          encryptedValue,
+          metadata: {
+            selectedScopes: metadata.requestedScopes,
+            grantedScopes,
+            serviceConfig: metadata.service,
+            connectedEmail: accountEmail,
+          },
+        })
+        .where(eq(userCredentialsTable.id, metadata.credentialId));
+
+      logger.info(
+        { userId, provider: 'outlook', credentialId: metadata.credentialId },
+        'Microsoft OAuth permissions updated successfully'
+      );
+    } else {
+      await db.insert(userCredentialsTable).values({
+        id: randomUUID(),
+        userId,
+        organizationId: metadata.organizationId || null, // Set organization context if provided
+        platform: metadata.service || 'outlook',  // Use service ID as platform
+        name: accountEmail, // Use email address as credential name
+        type: 'oauth',
+        encryptedValue,
+        metadata: {
+          selectedScopes: metadata.requestedScopes,
+          grantedScopes,
+          serviceConfig: metadata.service,
+          connectedEmail: accountEmail,
+        },
+      });
+
+      logger.info({ userId, provider: 'outlook' }, 'Microsoft OAuth completed successfully');
+    }
 
     // Create or update account record (encrypt tokens for security)
     const encryptedAccessToken = encrypt(access_token);
     const encryptedRefreshToken = encrypt(refresh_token);
+
+    // Get existing scopes to merge with new scopes (multiple Microsoft services share same account)
+    const existingAccount = await db
+      .select({ scope: accountsTable.scope })
+      .from(accountsTable)
+      .where(
+        and(
+          eq(accountsTable.provider, 'outlook'),
+          eq(accountsTable.providerAccountId, providerAccountId)
+        )
+      )
+      .limit(1);
+
+    // Merge scopes: combine existing scopes with new granted scopes (deduplicate)
+    const existingScopes = existingAccount[0]?.scope ? existingAccount[0].scope.split(' ') : [];
+    const mergedScopes = Array.from(new Set([...existingScopes, ...grantedScopes]));
+    const mergedScopeString = mergedScopes.join(' ');
 
     await db
       .insert(accountsTable)
@@ -227,6 +302,7 @@ export async function GET(request: NextRequest) {
         access_token: encryptedAccessToken,
         refresh_token: encryptedRefreshToken,
         expires_at: expiresAt,
+        scope: mergedScopeString,
       })
       .onConflictDoUpdate({
         target: [accountsTable.provider, accountsTable.providerAccountId],
@@ -235,6 +311,7 @@ export async function GET(request: NextRequest) {
           refresh_token: encryptedRefreshToken,
           expires_at: expiresAt,
           account_name: accountEmail,
+          scope: mergedScopeString,
         },
       });
 

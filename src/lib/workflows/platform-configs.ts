@@ -147,17 +147,6 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     ]
   },
 
-  youtube: {
-    id: 'youtube',
-    name: 'YouTube (OAuth)',
-    category: 'Social Media',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
-  },
-
   youtube_apikey: {
     id: 'youtube_apikey',
     name: 'YouTube (API Key)',
@@ -323,6 +312,41 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     ]
   },
 
+gmail: {
+    id: 'gmail',
+    name: 'Gmail',
+    category: 'Communication',
+    fields: []
+  },
+
+  google_calendar: {
+    id: 'google_calendar',
+    name: 'Google Calendar',
+    category: 'Productivity',
+    fields: []
+  },
+
+  google_sheets: {
+    id: 'google_sheets',
+    name: 'Google Sheets',
+    category: 'Data',
+    fields: []
+  },
+
+  google_docs: {
+    id: 'google_docs',
+    name: 'Google Docs',
+    category: 'Content',
+    fields: []
+  },
+
+  google_drive: {
+    id: 'google_drive',
+    name: 'Google Drive',
+    category: 'Cloud Storage',
+    fields: []
+  },
+
   google_oauth_app: {
     id: 'google_oauth_app',
     name: 'Google OAuth App Credentials',
@@ -369,7 +393,7 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
 
   youtube_oauth_app: {
     id: 'youtube_oauth_app',
-    name: 'YouTube OAuth App Credentials',
+    name: 'YouTube (OAuth)',
     category: 'Social Media',
     fields: [
       {
@@ -446,17 +470,6 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     ]
   },
 
-  googlecalendar: {
-    id: 'googlecalendar',
-    name: 'Google Calendar (OAuth)',
-    category: 'Productivity',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true, description: 'OAuth token for personal calendars' }
-    ]
-  },
-
   googlecalendar_serviceaccount: {
     id: 'googlecalendar_serviceaccount',
     name: 'Google Calendar (Service Account)',
@@ -474,17 +487,6 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     fields: [
       { key: 'service_account_email', label: 'Service Account Email', type: 'email', required: true },
       { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'Paste the entire private key from your service account JSON (simpler for automation)' }
-    ]
-  },
-
-  googlesheets_oauth: {
-    id: 'googlesheets_oauth',
-    name: 'Google Sheets (OAuth)',
-    category: 'Data',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true, description: 'OAuth refresh token for user-level access' }
     ]
   },
 
@@ -1343,17 +1345,8 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
   calcom: {
     id: 'calcom',
     name: 'Cal.com',
-    category: 'Productivity',
-    fields: [
-      {
-        key: 'api_key',
-        label: 'API Key',
-        type: 'password',
-        required: true,
-        placeholder: 'cal_...',
-        description: 'API key from your Cal.com account settings'
-      }
-    ]
+    category: 'Calendar',
+    fields: []
   },
 
   // ============================================
@@ -1371,17 +1364,6 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         required: true,
         description: 'Service account credentials from Google Cloud Console'
       }
-    ]
-  },
-
-  googledrive_oauth: {
-    id: 'googledrive_oauth',
-    name: 'Google Drive (OAuth)',
-    category: 'Cloud Storage',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
     ]
   },
 
@@ -1424,9 +1406,16 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
   // ============================================
   // ENTERPRISE COMMUNICATION
   // ============================================
+  microsoft_teams: {
+    id: 'microsoft_teams',
+    name: 'Microsoft Teams',
+    category: 'Communication',
+    fields: []  // OAuth platform - uses Microsoft Graph OAuth
+  },
+
   microsoftteams: {
     id: 'microsoftteams',
-    name: 'Microsoft Teams',
+    name: 'Microsoft Teams (Manual)',
     category: 'Communication',
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
@@ -1439,6 +1428,16 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         description: 'Azure AD tenant ID'
       }
     ]
+  },
+
+  // ============================================
+  // CLOUD STORAGE
+  // ============================================
+  microsoft_onedrive: {
+    id: 'microsoft_onedrive',
+    name: 'Microsoft OneDrive',
+    category: 'Cloud Storage',
+    fields: []  // OAuth platform - uses Microsoft Graph OAuth
   },
 
   // ============================================
@@ -1552,20 +1551,6 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     ]
   },
 
-  google_oauth: {
-    id: 'google_oauth',
-    name: 'Google OAuth',
-    category: 'MCP',
-    fields: [
-      {
-        key: 'oauth_token',
-        label: 'OAuth Token',
-        type: 'password',
-        required: true,
-        description: 'Google OAuth access token for Drive access'
-      }
-    ]
-  },
 };
 
 /**

@@ -25,7 +25,7 @@ const mediumRateLimiter = createRateLimiter({
 });
 
 // Medium circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createMediumCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

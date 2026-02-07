@@ -26,7 +26,7 @@ const canvaRateLimiter = createRateLimiter({
 });
 
 // Canva circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createCanvaCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

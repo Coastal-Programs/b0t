@@ -5,756 +5,180 @@ description: "YOU MUST USE THIS SKILL when the user wants to CREATE or BUILD a N
 
 # Workflow Generator
 
-**Generate complete workflows from simple YAML plans - one command, zero errors.**
-
-## ⚠️ CRITICAL: Use API to Build Workflows
-
-**NEVER manually write workflow JSON!** Create a YAML plan and use the API:
-
-```bash
-curl -X POST http://localhost:3123/api/workflows/build-from-plan \
-  -H "Content-Type: application/json" \
-  -d '{"planPath": "plans/my-workflow.yaml"}'
-```
-
-**What the API does automatically (12-layer validation):**
-1. ✅ Validates modules exist in registry
-2. ✅ Validates parameter names match signatures
-3. ✅ Detects unsupported features (rest parameters, function-as-string)
-4. ✅ Auto-wraps params/options functions
-5. ✅ Builds workflow JSON
-6. ✅ Validates schema structure
-7. ✅ Validates trigger configuration (cron schedule, chat inputVariable)
-8. ✅ Validates returnValue variable exists
-9. ✅ Analyzes credential usage
-10. ✅ Detects unused variables (dead code)
-11. ✅ Runs dry-run test with mocks
-12. ✅ Automatically imports to database
-
-**Result: If it builds, it's immediately available in the app. Zero runtime errors.**
-
----
+Generate reliable workflows using progressive context disclosure - load only what's needed for the specific workflow type.
 
 ## Process Overview
 
 ```
-User Request → Ask Questions → Create YAML Plan → Call API → Done!
-                      ↑                                ↑
-              Clarify requirements        Automatic build & import via API
+1. Ask user questions → Get trigger type + requirements
+2. Load ONLY relevant reference docs for that trigger
+3. Build YAML plan with focused context
+4. Validate and import workflow
 ```
 
-**3 Simple Steps:**
-1. Ask clarifying questions (AskUserQuestion tool)
-2. Create plans/my-workflow.yaml based on answers (use Write tool)
-3. Call API: POST http://localhost:3123/api/workflows/build-from-plan with {"planPath": "plans/my-workflow.yaml"}
+## Step 1: Ask Clarifying Questions
 
-**Note:** The API returns the workflow JSON and automatically imports it to the database.
+Use AskUserQuestion tool to gather:
 
----
+**Required questions:**
+1. **Trigger type**: When should workflow run?
+   - Manual (on-demand, click to run)
+   - Webhook (HTTP endpoint, external trigger)
+   - Cron (scheduled, time-based)
+   - Chat (AI conversation)
+   - Chat-Input (form with user input fields)
+   - Telegram (bot messages)
+   - Discord (bot messages)
+   - Gmail (incoming emails)
+   - Outlook (incoming emails)
 
-## STEP 1: Ask Clarifying Questions
+2. **Output format**: How to display results?
+   - JSON, Table, List, Text, Markdown, Image, Images, Chart
 
-**ALWAYS start by asking questions using the AskUserQuestion tool.**
+**Optional based on workflow type:**
+- For webhooks: Need synchronous response? (Yes/No)
+- For social media: Need deduplication? (Yes/No)
+- For AI workflows: Which model? (GPT-4o-mini, Claude, etc.)
 
-### Question Templates
+## Step 2: Load Context Files
 
-**Always ask at minimum:**
-1. **Trigger type** - When workflow runs (manual/cron/webhook/chat)
-2. **Output format** - How to display results (json/table/text)
+**CRITICAL: Use Read tool to load these reference files in order:**
 
-**Additional questions based on workflow type:**
-- **Social Media**: Deduplication (Yes/No)
-- **AI Generation**: AI Model (GPT-4o-mini/Claude/etc)
-- **Data Processing**: Operations needed (filter/transform/aggregate)
+**1. Always read (required - load ALL of these):**
+- `.claude/skills/workflow-generator/references/yaml-format.md`
+  - Complete YAML structure specification
+  - Variable interpolation rules
+  - Output formats and returnValue
+  - Auto-wrapping explanation
 
-**Standard question template:**
+- `.claude/skills/workflow-generator/references/common-modules.md`
+  - All 16 module categories
+  - Module search instructions
+  - Common module patterns
 
-```typescript
-AskUserQuestion({
-  questions: [
-    {
-      question: "When should this workflow run?",
-      header: "Trigger",
-      multiSelect: false,
-      options: [
-        { label: "Manual", description: "On-demand (click Run)" },
-        { label: "Scheduled", description: "Automatic (cron)" },
-        { label: "Webhook", description: "External HTTP" },
-        { label: "Chat", description: "AI conversation" },
-        { label: "Telegram Bot", description: "Telegram messages" },
-        { label: "Discord Bot", description: "Discord messages" }
-      ]
-    },
-    {
-      question: "How should results be displayed?",
-      header: "Output",
-      multiSelect: false,
-      options: [
-        { label: "JSON", description: "Raw data format" },
-        { label: "Table", description: "Structured columns" },
-        { label: "List", description: "List of items" },
-        { label: "Text", description: "Plain text" },
-        { label: "Markdown", description: "Formatted text" }
-      ]
-    }
-  ]
-})
+- `.claude/skills/workflow-generator/references/common-mistakes.md`
+  - Top 10 mistakes and how to avoid them
+  - Rest parameters issue
+  - Variable naming errors
+  - YAML syntax gotchas
+
+**2. Read based on trigger type (required - load ONE):**
+- **Manual** → `.claude/skills/workflow-generator/references/manual-trigger.md`
+- **Webhook** → `.claude/skills/workflow-generator/references/webhook-trigger.md`
+- **Cron** → `.claude/skills/workflow-generator/references/cron-trigger.md`
+- **Chat** → `.claude/skills/workflow-generator/references/chat-trigger.md`
+- **Chat-Input** → `.claude/skills/workflow-generator/references/chat-input-trigger.md`
+- **Gmail** → `.claude/skills/workflow-generator/references/gmail-trigger.md`
+- **Outlook** → `.claude/skills/workflow-generator/references/outlook-trigger.md`
+- **Telegram/Discord** → Same as manual trigger (no special config needed)
+
+**Do NOT proceed without reading the core 3 files + your specific trigger file!**
+
+**3. Optionally read module category references (as needed):**
+
+Based on what modules the user needs, read relevant category references:
+- AI/ML workflows → `.claude/skills/workflow-generator/references/modules/ai-modules.md`
+- Social media → `.claude/skills/workflow-generator/references/modules/social-modules.md`
+- Email/messaging → `.claude/skills/workflow-generator/references/modules/communication-modules.md`
+- CRM/invoicing → `.claude/skills/workflow-generator/references/modules/business-modules.md`
+- Databases/sheets → `.claude/skills/workflow-generator/references/modules/data-modules.md`
+- E-commerce → `.claude/skills/workflow-generator/references/modules/ecommerce-modules.md`
+- Other categories → `.claude/skills/workflow-generator/references/modules/other-categories.md`
+
+These provide usage patterns, credential requirements, and examples for each category.
+
+## Step 3: Search for Modules (MANDATORY - DO NOT SKIP)
+
+**YOU MUST SEARCH FOR EVERY MODULE YOU PLAN TO USE. NEVER GUESS!**
+
+For each functionality needed, run:
+```bash
+npm run modules:search <keyword>
 ```
 
----
+**Example workflow needs:**
+"Webhook that adds numbers and generates AI summary"
 
-## STEP 2: Create Workflow Plan
+**YOU MUST RUN THESE SEARCHES:**
+1. `npm run modules:search add` → Get exact path for addition
+2. `npm run modules:search generate` → Get exact path for AI generation
+3. `npm run modules:search execute` → Get exact path for JavaScript
 
-Based on user answers, create a YAML plan file:
+**Extract from search results:**
+- `path` - Use this EXACTLY in your YAML (e.g., `utilities.array-utils.sum`)
+- `signature` - Shows parameter names (e.g., `sum(arr)` means use `arr:`, not `array:` or `numbers:`)
+- `wrapper` - If "options" or "params", inputs are auto-wrapped
+- `params` - Shows which are required vs optional
 
-### Plan Format
+**CONSEQUENCES OF NOT SEARCHING:**
+- ❌ Wrong module paths → Build fails
+- ❌ Wrong parameter names → Build fails
+- ❌ Missing required params → Build fails
+- ❌ Using rest parameter modules → Runtime fails
 
+**NO EXCEPTIONS - SEARCH FOR EVERYTHING!**
+
+## Step 4: Build YAML Plan
+
+Create `plans/{workflow-name}.yaml` using:
+- The trigger context from the reference file you read
+- Module search results
+- User's specific requirements
+
+**YAML Structure:**
 ```yaml
 name: Workflow Name
-description: Optional workflow description
-trigger: manual | cron | webhook | telegram | discord | chat | chat-input
-webhookSync: true | false     # Optional, for webhook triggers - returns workflow output instead of {"queued": true}
-webhookSecret: "secret-key"   # Optional, for webhook triggers - enables HMAC signature verification
-output: json | table | list | text | markdown | image | images | chart
-outputColumns: [col1, col2]  # Optional, for table/list output
-category: category-name       # Optional
-tags: [tag1, tag2]           # Optional
+description: Brief description
+trigger: webhook | cron | chat | manual | telegram | discord
+# Trigger-specific config (from reference file):
+webhookSync: true  # For webhooks
+webhookSecret: "secret"  # Optional
+output: json | table | text | markdown
+returnValue: "{{variableName}}"  # Optional - what to return
 steps:
   - module: category.module.function
-    id: unique-step-id
-    name: Human Readable Name (optional)
+    id: unique-id
     inputs:
-      param1: "{{variable}}"
-      param2: value
-    outputAs: variableName (optional)
+      param: "{{variable}}"
+    outputAs: variableName
 ```
 
-### Trigger Variables (CRITICAL)
+## Step 5: Build Workflow
 
-**Each trigger type provides specific variables accessible in workflows:**
-
-**Webhook triggers** provide `trigger` object with:
-- `trigger.body` - JSON request body (e.g., `trigger.body.email`, `trigger.body.numbers`)
-- `trigger.headers` - HTTP headers object
-- `trigger.query` - Query parameters object
-- `trigger.method` - HTTP method (POST, GET, etc.)
-- `trigger.url` - Request URL path
-
-**Chat triggers** provide:
-- `trigger.message` or `trigger.userInput` - User's message text
-- `trigger.conversationId` - Conversation ID
-
-**Telegram/Discord triggers** provide:
-- `trigger.message` - Message text
-- `trigger.userId` - User ID
-- `trigger.chatId` - Chat/channel ID
-
-**Manual/Cron triggers** provide:
-- No trigger data (start with hardcoded values or config)
-
-**IMPORTANT**: Always use `trigger.body.fieldName` for webhook data, NOT `webhookData.fieldName` or `input.fieldName`!
-
-### User Answer → Plan Mapping
-
-**Trigger Types (choose one):**
-- `manual` - On-demand execution (click Run button)
-- `cron` - Scheduled execution (set frequency in UI after import)
-- `webhook` - External HTTP trigger (no auth required)
-  - Async mode (default): Returns `{"queued": true}` immediately
-  - Sync mode: Add `?sync=true` to URL or set `sync: true` in trigger config to return actual workflow output
-- `telegram` - Telegram bot message trigger
-- `discord` - Discord bot message trigger
-- `chat` - AI chat conversation trigger
-- `chat-input` - Chat with structured input
-
-**Output Types (choose one):**
-- `json` - Raw JSON data
-- `table` - Structured table with columns
-- `list` - List of items
-- `text` - Plain text output
-- `markdown` - Formatted markdown
-- `image` - Single image display
-- `images` - Multiple images gallery
-- `chart` - Data visualization chart
-
-**Common mappings from user answers:**
-- "Manual" → `trigger: manual`
-- "Scheduled" → `trigger: cron`
-- "JSON" → `output: json`
-- "Table" → `output: table`
-
-**AI Model Answer (for AI workflows):**
-- "GPT-4o-mini" → Add step with `model: gpt-4o-mini, provider: openai`
-- "Claude Haiku" → Add step with `model: claude-haiku-4-5-20251001, provider: anthropic`
-
-**Deduplication Answer (for social workflows):**
-- "Yes" → Add storage steps (queryWhereIn, filter, insertRecord)
-- "No" → Skip storage steps
-
-### Finding Modules
-
-Search for modules you need:
+Run the build command:
 
 ```bash
-npm run modules:search <keyword> -- --limit 5
+npm run workflow:build plans/{workflow-name}.yaml
 ```
 
-Use the `path` from search results as the `module` in your plan.
+The build process:
+- Auto-fixes common issues
+- Validates all modules exist
+- Validates parameters
+- Runs dry-run test
+- Imports to database automatically
 
-### Available Module Categories
+## Step 6: Report Success
 
-**Utilities (No API Keys Required):**
-- `utilities.math` - 20+ operations (add, subtract, multiply, divide, max, min, round, floor, ceil, abs, power, sqrt, etc.)
-- `utilities.array-utils` - 30+ operations (first, last, sort, filter, group, pluck, sum, average, unique, flatten, chunk, etc.)
-- `utilities.string-utils` - 15+ operations (toSlug, camelCase, pascalCase, truncate, capitalize, stripHtml, isEmail, etc.)
-- `utilities.datetime` - 20+ operations (now, format, parse, add/subtract days/hours, comparisons, start/end of day, etc.)
-- `utilities.json-transform` - 15+ operations (parse, stringify, get, set, pick, omit, merge, flatten, unflatten, etc.)
-- `utilities.csv` - 5+ operations (parse, stringify, csvToJson, jsonToCsv, etc.)
-- `utilities.xml` - 10+ operations (parse, build, validate, extract, etc.)
-- `utilities.validation` - 5+ operations (validateRequired, validateTypes, validateEmail, validateUrl, etc.)
-- `utilities.aggregation` - 7+ operations (median, variance, stdDev, percentile, mode, etc.)
-- `utilities.filtering` - 5+ operations (filterByCondition, findByCondition, containsAll, containsAny, etc.)
-- `utilities.batching` - 5+ operations (chunk, createBatches, paginate, etc.)
-- `utilities.control-flow` - 10+ operations (conditional, switchCase, ifElse, partitionByCondition, tryCatch, retry, sleep, etc.)
-- `utilities.javascript` - 7+ operations (execute, filterArray, mapArray, reduceArray, evaluateExpression, etc.)
-- `utilities.http` - 5+ operations (httpGet, httpPost, httpPut, httpDelete, httpRequest, etc.)
-
-**AI (Requires API Keys):**
-- `ai.ai-sdk` - generateText, chat, streamGeneration, generateJSON, etc.
-
-**Data (Database Access):**
-- `data.drizzle-utils` - queryWhereIn, insertRecord, updateRecord, deleteRecord, etc.
-
-**Social Media (Requires Platform Credentials):**
-- `social.twitter.*`, `social.reddit.*`, `social.linkedin.*`, etc.
-
-Use `npm run modules:search <keyword>` to find specific modules.
-
-### Example Plans
-
-**Simple Math Workflow:**
-```yaml
-name: Test Math Utilities
-trigger: manual
-output: json
-steps:
-  - module: utilities.javascript.evaluateExpression
-    id: setup-data
-    inputs:
-      expression: "({numbers: [1, 2, 3, 4, 5]})"
-    outputAs: data
-
-  - module: utilities.math.max
-    id: calc-max
-    inputs:
-      numbers: "{{data.numbers}}"
-    outputAs: maximum
-
-  - module: utilities.array-utils.sum
-    id: calc-sum
-    inputs:
-      arr: "{{data.numbers}}"
-```
-
-**AI Content Generation:**
-```yaml
-name: Generate Blog Post
-trigger: manual
-output: text
-steps:
-  - module: ai.ai-sdk.generateText
-    id: generate-content
-    inputs:
-      prompt: "Write a blog post about {{topic}}"
-      model: gpt-4o-mini
-      provider: openai
-```
-
-**Webhook with Synchronous Response:**
-```yaml
-name: Data Validation API
-description: Webhook that validates and processes data, returns results synchronously
-trigger: webhook
-webhookSync: true          # Enable sync mode - returns output instead of {"queued": true}
-webhookSecret: "my-secret" # Optional - enables HMAC signature verification
-output: json
-returnValue: "{{validationResult}}"
-steps:
-  # 1. Validate incoming data
-  # CRITICAL: Use trigger.body to access webhook POST data
-  - module: utilities.javascript.execute
-    id: validate-data
-    inputs:
-      code: |
-        const errors = [];
-        if (!trigger.body.email || !trigger.body.email.includes('@')) {
-          errors.push('Invalid email');
-        }
-        if (!trigger.body.age || trigger.body.age < 18) {
-          errors.push('Age must be 18+');
-        }
-        return {
-          valid: errors.length === 0,
-          errors: errors,
-          data: trigger.body
-        };
-    outputAs: validation
-
-  # 2. Process if valid, return error if not
-  - module: utilities.javascript.execute
-    id: process-result
-    inputs:
-      code: |
-        if (!validation.valid) {
-          return {
-            status: 'error',
-            errors: validation.errors
-          };
-        }
-        return {
-          status: 'success',
-          message: 'Data validated successfully',
-          processedAt: new Date().toISOString()
-        };
-      context:
-        validation: "{{validation}}"
-    outputAs: validationResult
-
-# Usage:
-# POST /api/workflows/{id}/webhook?sync=true
-# Body: {"email": "test@example.com", "age": 25}
-# Response: {"status": "success", "message": "...", "processedAt": "..."}
-```
-
-**Complex Data Pipeline (Multi-step transformation):**
-```yaml
-name: Data Processing Pipeline
-trigger: manual
-output: table
-outputColumns: [id, name, category, score]
-steps:
-  # 1. Generate test data
-  - module: utilities.javascript.evaluateExpression
-    id: raw-data
-    inputs:
-      expression: "([{id: 1, name: 'Item A', value: 100, type: 'premium'}, {id: 2, name: 'Item B', value: 50, type: 'basic'}])"
-    outputAs: data
-
-  # 2. Filter high-value items
-  - module: utilities.filtering.filterArrayByCondition
-    id: filter-items
-    inputs:
-      items: "{{data}}"
-      field: value
-      operator: ">"
-      value: 75
-    outputAs: filtered
-
-  # 3. Transform data structure
-  - module: utilities.javascript.execute
-    id: transform
-    inputs:
-      code: "return items.map(item => ({id: item.id, name: item.name, category: item.type, score: item.value / 10}))"
-      context:
-        items: "{{filtered}}"
-    outputAs: transformed
-
-  # 4. Sort by score
-  - module: utilities.array-utils.sortBy
-    id: sort-results
-    inputs:
-      arr: "{{transformed}}"
-      key: score
-      order: desc
-    outputAs: finalResults
-```
-
-**Social Media with Deduplication:**
-```yaml
-name: Reply to Tweets
-trigger: cron
-output: table
-steps:
-  - module: social.twitter.searchTweets
-    id: search-tweets
-    inputs:
-      query: "AI automation"
-      maxResults: 10
-    outputAs: tweets
-
-  - module: utilities.array-utils.pluck
-    id: extract-ids
-    inputs:
-      arr: "{{tweets}}"
-      key: id
-    outputAs: tweetIds
-
-  - module: data.drizzle-utils.queryWhereIn
-    id: check-replied
-    inputs:
-      workflowId: "{{workflowId}}"
-      tableName: replied_tweets
-      column: tweet_id
-      values: "{{tweetIds}}"
-    outputAs: repliedIds
-
-  - module: utilities.filtering.filterArrayByCondition
-    id: filter-new
-    inputs:
-      items: "{{tweets}}"
-      field: id
-      operator: not in
-      value: "{{repliedIds}}"
-    outputAs: newTweets
-
-  - module: ai.ai-sdk.generateText
-    id: generate-reply
-    inputs:
-      prompt: "Write a reply to: {{newTweets[0].text}}"
-      model: gpt-4o-mini
-      provider: openai
-    outputAs: reply
-
-  - module: social.twitter.replyToTweet
-    id: post-reply
-    inputs:
-      tweetId: "{{newTweets[0].id}}"
-      text: "{{reply.content}}"
-
-  - module: data.drizzle-utils.insertRecord
-    id: store-replied
-    inputs:
-      workflowId: "{{workflowId}}"
-      tableName: replied_tweets
-      data:
-        tweet_id: "{{newTweets[0].id}}"
-      ttl: 2592000
-```
-
----
-
-## STEP 3: Build Workflow
-
-```bash
-npm run workflow:build plans/workflow-plan.yaml
-```
-
-**Validation Output Example:**
-```
-🔍 Validating 5 steps...
-   ✅ Step 1 ("setup-data") validated
-   ✅ Step 2 ("calc-max") validated
-   ... (all steps)
-✅ All steps validated successfully!
-
-🔍 Validating trigger configuration...
-   ✅ Cron schedule valid: "0 * * * *"
-
-🔍 Validating returnValue...
-   ✅ ReturnValue variable "result" is produced by step: final-step
-
-🔍 Analyzing credential usage...
-   📋 Credentials used: openai_api_key
-   ⚠️  Undocumented credentials: openai_api_key
-
-🔍 Analyzing data flow...
-   ⚠️  Unused variables: tempVar
-
-🧪 Running dry-run test...
-   Step 1/5: setup-data ✅
-   Step 2/5: calc-max ✅
-   ... (all steps execute with mocks)
-✅ Dry-run completed successfully!
-
-✅ Workflow imported successfully!
-🎉 View at: http://localhost:3123/dashboard/workflows
-```
-
-**If errors exist:**
-```
-❌ Step "calc-max": Module "utilities.math.max" uses rest parameters (...) which are not supported
-   💡 Use utilities.array-utils.max instead
-
-❌ ReturnValue references "{{nonExistent}}" but no step produces it
-
-❌ Dry-run failed: Step "step2" - Unresolved variable {{undefinedVar}}
-
-Workflow NOT imported - fix errors first
-```
-
----
+Tell user:
+- Workflow name and ID
+- How to access it
+- How to test it (if webhook, provide curl command)
 
 ## Critical Rules
 
-1. **ALWAYS ask questions first** - Use AskUserQuestion tool
-2. **ALWAYS use workflow:build** - Never manually write JSON
-3. **Search for modules** - Use `npm run modules:search` to find module paths
-4. **Create YAML plan** - Simple, readable format
-5. **Auto-wrapping works** - Don't wrap params/options manually, script does it
-6. **Expect zero errors** - Plan builder validates everything
+1. **ALWAYS read the trigger reference file** - Don't guess syntax
+2. **Use exact variable names from reference** - e.g., `trigger.body`, not `webhookData`
+3. **One example per trigger type** - Reference files have complete working examples
+4. **Keep it simple** - Don't add unnecessary steps
+5. **Test with dry-run** - Build script validates everything
 
----
+## Error Handling
 
-## Common Patterns
+If build fails:
+- Check error message
+- Re-read reference file for correct syntax
+- Fix YAML and rebuild
+- Don't retry more than 2 times - ask user for clarification
 
-### Pattern: Social Media Deduplication
-
-**Steps needed:**
-1. Search/fetch items
-2. Extract IDs (pluck)
-3. Check storage (queryWhereIn)
-4. Filter new items
-5. Process new items
-6. Store IDs (insertRecord with TTL)
-
-### Pattern: AI Content Generation
-
-**Steps needed:**
-1. Prepare input data
-2. Generate with ai.ai-sdk.generateText
-3. Extract content (.content property)
-4. Return or post
-
----
-
-## Advanced Features
-
-### Custom JavaScript Logic
-
-For complex operations that need functions (filter, map, transform), use JavaScript modules:
-
-**Filter array with custom logic:**
-```yaml
-- module: utilities.javascript.filterArray
-  id: filter-items
-  inputs:
-    items: "{{data}}"
-    code: "return item.score > 80"  # Custom condition
-```
-
-**Map/transform array:**
-```yaml
-- module: utilities.javascript.mapArray
-  id: transform-items
-  inputs:
-    items: "{{data}}"
-    code: "return { id: item.id, value: item.value * 2 }"
-```
-
-**Reduce array:**
-```yaml
-- module: utilities.javascript.reduceArray
-  id: sum-values
-  inputs:
-    items: "{{data}}"
-    initialValue: 0
-    code: "return accumulator + item.value"
-```
-
-**Any custom logic:**
-```yaml
-- module: utilities.javascript.execute
-  id: custom-logic
-  inputs:
-    code: "return data.filter(x => x > 5).map(x => x * 2)"
-    context:
-      data: "{{numbers}}"
-```
-
-### ReturnValue (Optional)
-
-The builder auto-sets `returnValue` to the last step's `outputAs`:
-
-```yaml
-steps:
-  - module: utilities.math.add
-    id: final-calc
-    outputAs: result  # Auto-set as returnValue
-```
-
-**Custom returnValue:**
-```yaml
-returnValue: "{{customVariable}}"  # Override auto-detection
-steps:
-  # ...
-```
-
-### Trigger Configuration
-
-**Cron triggers** auto-get `schedule: "0 * * * *"` (hourly)
-**Chat triggers** auto-get `inputVariable: "userInput"`
-
-Customize in UI after import.
-
----
-
-## Common Issues & Solutions
-
-### ❌ Rest Parameters (Spread)
-**Problem:** Some modules use `...param` (rest parameters) which don't work in workflows
-**Example:** `utilities.math.max(...numbers)` expects individual arguments
-
-**Solution:** Use array-utils versions instead
-```yaml
-# ❌ Wrong - uses rest parameters:
-- module: utilities.math.max
-  inputs:
-    numbers: [1, 2, 3]  # Won't work!
-
-# ✅ Correct - takes array:
-- module: utilities.array-utils.max
-  inputs:
-    arr: [1, 2, 3]
-```
-
-**Other affected modules:** `math.min`, `array-utils.intersection`, `array-utils.union`, `json-transform.deepMerge`, `control-flow.coalesce`
-
-### ❌ JavaScript Context
-**Problem:** `filterArray/mapArray` only provide `{item, index, items}`, no custom context
-
-**Solution:** Use `javascript.execute` for custom context
-```yaml
-# ❌ Wrong - context not supported:
-- module: utilities.javascript.filterArray
-  inputs:
-    items: "{{data}}"
-    code: "return item > threshold"  # threshold undefined!
-
-# ✅ Correct - use execute with context:
-- module: utilities.javascript.execute
-  inputs:
-    code: "return data.filter(x => x > threshold)"
-    context:
-      data: "{{data}}"
-      threshold: 50
-```
-
-### ❌ Table Output Structure
-**Problem:** Table output needs array of objects, not complex nested object
-
-**Solution:** Point returnValue to the array
-```yaml
-# ❌ Wrong:
-returnValue: "{{complexObject}}"  # Returns {posts: [...], meta: {...}}
-
-# ✅ Correct:
-returnValue: "{{complexObject.posts}}"  # Returns just the array
-```
-
----
-
-## Modules That Use Wrappers (Auto-Wrapped)
-
-**Options wrapper** (inputs wrapped in `options: {...}`):
-- All `ai.ai-sdk.*` functions (generateText, chat, etc.)
-- All `utilities.javascript.*` functions (execute, filterArray, mapArray, etc.)
-
-**Params wrapper** (inputs wrapped in `params: {...}`):
-- All `data.drizzle-utils.*` functions (queryWhereIn, insertRecord, etc.)
-
-**Direct parameters (no wrapper needed):**
-- All `utilities.math.*` functions
-- All `utilities.array-utils.*` functions
-- All `utilities.string-utils.*` functions
-- All `utilities.datetime.*` functions
-- All `utilities.json-transform.*` functions
-- All `utilities.csv.*`, `xml.*`, `validation.*`, etc.
-
-**The builder detects wrapper requirements automatically - just write inputs directly in YAML!**
-
----
-
-## Tips
-
-- **Module search**: `npm run modules:search <keyword>` to find module paths
-- **Rest parameters**: Use `array-utils.*` versions, not `math.*` for max/min
-- **Wrapper modules**: AI SDK, drizzle-utils, JavaScript modules - automatically wrapped
-- **JavaScript code**: Use `javascript.execute` for custom context, `filterArray/mapArray` for simple operations
-- **Storage**: Always use `{{workflowId}}` in storage operations
-- **Variable references**: Use `{{variableName}}` or `{{variableName.property}}`
-- **ReturnValue**: Auto-set from last `outputAs`, or specify custom
-- **Credentials**: Add to `metadata.requiresCredentials` for documentation
-- **Plans directory**: Always save plans in `plans/` directory
-- **YAML types**: Use `{}` for objects, `[]` for arrays (not `"{}"` or `"[]"` strings)
-
----
-
-## Full Example Session
-
-**User**: "Create a workflow to calculate statistics on numbers"
-
-**LLM Action 1**: Ask questions
-```typescript
-AskUserQuestion({
-  questions: [
-    { question: "When should this run?", header: "Trigger", ... },
-    { question: "Output format?", header: "Output", ... }
-  ]
-})
-```
-
-**User Answers**: "Manual", "JSON"
-
-**LLM Action 2**: Create plan
-```yaml
-# workflow-plan.yaml
-name: Calculate Number Statistics
-trigger: manual
-output: json
-steps:
-  - module: utilities.javascript.evaluateExpression
-    id: setup-numbers
-    inputs:
-      expression: "([1, 2, 3, 4, 5, 10, 20, 30])"
-    outputAs: numbers
-
-  - module: utilities.math.max
-    id: calc-max
-    inputs:
-      numbers: "{{numbers}}"
-    outputAs: maximum
-
-  - module: utilities.math.min
-    id: calc-min
-    inputs:
-      numbers: "{{numbers}}"
-    outputAs: minimum
-
-  - module: utilities.array-utils.average
-    id: calc-avg
-    inputs:
-      arr: "{{numbers}}"
-    outputAs: average
-
-  - module: utilities.aggregation.median
-    id: calc-median
-    inputs:
-      numbers: "{{numbers}}"
-    outputAs: median
-```
-
-**LLM Action 3**: Build workflow
-```bash
-npm run workflow:build plans/workflow-plan.yaml
-```
-
-**Output**:
-```
-✅ All steps validated
-✅ Workflow created and imported!
-   View at: http://localhost:3123/dashboard/workflows
-```
-
-**LLM Response**: "✅ Workflow 'Calculate Number Statistics' created with 5 steps! All modules validated. Ready to use at http://localhost:3123/dashboard/workflows"
-
----
-
-## Advantages
-
-✅ **Simple** - One YAML file, one command
-✅ **Safe** - All validation automatic
-✅ **Fast** - Zero error iterations
-✅ **Clear** - YAML is readable
-✅ **Smart** - Auto-wraps params/options
-
-**Use workflow:build for all workflow generation!**
+**The key insight:** The LLM loads context on-demand by reading reference files, just like reading any other file in the codebase.

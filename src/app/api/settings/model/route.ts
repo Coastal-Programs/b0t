@@ -18,7 +18,7 @@ export async function GET() {
     }
 
     // Fetch model setting from database
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const settings = await (db as any)
       .select()
       .from(appSettingsTable)
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if setting exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const existing = await (db as any)
       .select()
       .from(appSettingsTable)
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     if (existing.length > 0) {
       // Update existing
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (db as any)
         .update(appSettingsTable)
         .set({
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         .where(eq(appSettingsTable.key, MODEL_SETTING_KEY));
     } else {
       // Insert new
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (db as any).insert(appSettingsTable).values({
         key: MODEL_SETTING_KEY,
         value: model,

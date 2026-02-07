@@ -1,0 +1,724 @@
+{
+  "name": "Blog Content Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtDayOfMonth": 15,
+              "triggerAtHour": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        0
+      ],
+      "id": "63586587-0b70-4872-984f-106db94b76c6",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app6RiW6cFDuFR3QL",
+          "mode": "list",
+          "cachedResultName": "Coastal Programs",
+          "cachedResultUrl": "https://airtable.com/app6RiW6cFDuFR3QL"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblgzbFPCEK9Z1Q34",
+          "mode": "list",
+          "cachedResultName": "Website Blog",
+          "cachedResultUrl": "https://airtable.com/app6RiW6cFDuFR3QL/tblgzbFPCEK9Z1Q34"
+        },
+        "filterByFormula": "{Status} = \"Draft\"",
+        "returnAll": false,
+        "limit": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        96,
+        0
+      ],
+      "id": "bf94622c-03d3-43c2-9e19-786338f26c5b",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "X86fCGgJFYNZ8V76",
+          "name": "All Bases"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=STEP 1: Call the 'Writing Guidelines' tool NOW.\n\nSTEP 2: Write a blog post about this topic:\n\n{{ $('Search records').item.json['Blog Topic'] }}\n\nFollow ALL guidelines from the tool. Output the blog post content immediately with no commentary."
+            }
+          ]
+        },
+        "options": {
+          "system": "= You are Sienna Harper, digital marketing strategist at Coastal Programs. Former hospitality operations manager from Margaret River who lived operational chaos firsthand. Write in warm, direct Australian English with zero corporate BS.",
+          "webSearch": true,
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "e1468ff0-d777-41d8-afa7-8163d6872f42",
+      "name": "Content Writer",
+      "credentials": {
+        "anthropicApi": {
+          "id": "4p2luAzImMR8m38g",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Blog writing voice and style rules for Coastal Programs. Contains banned words (AI detection + corporate buzzwords), Sienna Harper's authentic voice requirements, Features→Benefits→Outcomes translation, and WAVE Framework integration. Call this BEFORE generating blog content to ensure proper voice and avoid credibility-killing language.",
+        "jsCode": "return `# Blog Content Rules - Sienna Harper\n\n  ## Voice: Warm, Direct, Quantified\n  Former hospitality ops manager. No corporate BS.\n\n  ## BANNED WORDS (Never Use)\n  ### Tier 1 - AI Detection:\n  delve, navigate, robust, leverage, seamless, comprehensive, holistic, \n  \"in today's fast-paced world\", \"it's important to note\"\n\n  ### Tier 2 - Credibility Killers:\n  circle back, synergy, optimize, streamline, thought leadership,\n  digital transformation, game-changer, unlock potential\n\n  ## Translation Table\n  Instead of \"optimize workflows\" → \"make processes faster\"\n  Instead of \"leverage solutions\" → \"use what works\"\n  Instead of \"transformative outcomes\" → \"save 15 hours per week\"\n\n  ## Features → Benefits → Outcomes\n  ❌ \"Build Airtable database with N8N\"\n  ✅ \"Save 10 hours/week, handle 30% more clients without hiring\"\n\n  ## Sienna's Style:\n  - Contractions (don't, won't, you're) - AI avoids these\n  - Specific numbers (15 hours, $4-6k, 30% more)\n  - Aussie phrases where natural (\"reckon\", \"sorted\")\n  - Empathetic: \"I get it—you're drowning\"\n  - Reference hospitality background when relevant\n\n  ## Length: 200-400 words (max 500)\n\n  ## WAVE Framework™: Mention when discussing solutions\n  W: Workflow Audit, A: Architect Solutions, V: Validate, E: Evolve\n  `;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        208
+      ],
+      "id": "1edb890e-7710-4d5f-87dc-2e88f02a976a",
+      "name": "Writing Guidelines"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=STEP 1: Call the 'Formatting Rules' tool NOW.\n\nSTEP 2: Call the 'Internal Link Strategy' tool NOW.\n\nSTEP 3: Format this blog post:\n\n{{ $json.content[0].text }}\n\nFollow ALL rules from the tools. Add 2-4 contextual internal links. Output the formatted post immediately with no commentary."
+            }
+          ]
+        },
+        "options": {
+          "system": "=You are an SEO formatting specialist at Coastal Programs. Format content for GEO performance while keeping it scannable for time-poor business owners. Australian English.",
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        528,
+        0
+      ],
+      "id": "199c2126-7676-4bea-ae39-0216407a18bc",
+      "name": "SEO Formatter",
+      "credentials": {
+        "anthropicApi": {
+          "id": "4p2luAzImMR8m38g",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=Blog post structure and formatting requirements for Coastal Programs. Defines TLDR length (50-75 words), H2 question formats (3-4 required), paragraph limits (2-3 sentences), bullet point styling, and GEO optimization checklist. Call this to format raw blog content into scannable structure.",
+        "jsCode": "const rules = `# Formatting Rules - Blog Structure\n\n  ## Post Structure Template\n\n  # [H1: Question-Format Title]\n  **Read time:** X min read\n\n  ## TLDR\n  [50-75 words: Direct answer + quantified cost + solution hint]\n\n  ## [H2: Sub-question 1]\n  [Content with bullets/bold]\n\n  ## [H2: Sub-question 2]\n  [Content]\n\n  ## [H2: Sub-question 3]\n  [Content]\n\n  ## [H2: Sub-question 4 - WAVE Framework]\n  [Content mentioning WAVE Framework™]\n\n  ---\n\n  ## Core Constraints\n  - Target: 200-400 words total\n  - Absolute max: 500 words\n  - Minimum: 180 words\n\n  ## TLDR Section (REQUIRED)\n  - Length: 50-75 words\n  - Position: Immediately after title/read time\n  - Format: 2-3 complete sentences\n  - Content: Direct answer → Quantified cost → Solution hint\n  - NO internal links in TLDR\n\n  ## H2 Sections (3-4 REQUIRED)\n  Standard question formats:\n  1. \"What does [problem] actually look like?\"\n  2. \"Why does this happen?\"\n  3. \"What does [problem] actually cost?\"\n  4. \"How do I fix [problem]?\"\n\n  Always include WAVE Framework™ in final H2.\n\n  ## Structured Elements\n  - Bullet points with bold concepts (use hyphens -)\n  - 3-5 bullets per list\n  - Bold: key numbers, WAVE Framework™, important concepts\n  - Example: \"Save **15 hours per week** with the **WAVE Framework™**\"\n\n  ## Paragraphs\n  - Maximum: 3 sentences\n  - Ideal: 2 sentences\n  - Short and scannable\n\n  ## Formatting Checklist\n  - [ ] H1 is question format\n  - [ ] TLDR is 50-75 words, no links\n  - [ ] 3-4 H2 sections (all questions)\n  - [ ] At least one bullet list with bold concepts\n  - [ ] 5-10 bold phrases total\n  - [ ] WAVE Framework™ mentioned in final H2\n  - [ ] No paragraph longer than 3 sentences\n  - [ ] Total: 200-400 words\n  `;\n\n  return rules;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        496,
+        208
+      ],
+      "id": "ef9c8229-a42f-47da-acad-0c8c22d54446",
+      "name": "Formatting Rules"
+    },
+    {
+      "parameters": {
+        "description": "=Available internal URLs and anchor text guidelines for Coastal Programs blog posts. Maps topics to service pages (/services/customer-support, /services/ai-analytics, etc.) with natural anchor text examples. Call this to add 2-4 contextual internal links while avoiding generic \"click here\" phrases.",
+        "jsCode": "const linkStrategy = `# Internal Link Strategy\n\n  ## Available URLs\n\n  **Service Pages (PRIMARY TARGETS):**\n  - /services/lead-generation → Marketing, lead topics\n  - /services/customer-support → Automation, support topics\n  - /services/e-commerce → Online stores, orders, inventory\n  - /services/system-integration → CRM, data, multi-system topics\n  - /services/website-development → Websites, web apps\n  - /services/ai-analytics → AI, analytics, reporting\n\n  **Other Pages:**\n  - /blog → Blog home\n  - /about → Company background\n  - /contact → Get in touch\n\n  ## Linking Rules\n\n  **Target: 2-4 internal links per post**\n\n  **Placement:**\n  - Within H2 sections (NOT in TLDR)\n  - Contextual to sentence topic\n  - Natural flow\n\n  **Topic → URL Mapping:**\n  - Automation/efficiency → /services/customer-support\n  - Data/CRM/multi-system → /services/system-integration\n  - Marketing/leads/growth → /services/lead-generation\n  - E-commerce/Shopify/orders → /services/e-commerce\n  - AI/analytics/reporting → /services/ai-analytics\n  - Websites/web apps → /services/website-development\n\n  ## Anchor Text (Authentic Voice Required)\n\n  ✅ GOOD (Natural, descriptive):\n  - \"system integration solutions\"\n  - \"customer support automation\"\n  - \"AI analytics tools\"\n  - \"lead generation strategies\"\n\n  ❌ BAD (Generic, corporate):\n  - \"click here\"\n  - \"learn more\"\n  - \"read this\"\n  - \"check out our services\"\n\n  **Rule:** Anchor text must describe what the link goes to. No vague CTAs.\n  `;\n\n  return linkStrategy;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        208
+      ],
+      "id": "03c29a9f-ac9e-4af9-be8d-a7526fa97f0e",
+      "name": "Internal Link Strategy"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=STEP 1: Call the 'Metadata Requirements' tool NOW.\n\n  STEP 2: Generate metadata for this blog:\n\n  TITLE: {{ $('Search records').item.json['Blog Topic'] }}\n  CONTENT: \n\n{{ $json.content[0].text }}\n\n  Output ONLY this JSON. No explanations. No commentary. No markdown fences.\n\n  {\n    \"seoTitle\": \"question | Coastal Programs\",\n    \"seoDescription\": \"direct answer here\",\n    \"excerpt\": \"first sentences here\",\n    \"slug\": \"slug-here\",\n    \"tags\": [\"tag1\", \"tag2\", \"tag3\"]\n  }"
+            }
+          ]
+        },
+        "options": {
+          "system": "=You are a metadata specialist at Coastal Programs. Output ONLY valid JSON. No explanations. No commentary. Never say \"Now I'll\" or \"Let me\". Just the JSON object.",
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        800,
+        0
+      ],
+      "id": "3a796bd7-c54e-4f5c-b07f-71faea766eec",
+      "name": "Metadata Generator",
+      "credentials": {
+        "anthropicApi": {
+          "id": "4p2luAzImMR8m38g",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=SEO metadata generation rules for Coastal Programs blog posts. Defines SEO title format (question | brand, 65 chars max), meta description formula (150-160 chars with quantified impact), slug generation (3-4 keywords, punchy), excerpt format (first 2 TLDR sentences), and tag strategy. Call this to generate GEO-optimized metadata from blog content.",
+        "jsCode": "const metadataRequirements = `# Metadata Requirements for GEO\n\n  ## SEO Title Generation\n\n  **Format:** Question | Coastal Programs\n  **Character Limit:** 40-45 characters for main question, 65 total with suffix\n\n  ✅ GOOD Examples:\n  - \"What does no single source of truth cost? | Coastal Programs\" (62 chars)\n  - \"When should I hire vs fix processes? | Coastal Programs\" (56 chars)\n\n  ❌ BAD Examples:\n  - \"How much does having no single source of truth actually cost?\" (too long, no brand)\n  - \"The Cost of Data Silos\" (not a question)\n\n  ## Meta Description\n\n  **Format:** Direct Answer (150-160 characters)\n  **Formula:** [Direct answer with symptoms/costs]. [Quantified impact]. [Hint at solution].\n\n  **Requirements:**\n  - 150-160 characters\n  - Include specific numbers (hours, dollars, percentages)\n  - No jargon\n  - Actionable hint at solution\n\n  ## URL Slug\n\n  **Format:** 3-4 keywords MAX, lowercase, hyphenated\n  **Keep it short and punchy**\n\n  **Requirements:**\n  - Remove question words (what, how, when, why)\n  - Remove filler words (no, your, the, a, an, of, to)\n  - Keep only the core concept\n  - 3-4 words maximum\n\n  **Examples:**\n  - Title: \"What does no single source of truth cost? | Coastal Programs\"\n  - Slug: \"single-source-truth-cost\" (4 words)\n  - Better: \"data-chaos-cost\" (3 words, punchier)\n\n  ## Excerpt\n\n  **Format:** First 2 sentences of TLDR section\n\n  ## Tags\n\n  **Format:** 3-5 tags, lowercase, hyphenated\n\n  **Examples:**\n  - \"single-source-of-truth\"\n  - \"productivity-costs\"\n  - \"workflow-optimization\"\n\n  ## Output Format\n\n  {\n    \"seoTitle\": \"[Question] | Coastal Programs\",\n    \"seoDescription\": \"[Direct answer, 150-160 chars]\",\n    \"excerpt\": \"[First 2 sentences of TLDR]\",\n    \"slug\": \"[3-4 keywords, lowercase, hyphenated]\",\n    \"tags\": [\"tag1\", \"tag2\", \"tag3\"]\n  }`;\n\n  return metadataRequirements;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        944,
+        208
+      ],
+      "id": "b2aa080e-ce33-4e61-9af2-de52bc781f71",
+      "name": "Metadata Requirements"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get formatted blog content from SEO Formatter\n  const formattedBlog = $('SEO Formatter').item.json.content[0].text;\n\n  // Get metadata JSON from Metadata Generator\n  const metadataResponse = $('Metadata Generator').item.json.content[0].text;\n\n  // Extract JSON from metadata response\n  let jsonMatch = metadataResponse.match(/\\{[\\s\\S]*\\}/);\n  let metadata;\n\n  if (jsonMatch) {\n    metadata = JSON.parse(jsonMatch[0]);\n  } else {\n    metadata = {\n      seoTitle: \"Error: No valid JSON\",\n      seoDescription: \"Error: No valid JSON\",\n      excerpt: \"Error: No valid JSON\",\n      slug: \"error-no-json\",\n      tags: []\n    };\n  }\n\n  // Extract TLDR section from formatted blog\n  let tldrMatch = formattedBlog.match(/## TLDR\\n([\\s\\S]*?)(?=\\n##)/);\n  let tldr = tldrMatch ? tldrMatch[1].trim() : \"Error: No TLDR found\";\n\n  // Remove TLDR section from full content\n  let contentWithoutTLDR = formattedBlog.replace(/## TLDR\\n[\\s\\S]*?(?=\\n##)/, '').trim();\n\n  // Get image URL from Generate an image node\n  const imageUrl = $('Generate an image').item.json.url;\n\n  // Return everything formatted for Airtable\n  return {\n    json: {\n      seoTitle: metadata.seoTitle,\n      seoDescription: metadata.seoDescription,\n      excerpt: metadata.excerpt,\n      slug: metadata.slug,\n      tldr: tldr,\n      tags: metadata.tags.join(', '),\n      fullContent: contentWithoutTLDR,\n      image: [{ url: imageUrl }]\n    }\n  };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        352
+      ],
+      "id": "0c337802-98f6-4bc4-aa71-b4fca8044dd0",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app6RiW6cFDuFR3QL",
+          "mode": "list",
+          "cachedResultName": "Coastal Programs",
+          "cachedResultUrl": "https://airtable.com/app6RiW6cFDuFR3QL"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblgzbFPCEK9Z1Q34",
+          "mode": "list",
+          "cachedResultName": "Website Blog",
+          "cachedResultUrl": "https://airtable.com/app6RiW6cFDuFR3QL/tblgzbFPCEK9Z1Q34"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Search records').item.json.id }}",
+            "Status": "Ready",
+            "Blog Topic": "={{ $('Search records').item.json['Blog Topic'] }}",
+            "TLDR": "={{ $json.tldr }}",
+            "Blog Post ": "={{ $json.fullContent }}",
+            "SEO Title": "={{ $json.seoTitle }}",
+            "SEO Description": "={{ $json.seoDescription }}",
+            "Excerpt": "={{ $json.excerpt }}",
+            "Tags": "={{ $json.tags }}",
+            "Image": "={{ $json.image }}",
+            "slug": "={{ $json.slug }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Record ID",
+              "displayName": "Record ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Draft",
+                  "value": "Draft"
+                },
+                {
+                  "name": "Ready",
+                  "value": "Ready"
+                },
+                {
+                  "name": "Posted",
+                  "value": "Posted"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Blog Topic",
+              "displayName": "Blog Topic",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "TLDR",
+              "displayName": "TLDR",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Blog Post ",
+              "displayName": "Blog Post ",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Image",
+              "displayName": "Image",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "slug",
+              "displayName": "slug",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "SEO Title",
+              "displayName": "SEO Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "SEO Description",
+              "displayName": "SEO Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Excerpt",
+              "displayName": "Excerpt",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Tags",
+              "displayName": "Tags",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Created",
+              "displayName": "Created",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Last Modified",
+              "displayName": "Last Modified",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        656,
+        352
+      ],
+      "id": "07326a99-4050-4d41-9681-4450da703669",
+      "name": "Update record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "X86fCGgJFYNZ8V76",
+          "name": "All Bases"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{ $json.content[0].text }}",
+        "options": {
+          "dalleQuality": "hd",
+          "size": "1792x1024",
+          "style": "natural",
+          "returnImageUrls": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        240,
+        352
+      ],
+      "id": "6f40d022-1bfa-42cf-a6c0-73c66723396a",
+      "name": "Generate an image",
+      "credentials": {
+        "openAiApi": {
+          "id": "bAB0gIuKwl3AKHQq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=STEP 1: Call the 'Image Concept Mapper' tool NOW.\n\nSTEP 2: Generate a DALL-E image prompt for this blog topic:\n\n{{ $('Search records').item.json['Blog Topic'] }}\n\nUse the Image Concept Mapper to identify the right visual metaphor based on topic keywords. Follow the brand guidelines and prompt formula exactly.\n\nOutput ONLY the DALL-E prompt. No explanations. No commentary."
+            }
+          ]
+        },
+        "simplify": false,
+        "options": {
+          "system": "You are an image prompt specialist for Coastal Programs. Generate DALL-E prompts that match brand    aesthetics (dark, modern, abstract, premium) and map topics to visual concepts. Output only the   prompt text.",
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        352
+      ],
+      "id": "22929907-19b6-4fd8-af53-953701a6e9d6",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "4p2luAzImMR8m38g",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=Visual concept mapping guide for blog hero images. Maps blog topic keywords (chaos, scaling, tools, compliance, etc.) to abstract visual metaphors. Includes Coastal Programs brand guidelines (dark #04070d backgrounds, cyan accents, 16:9 format). Call this to generate topic-appropriate DALL-E image prompts.",
+        "jsCode": "const conceptMapper = `# Image Concept Mapping for Blog Topics\n\n  ## Brand Visual Guidelines\n  - Color palette: Deep navy/black (#04070d) with cyan/blue accents\n  - Style: Abstract, modern, premium tech aesthetic\n  - Mood: Professional, sophisticated, minimal\n  - Technical: 16:9 horizontal, leave center-right clear for text overlay\n\n  ## Topic Categories & Visual Concepts\n\n  ### Operational Chaos Topics\n  Keywords: \"scattered\", \"chaos\", \"no single source\", \"information\", \"searching\"\n  Visual: Fragmented data streams, disconnected network nodes, scattered light particles, broken \n  connections\n\n  ### Tool Problems Topics\n  Keywords: \"tool sprawl\", \"more software\", \"adding tools\"\n  Visual: Overlapping interface windows, tangled digital layers, chaotic system diagrams, multiple \n  disconnected apps\n\n  ### Process/System Topics\n  Keywords: \"processes\", \"broken\", \"fix\", \"systems\", \"design\"\n  Visual: Flowchart nodes, connected systems, organized structures, clean architecture diagrams\n\n  ### Scaling/Growth Topics\n  Keywords: \"scaling\", \"10-20 people\", \"growth\", \"threshold\"\n  Visual: Expanding networks, growth curves, multiplying connections, organizational expansion\n\n  ### Industry-Specific Topics\n  Keywords: \"construction\", \"compliance\", \"winery\", \"trade\"\n  Visual: Industry-relevant abstract elements (blueprints, regulations, vineyard patterns, tools)\n\n  ### WAVE Framework Topics\n  Keywords: \"WAVE\", \"transformation\", \"framework\", \"ROI\"\n  Visual: Wave patterns, flowing processes, transformation visualization, connected workflow stages\n\n  ### Cost/Impact Topics\n  Keywords: \"cost\", \"hidden\", \"waste\", \"time bomb\"\n  Visual: Draining resources, time visualization, financial impact, warning signals\n\n  ## Prompt Formula\n\n  \"Create a 16:9 abstract hero image for a blog post about [TOPIC].\n\n  Style: Dark modern premium tech aesthetic with deep navy/black background (#04070d) and cyan/blue\n   gradient accents. Subtle depth, professional and sophisticated.\n\n  Visual concept: [MAPPED CONCEPT from above based on keywords]\n\n  Composition: Abstract and minimal. Leave center-right area clear for text overlay. High contrast.\n   No text, no people, no literal office scenes.\n\n  Mood: [Professional/Urgent/Calm based on topic]\"\n  `;\n\n  return conceptMapper;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        544
+      ],
+      "id": "9850f9b9-ab96-42de-b82c-151008922413",
+      "name": "Image Concept Mapper"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        928,
+        352
+      ],
+      "id": "21920db4-1901-420e-b5f2-df81ddf57473",
+      "name": "Create a row"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "Content Writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writing Guidelines": {
+      "ai_tool": [
+        [
+          {
+            "node": "Content Writer",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Writer": {
+      "main": [
+        [
+          {
+            "node": "SEO Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatting Rules": {
+      "ai_tool": [
+        [
+          {
+            "node": "SEO Formatter",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Internal Link Strategy": {
+      "ai_tool": [
+        [
+          {
+            "node": "SEO Formatter",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SEO Formatter": {
+      "main": [
+        [
+          {
+            "node": "Metadata Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata Requirements": {
+      "ai_tool": [
+        [
+          {
+            "node": "Metadata Generator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata Generator": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update record": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Generate an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Concept Mapper": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fd28a4c6-d23d-47eb-8911-78d271ae35eb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7d99b113824870e356016f1278cb900d6cde6456828bbb804d1a3d32ddcca910"
+  },
+  "id": "LOXwqYGmoKPOqik5",
+  "tags": [
+    {
+      "updatedAt": "2025-08-21T10:51:33.988Z",
+      "createdAt": "2025-08-21T10:51:33.988Z",
+      "id": "gecFJE7wWNMIYcel",
+      "name": "Coastal Programs"
+    }
+  ]
+}

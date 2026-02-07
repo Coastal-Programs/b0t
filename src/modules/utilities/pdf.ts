@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 
 // pdf-parse has inconsistent module exports, use dynamic require
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+ 
 const pdfParse = require('pdf-parse');
 
 /**
@@ -87,7 +87,7 @@ export async function extractText(input: Buffer): Promise<string> {
   logger.info('Extracting text from PDF');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
 
@@ -109,7 +109,7 @@ export async function getMetadata(input: Buffer): Promise<PdfMetadata> {
   logger.info('Getting PDF metadata');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
 
@@ -140,7 +140,7 @@ export async function getPageCount(input: Buffer): Promise<number> {
   logger.info('Getting PDF page count');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
 
@@ -170,7 +170,7 @@ export async function searchInPdf(
   logger.info({ searchText, caseSensitive }, 'Searching in PDF');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
     const text = data.text;
@@ -207,7 +207,7 @@ export async function extractTextByLine(input: Buffer): Promise<string[]> {
   logger.info('Extracting text by line from PDF');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
     const lines = data.text
@@ -233,7 +233,7 @@ export async function extractTextByParagraph(input: Buffer): Promise<string[]> {
   logger.info('Extracting text by paragraph from PDF');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
     const paragraphs = data.text
@@ -259,7 +259,7 @@ export async function extractWords(input: Buffer): Promise<string[]> {
   logger.info('Extracting words from PDF');
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const pdf = ((pdfParse as any).default || pdfParse) as any;
     const data = await pdf(input);
     const words = data.text

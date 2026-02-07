@@ -47,7 +47,7 @@ class SettingsCache {
   private async loadSettings(jobName: string): Promise<Record<string, unknown>> {
     const prefix = `${jobName}_`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const settingsArray = await (db as any)
       .select()
       .from(appSettingsTable)

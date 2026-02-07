@@ -133,7 +133,7 @@ export async function preloadAllModules(): Promise<PreloadStats> {
 /**
  * Check if a specific module is already loaded in cache
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export function isModuleLoaded(_categoryName: string, _moduleName: string): boolean {
   // Check if module exists in require.cache (Node.js module cache)
   // This is a best-effort check - not 100% reliable but good enough

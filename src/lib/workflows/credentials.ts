@@ -150,6 +150,12 @@ export async function listCredentials(
     isVerified?: boolean;
     isExpired?: boolean;
     connectedAccount?: string;
+    metadata?: {
+      selectedScopes?: string[];
+      grantedScopes?: string[];
+      serviceConfig?: string;
+      connectedEmail?: string;
+    };
   }>
 > {
   // Build where clause
@@ -171,20 +177,43 @@ export async function listCredentials(
       type: userCredentialsTable.type,
       createdAt: userCredentialsTable.createdAt,
       lastUsed: userCredentialsTable.lastUsed,
+      metadata: userCredentialsTable.metadata,
     })
     .from(userCredentialsTable)
     .where(and(...whereConditions));
 
   // OAuth platforms that have status in accountsTable
-  const oauthPlatforms = ['outlook', 'google', 'youtube', 'twitter'];
+  const oauthPlatforms = ['gmail', 'google_calendar', 'google_sheets', 'google_docs', 'google_drive', 'outlook', 'microsoft_teams', 'microsoft_onedrive', 'youtube', 'twitter'];
   const oauthAppPlatforms = ['outlook_oauth_app', 'google_oauth_app', 'youtube_oauth_app', 'twitter_oauth_app'];
+
+  // Map platform to provider for accountsTable lookup
+  const platformToProvider: Record<string, string> = {
+    'gmail': 'google',
+    'google_calendar': 'google',
+    'google_sheets': 'google',
+    'google_docs': 'google',
+    'google_drive': 'google',
+    'outlook': 'outlook',
+    'microsoft_teams': 'outlook',
+    'microsoft_onedrive': 'outlook',
+    'youtube': 'youtube',
+    'twitter': 'twitter',
+  };
 
   // Enrich credentials with OAuth status
   const enrichedCredentials = await Promise.all(
     credentials.map(async (cred) => {
+      // Parse metadata if it's a string (PostgreSQL TEXT field)
+      const parsedMetadata = cred.metadata && typeof cred.metadata === 'string'
+        ? JSON.parse(cred.metadata)
+        : cred.metadata;
+
       // Check if this is an OAuth user credential
       if (oauthPlatforms.includes(cred.platform)) {
         try {
+          // Map platform to provider for accountsTable lookup
+          const provider = platformToProvider[cred.platform] || cred.platform;
+
           // Query accountsTable for OAuth account info
           const accounts = await db
             .select({
@@ -195,7 +224,7 @@ export async function listCredentials(
             .where(
               and(
                 eq(accountsTable.userId, userId),
-                eq(accountsTable.provider, cred.platform)
+                eq(accountsTable.provider, provider)
               )
             )
             .limit(1);
@@ -207,6 +236,7 @@ export async function listCredentials(
 
             return {
               ...cred,
+              metadata: parsedMetadata,
               isVerified: true,
               isExpired,
               connectedAccount: account.accountName || undefined,
@@ -245,6 +275,7 @@ export async function listCredentials(
 
             return {
               ...cred,
+              metadata: parsedMetadata,
               isVerified: true,
               isExpired,
               connectedAccount: account.accountName || undefined,
@@ -255,7 +286,10 @@ export async function listCredentials(
         }
       }
 
-      return cred;
+      return {
+        ...cred,
+        metadata: parsedMetadata,
+      };
     })
   );
 

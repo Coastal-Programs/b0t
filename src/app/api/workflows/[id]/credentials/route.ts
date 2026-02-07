@@ -143,6 +143,7 @@ export async function GET(
       'googleanalytics': ['googleanalytics'],
       'microsoft-teams': ['microsoftteams'], // For communication.microsoft-teams.* module paths
       'microsoftteams': ['microsoftteams'],
+      'onedrive': ['microsoft_onedrive', 'onedrive'], // For data.onedrive.* module paths
       'amazon-sp': ['amazonsp'], // For ecommerce.amazon-sp.* module paths
       'amazonsp': ['amazonsp'],
       'notion': ['notion_oauth', 'notion'],

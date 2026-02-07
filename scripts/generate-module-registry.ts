@@ -42,7 +42,7 @@ interface ModuleInfo {
  * Extract JSDoc comment from a node
  */
 function getJSDocDescription(node: ts.Node): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const jsDoc = (node as any).jsDoc;
   if (!jsDoc || jsDoc.length === 0) return '';
 
@@ -58,7 +58,7 @@ function getJSDocDescription(node: ts.Node): string {
  * Extract example from JSDoc
  */
 function getJSDocExample(node: ts.Node): string | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const jsDoc = (node as any).jsDoc;
   if (!jsDoc || jsDoc.length === 0) return undefined;
 

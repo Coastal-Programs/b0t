@@ -16,9 +16,9 @@ let errorLogFilePath: string | null = null;
 // Create logs directory if it doesn't exist
 if (enableFileLogs && typeof window === 'undefined') {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const path = require('path');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const fs = require('fs');
 
     logsDir = path.join(process.cwd(), 'logs');
@@ -37,7 +37,7 @@ if (enableFileLogs && typeof window === 'undefined') {
 export const createNodeLogger = () => {
   if (isDevelopment) {
     // Development: Clean console output using custom stream
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const { Writable } = require('stream');
 
     const prettyStream = new Writable({
@@ -93,7 +93,7 @@ export const createNodeLogger = () => {
     if (enableFileLogs && typeof window === 'undefined' && logFilePath && errorLogFilePath) {
       const createFileStream = (filePath: string) => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
+           
           const fs = require('fs');
           return fs.createWriteStream(filePath, { flags: 'a' });
         } catch {

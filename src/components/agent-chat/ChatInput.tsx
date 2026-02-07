@@ -41,28 +41,33 @@ export function ChatInput({
       .catch((err) => logger.error({ error: err }, 'Failed to load commands'));
   }, []);
 
-  // Detect "/" for command autocomplete
+  // Detect "/" for command autocomplete - use queueMicrotask to avoid cascading renders
   useEffect(() => {
-    if (value.startsWith('/') && availableCommands.length > 0) {
-      const searchTerm = value.slice(1).toLowerCase();
-      const filtered = availableCommands.filter((cmd) =>
-        cmd.name.toLowerCase().includes(searchTerm)
-      );
-      setFilteredCommands(filtered);
-      setShowCommandMenu(filtered.length > 0);
-      setSelectedCommandIndex(0);
-    } else {
-      setShowCommandMenu(false);
-    }
+    queueMicrotask(() => {
+      if (value.startsWith('/') && availableCommands.length > 0) {
+        const searchTerm = value.slice(1).toLowerCase();
+        const filtered = availableCommands.filter((cmd) =>
+          cmd.name.toLowerCase().includes(searchTerm)
+        );
+        setFilteredCommands(filtered);
+        setShowCommandMenu(filtered.length > 0);
+        setSelectedCommandIndex(0);
+      } else {
+        setShowCommandMenu(false);
+      }
+    });
   }, [value, availableCommands]);
 
   // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
-    if (textarea) {
+    if (!textarea) return;
+
+    // Use requestAnimationFrame to avoid modifying external DOM during render
+    requestAnimationFrame(() => {
       textarea.style.height = 'auto';
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
-    }
+    });
   }, [value]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

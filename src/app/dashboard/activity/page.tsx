@@ -35,13 +35,16 @@ const formatJobName = (name: string) => {
 
 // Component to display time that auto-updates every minute
 function TimeCell({ date }: { date: Date | string | null }) {
+  // Initialize with the formatted time based on date prop
   const [formattedTime, setFormattedTime] = useState(() => formatRelativeTime(date));
 
+  // Update formatted time when date changes (separate effect to avoid cascading renders)
   useEffect(() => {
-    // Update the formatted time immediately in case the date prop changed
     setFormattedTime(formatRelativeTime(date));
+  }, [date]);
 
-    // Set up interval to update time display every minute
+  // Set up interval to update time display every minute (independent of date changes)
+  useEffect(() => {
     const interval = setInterval(() => {
       setFormattedTime(formatRelativeTime(date));
     }, 60000); // Update every minute

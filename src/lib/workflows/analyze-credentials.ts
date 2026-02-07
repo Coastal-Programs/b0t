@@ -382,6 +382,16 @@ const PLATFORM_CAPABILITIES: Record<string, PlatformCapability> = {
       'getFile': 'api_key',
     },
   },
+  'onedrive': {
+    category: 'api_key', // Uses OAuth access token
+    functionRequirements: {
+      'listFiles': 'api_key',
+      'uploadFile': 'api_key',
+      'deleteFile': 'api_key',
+      'getFile': 'api_key',
+      'downloadFile': 'api_key',
+    },
+  },
 
   // Design Tools
   'figma': { category: 'api_key' },
@@ -810,6 +820,7 @@ export function getPlatformDisplayName(platform: string): string {
 
     // Cloud Storage
     'google-drive': 'Google Drive',
+    onedrive: 'Microsoft OneDrive',
 
     // Design Tools
     figma: 'Figma',
@@ -902,6 +913,7 @@ export function getPlatformIcon(platform: string): string {
 
     // Cloud Storage
     'google-drive': 'FolderOpen',
+    onedrive: 'Cloud',
 
     // Design Tools
     figma: 'Figma',

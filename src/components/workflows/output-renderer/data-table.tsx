@@ -20,37 +20,48 @@ interface DataTableProps {
   onClose?: () => void;
 }
 
-export function DataTable({ data, config, onClose }: DataTableProps) {
+export function DataTable({ data: rawData, config, onClose }: DataTableProps) {
   // Hook must be at the top before any returns
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Ensure component is mounted before using portal
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Process data to extract nested arrays (move external variable modification to state)
+  const [data, setData] = useState(() => {
+    let processedData = rawData;
 
-  // Handle single object with nested array
-  if (!Array.isArray(data) && typeof data === 'object' && data !== null) {
-    const dataObj = data as Record<string, unknown>;
+    // Handle single object with nested array
+    if (!Array.isArray(processedData) && typeof processedData === 'object' && processedData !== null) {
+      const dataObj = processedData as Record<string, unknown>;
 
-    // Check for common nested array patterns
-    const arrayKeys = ['items', 'data', 'results', 'entries', 'records', 'rows'];
-    for (const key of arrayKeys) {
-      const value = dataObj[key];
-      if (Array.isArray(value) && value.length > 0) {
-        // Found nested array - use it directly
-        data = value;
-        break;
+      // Check for common nested array patterns
+      const arrayKeys = ['items', 'data', 'results', 'entries', 'records', 'rows'];
+      for (const key of arrayKeys) {
+        const value = dataObj[key];
+        if (Array.isArray(value) && value.length > 0) {
+          // Found nested array - use it directly
+          processedData = value;
+          break;
+        }
       }
     }
 
-    // If still not an array after checking, show as key-value pairs
-    // Note: Custom columns are ignored for single objects as they only apply to arrays
-    if (!Array.isArray(data)) {
-      const entries = Object.entries(dataObj);
-      return (
+    return processedData;
+  });
+
+  // Ensure component is mounted before using portal - use queueMicrotask to avoid cascading renders
+  useEffect(() => {
+    queueMicrotask(() => {
+      setMounted(true);
+    });
+  }, []);
+
+  // If still not an array after checking, show as key-value pairs
+  // Note: Custom columns are ignored for single objects as they only apply to arrays
+  if (!Array.isArray(data) && typeof data === 'object' && data !== null) {
+    const dataObj = data as Record<string, unknown>;
+    const entries = Object.entries(dataObj);
+    return (
         <div className="relative overflow-hidden rounded-lg border-0 bg-gradient-to-br from-primary/5 via-blue-500/3 to-primary/5 backdrop-blur-sm shadow-sm">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-blue-400 to-primary opacity-80" />
           <table className="w-full text-sm mt-1">
@@ -69,7 +80,6 @@ export function DataTable({ data, config, onClose }: DataTableProps) {
           </table>
         </div>
       );
-    }
   }
 
   // Handle array of objects
@@ -332,13 +342,16 @@ function CellRenderer({
         </a>
       );
 
-    case 'date':
-      try {
-        const date = new Date(String(value));
-        return <span className="whitespace-nowrap">{date.toLocaleDateString()}</span>;
-      } catch {
-        return <span>{String(value)}</span>;
-      }
+    case 'date': {
+      // Avoid JSX in try/catch - compute value first
+      const date = new Date(String(value));
+      const isValidDate = !isNaN(date.getTime());
+      return (
+        <span className={isValidDate ? "whitespace-nowrap" : undefined}>
+          {isValidDate ? date.toLocaleDateString() : String(value)}
+        </span>
+      );
+    }
 
     case 'number':
       return <span className="tabular-nums">{Number(value).toLocaleString()}</span>;

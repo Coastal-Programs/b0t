@@ -71,51 +71,57 @@ export function WorkflowExecutionDialog({
     currentTriggerData
   );
 
-  // Reset state when dialog opens/closes
+  // Reset state when dialog opens/closes - use queueMicrotask to avoid cascading renders
   useEffect(() => {
     if (!open) {
-      setExecutionResult(null);
-      setShowOutputModal(false);
-      setExecuting(false);
-      resetProgress();
-      hasShownToastRef.current = false;
+      queueMicrotask(() => {
+        setExecutionResult(null);
+        setShowOutputModal(false);
+        setExecuting(false);
+        resetProgress();
+        hasShownToastRef.current = false;
+      });
     }
   }, [open, resetProgress]);
 
-  // Update execution result when progress completes
+  // Update execution result when progress completes - use queueMicrotask to avoid cascading renders
   useEffect(() => {
     if (progressState.status === 'completed' && !hasShownToastRef.current) {
       hasShownToastRef.current = true;
-      setExecutionResult({
-        id: 'completed',
-        status: 'success',
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        duration: progressState.duration || 0,
-        output: progressState.output,
-        error: null,
-        errorStep: null,
-        triggerType: 'manual',
+      queueMicrotask(() => {
+        setExecutionResult({
+          id: 'completed',
+          status: 'success',
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          duration: progressState.duration || 0,
+          output: progressState.output,
+          error: null,
+          errorStep: null,
+          triggerType: 'manual',
+        });
+        setExecuting(false);
+        toast.success('Workflow executed successfully');
+        onExecuted?.();
       });
-      setExecuting(false);
-      toast.success('Workflow executed successfully');
-      onExecuted?.();
     } else if (progressState.status === 'failed' && !hasShownToastRef.current) {
       hasShownToastRef.current = true;
       const errorMessage = progressState.error || 'Workflow execution failed';
-      setExecutionResult({
-        id: 'failed',
-        status: 'error',
-        startedAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        duration: 0,
-        output: null,
-        error: errorMessage,
-        errorStep: null,
-        triggerType: 'manual',
+      queueMicrotask(() => {
+        setExecutionResult({
+          id: 'failed',
+          status: 'error',
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          duration: 0,
+          output: null,
+          error: errorMessage,
+          errorStep: null,
+          triggerType: 'manual',
+        });
+        setExecuting(false);
+        toast.error(errorMessage);
       });
-      setExecuting(false);
-      toast.error(errorMessage);
     }
   }, [progressState.status, progressState.duration, progressState.output, progressState.error, onExecuted]);
 

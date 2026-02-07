@@ -192,6 +192,42 @@ const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     },
   },
 
+  calcom: {
+    name: 'Cal.com',
+    refreshTokenUrl: 'https://api.cal.com/v2/auth/oauth2/token',
+    buildRefreshRequest: (refreshToken, clientId, clientSecret) => {
+      if (!clientId || !clientSecret) {
+        throw new Error('Cal.com OAuth requires clientId and clientSecret for token refresh');
+      }
+
+      // Cal.com uses JSON content type for token endpoint
+      return {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      };
+    },
+    parseRefreshResponse: (response) => {
+      const data = response as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in?: number;
+      };
+      return {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_in: data.expires_in || 1800, // Default 30 minutes
+      };
+    },
+  },
+
   linkedin: {
     name: 'LinkedIn',
     refreshTokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',

@@ -26,4 +26,10 @@ export interface CredentialListItem {
   isVerified?: boolean;        // OAuth account verified/connected
   isExpired?: boolean;          // OAuth token expired
   connectedAccount?: string;    // Connected account name/email
+  metadata?: {
+    selectedScopes?: string[];
+    grantedScopes?: string[];
+    serviceConfig?: string;
+    connectedEmail?: string;
+  };
 }

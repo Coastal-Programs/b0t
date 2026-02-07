@@ -5,29 +5,42 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { useClient } from '@/components/providers/ClientProvider';
 import { useWeather } from '@/hooks/useWeather';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut, Loader2, ChevronDown, Building2 } from 'lucide-react';
+import { LogIn, LogOut, Loader2, ChevronDown, Building2, KeyRound, Brain, Network } from 'lucide-react';
 import { SystemStatusBadge } from '@/components/SystemStatusBadge';
+import { PlatformSettingsDialog } from '@/components/settings/platform-settings-dialog';
+import { MemorySettingsDialog } from '@/components/settings/memory-settings-dialog';
+import { MindMapDialog } from '@/components/memory/mind-map-dialog';
 
 export function Header() {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [timezone, setTimezone] = useState<string>('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
+  const [mindMapOpen, setMindMapOpen] = useState(false);
   const { data: session, status } = useSession();
   const { currentClient, clients, setCurrentClient, isLoading: clientsLoading } = useClient();
   const { display: weatherDisplay } = useWeather();
-
+  // Initialize timezone once - use queueMicrotask to avoid cascading renders
   useEffect(() => {
-    // Get user's timezone
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    setTimezone(tz);
+    queueMicrotask(() => {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setTimezone(tz);
+    });
+  }, []);
 
-    // Update time immediately and then every second
+  // Update time in separate effect to avoid cascading renders
+  useEffect(() => {
+    const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     const updateTime = () => {
       const now = new Date();
       const timeString = new Intl.DateTimeFormat('en-US', {
@@ -44,14 +57,11 @@ export function Header() {
     const interval = setInterval(updateTime, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [timezone]);
 
-  const handleAuth = () => {
-    if (session) {
-      signOut({ callbackUrl: '/auth/signin' });
-    } else {
-      signIn();
-    }
+  const getInitials = (email?: string | null) => {
+    if (!email) return '?';
+    return email.charAt(0).toUpperCase();
   };
 
   return (
@@ -95,7 +105,7 @@ export function Header() {
           )}
         </div>
 
-        {/* Right side - Client Switcher & Auth Button */}
+        {/* Right side - Client Switcher & User Avatar */}
         <div className="flex items-center gap-3">
           {/* Client Switcher */}
           {session?.user && clients.length > 0 && (
@@ -145,34 +155,79 @@ export function Header() {
             </DropdownMenu>
           )}
 
-          {session?.user && (
-            <span className="text-xs text-gray-700 hidden sm:inline">
-              {session.user.email}
-            </span>
+          {/* User Avatar Dropdown */}
+          {session?.user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-blue-500 text-white text-xs font-medium">
+                      {getInitials(session.user.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[220px]">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setSettingsOpen(true)}
+                  className="text-xs cursor-pointer"
+                >
+                  <KeyRound className="h-3.5 w-3.5 mr-2" />
+                  Keys
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setMemorySettingsOpen(true)}
+                  className="text-xs cursor-pointer"
+                >
+                  <Brain className="h-3.5 w-3.5 mr-2" />
+                  Memories
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setMindMapOpen(true)}
+                  className="text-xs cursor-pointer"
+                >
+                  <Network className="h-3.5 w-3.5 mr-2" />
+                  Mind Map
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+                  className="text-xs cursor-pointer"
+                >
+                  <LogOut className="h-3.5 w-3.5 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              onClick={() => signIn()}
+              disabled={status === 'loading'}
+              variant="default"
+              size="sm"
+              className="h-8 text-xs"
+            >
+              {status === 'loading' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <>
+                  <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                  Login
+                </>
+              )}
+            </Button>
           )}
-          <Button
-            onClick={handleAuth}
-            disabled={status === 'loading'}
-            variant={session ? 'outline' : 'default'}
-            size="sm"
-            className="h-8 text-xs"
-          >
-            {status === 'loading' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : session ? (
-              <>
-                <LogOut className="h-3.5 w-3.5 mr-1.5" />
-                Logout
-              </>
-            ) : (
-              <>
-                <LogIn className="h-3.5 w-3.5 mr-1.5" />
-                Login
-              </>
-            )}
-          </Button>
         </div>
       </nav>
+
+      {/* Dialogs rendered outside the dropdown */}
+      <PlatformSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <MemorySettingsDialog open={memorySettingsOpen} onOpenChange={setMemorySettingsOpen} />
+      <MindMapDialog open={mindMapOpen} onOpenChange={setMindMapOpen} />
     </header>
   );
 }

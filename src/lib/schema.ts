@@ -1,4 +1,20 @@
-import { pgTable, serial, text, timestamp, varchar, integer, index, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, varchar, integer, index, uniqueIndex, jsonb, real, customType } from 'drizzle-orm/pg-core';
+
+// Custom vector type for pgvector
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType(config) {
+    return `vector(${(config as { dimensions?: number }).dimensions ?? 768})`;
+  },
+  toDriver(value: number[]): string {
+    return JSON.stringify(value);
+  },
+  fromDriver(value: string): number[] {
+    if (typeof value === 'string') {
+      return JSON.parse(value);
+    }
+    return value as unknown as number[];
+  },
+});
 
 // ============================================
 // AUTHENTICATION TABLES
@@ -33,6 +49,7 @@ export const oauthStateTable = pgTable('oauth_state', {
   codeVerifier: text('code_verifier').notNull(),
   userId: varchar('user_id', { length: 255 }).notNull(),
   provider: varchar('provider', { length: 50 }).notNull(),
+  metadata: text('metadata'), // JSON string with OAuth flow metadata (scopes, service, mode, credentialId)
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: index('oauth_state_user_id_idx').on(table.userId),
@@ -333,6 +350,105 @@ export const agentChatMessagesTable = pgTable('agent_chat_messages', {
 }));
 
 // ============================================
+// AGENT MEMORY SYSTEM TABLES
+// ============================================
+
+// Agent memory facts table (core memory storage)
+export const agentMemoryFactsTable = pgTable('agent_memory_facts', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  organizationId: varchar('organization_id', { length: 255 }),
+  category: text('category').notNull(), // user_info, preferences, projects, people, work, notes, decisions
+  subject: text('subject').notNull(),
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  userOrgIdx: index('idx_memory_facts_user_org').on(table.userId, table.organizationId),
+  categoryIdx: index('idx_memory_facts_category').on(table.category),
+  subjectIdx: index('idx_memory_facts_subject').on(table.subject),
+  // Note: fts_document tsvector column is created in migration with GENERATED ALWAYS AS
+}));
+
+// Agent memory embeddings table (vector search)
+export const agentMemoryEmbeddingsTable = pgTable('agent_memory_embeddings', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  factId: varchar('fact_id', { length: 255 }).notNull(),
+  content: text('content').notNull(),
+  embedding: vector('embedding', { dimensions: 768 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  factIdIdx: index('idx_memory_embeddings_fact').on(table.factId),
+  // Note: vector index created in migration
+}));
+
+// Workflow node mappings table (N8N/Make.com → Odin module conversions)
+export const workflowNodeMappingsTable = pgTable('workflow_node_mappings', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sourcePlatform: text('source_platform').notNull(), // 'n8n' | 'make'
+  sourceIdentifier: text('source_identifier').notNull(), // N8N: node type | Make: module:action
+  identifierType: text('identifier_type').notNull(), // 'node_type' | 'module_action'
+  odinModulePath: text('odin_module_path').notNull(),
+  conversionConfig: jsonb('conversion_config').$type<Record<string, unknown>>().default({}),
+  confidenceScore: real('confidence_score').notNull().default(1.0),
+  usageCount: integer('usage_count').notNull().default(1),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  platformIdentifierIdx: uniqueIndex('idx_workflow_mappings_platform_identifier').on(table.sourcePlatform, table.sourceIdentifier),
+  platformIdx: index('idx_workflow_mappings_platform').on(table.sourcePlatform),
+}));
+
+// Workflow patterns table (complex conversion patterns)
+export const workflowPatternsTable = pgTable('workflow_patterns', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sourcePlatform: text('source_platform').notNull(), // 'n8n' | 'make' | 'both'
+  patternName: text('pattern_name').notNull(),
+  description: text('description'),
+  detectionCriteria: jsonb('detection_criteria').$type<Record<string, unknown>>().notNull(),
+  conversionStrategy: jsonb('conversion_strategy').$type<Record<string, unknown>>().notNull(),
+  yamlTemplate: text('yaml_template'),
+  exampleWorkflows: jsonb('example_workflows').$type<Array<unknown>>().default([]),
+  successRate: real('success_rate').notNull().default(1.0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  platformNameIdx: uniqueIndex('idx_workflow_patterns_platform_name').on(table.sourcePlatform, table.patternName),
+}));
+
+// Workflow embeddings table (semantic similarity for past conversions)
+export const workflowEmbeddingsTable = pgTable('workflow_embeddings', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  sourcePlatform: text('source_platform').notNull(), // 'n8n' | 'make'
+  workflowDescription: text('workflow_description').notNull(),
+  structureSummary: jsonb('structure_summary').$type<Record<string, unknown>>().notNull(),
+  embedding: vector('embedding', { dimensions: 768 }),
+  conversionApproach: text('conversion_approach'),
+  odinWorkflowId: varchar('odin_workflow_id', { length: 255 }),
+  services: text('services').array(),
+  patternType: text('pattern_type'),
+  similarityThreshold: real('similarity_threshold').notNull().default(0.75),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  platformIdx: index('idx_workflow_embeddings_platform').on(table.sourcePlatform),
+  patternIdx: index('idx_workflow_embeddings_pattern').on(table.patternType),
+  // Note: vector indexes and GIN index on services created in migration
+}));
+
+// Agent memory graphs table (cached graph data for visualization)
+export const agentMemoryGraphsTable = pgTable('agent_memory_graphs', {
+  id: varchar('id', { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  organizationId: varchar('organization_id', { length: 255 }),
+  graphData: jsonb('graph_data').$type<Record<string, unknown>>().notNull(),
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  userOrgIdx: uniqueIndex('idx_memory_graphs_user_org').on(table.userId, table.organizationId),
+}));
+
+// ============================================
 // TYPE EXPORTS
 // ============================================
 
@@ -368,3 +484,15 @@ export type AgentChatSession = typeof agentChatSessionsTable.$inferSelect;
 export type NewAgentChatSession = typeof agentChatSessionsTable.$inferInsert;
 export type AgentChatMessage = typeof agentChatMessagesTable.$inferSelect;
 export type NewAgentChatMessage = typeof agentChatMessagesTable.$inferInsert;
+export type AgentMemoryFact = typeof agentMemoryFactsTable.$inferSelect;
+export type NewAgentMemoryFact = typeof agentMemoryFactsTable.$inferInsert;
+export type AgentMemoryEmbedding = typeof agentMemoryEmbeddingsTable.$inferSelect;
+export type NewAgentMemoryEmbedding = typeof agentMemoryEmbeddingsTable.$inferInsert;
+export type WorkflowNodeMapping = typeof workflowNodeMappingsTable.$inferSelect;
+export type NewWorkflowNodeMapping = typeof workflowNodeMappingsTable.$inferInsert;
+export type WorkflowPattern = typeof workflowPatternsTable.$inferSelect;
+export type NewWorkflowPattern = typeof workflowPatternsTable.$inferInsert;
+export type WorkflowEmbedding = typeof workflowEmbeddingsTable.$inferSelect;
+export type NewWorkflowEmbedding = typeof workflowEmbeddingsTable.$inferInsert;
+export type AgentMemoryGraph = typeof agentMemoryGraphsTable.$inferSelect;
+export type NewAgentMemoryGraph = typeof agentMemoryGraphsTable.$inferInsert;

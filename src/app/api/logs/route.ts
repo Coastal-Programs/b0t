@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const dbAny = db as any;
 
     // Build where conditions - always filter by userId to ensure users only see their own logs
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       .offset(offset);
 
     // Transform to match old format expected by Activity page
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const logs = runs.map((run: any) => ({
       id: run.id,
       jobName: run.workflowName || 'Unknown Workflow',

@@ -49,7 +49,7 @@ export async function PATCH(
 
     // If status is being changed to inactive, deactivate all workflows for this organization
     if (status === 'inactive') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await (db as any)
         .update(workflowsTable)
         .set({ status: 'draft' })

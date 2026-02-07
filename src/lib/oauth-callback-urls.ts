@@ -14,6 +14,36 @@ export interface OAuthCallbackConfig {
 
 // Platforms that require OAuth callback URLs
 export const OAUTH_PLATFORMS: Record<string, OAuthCallbackConfig> = {
+  gmail: {
+    platform: 'gmail',
+    callbackPath: '/api/auth/google/callback',
+    providerName: 'Google Cloud Console',
+    setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
+  google_calendar: {
+    platform: 'google_calendar',
+    callbackPath: '/api/auth/google/callback',
+    providerName: 'Google Cloud Console',
+    setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
+  google_sheets: {
+    platform: 'google_sheets',
+    callbackPath: '/api/auth/google/callback',
+    providerName: 'Google Cloud Console',
+    setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
+  google_docs: {
+    platform: 'google_docs',
+    callbackPath: '/api/auth/google/callback',
+    providerName: 'Google Cloud Console',
+    setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
+  google_drive: {
+    platform: 'google_drive',
+    callbackPath: '/api/auth/google/callback',
+    providerName: 'Google Cloud Console',
+    setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
   google_oauth_app: {
     platform: 'google_oauth_app',
     callbackPath: '/api/auth/google/callback',
@@ -26,6 +56,24 @@ export const OAUTH_PLATFORMS: Record<string, OAuthCallbackConfig> = {
     providerName: 'X (Twitter) Developer Portal',
     setupUrl: 'https://developer.twitter.com/en/portal/projects-and-apps',
   },
+  outlook: {
+    platform: 'outlook',
+    callbackPath: '/api/auth/outlook/callback',
+    providerName: 'Azure App Registration',
+    setupUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+  },
+  microsoft_teams: {
+    platform: 'microsoft_teams',
+    callbackPath: '/api/auth/outlook/callback',
+    providerName: 'Azure App Registration',
+    setupUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+  },
+  microsoft_onedrive: {
+    platform: 'microsoft_onedrive',
+    callbackPath: '/api/auth/outlook/callback',
+    providerName: 'Azure App Registration',
+    setupUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+  },
   youtube_oauth_app: {
     platform: 'youtube_oauth_app',
     callbackPath: '/api/auth/youtube/callback',
@@ -34,7 +82,7 @@ export const OAUTH_PLATFORMS: Record<string, OAuthCallbackConfig> = {
   },
   outlook_oauth_app: {
     platform: 'outlook_oauth_app',
-    callbackPath: '/api/auth/outlook/callback',
+    callbackPath: '/api/auth/microsoft/callback',
     providerName: 'Azure App Registration',
     setupUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
   },

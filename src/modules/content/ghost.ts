@@ -25,7 +25,7 @@ const ghostRateLimiter = createRateLimiter({
 });
 
 // Ghost circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createGhostCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

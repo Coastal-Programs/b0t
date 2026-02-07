@@ -116,6 +116,9 @@ export interface CalcomWebhook {
 
 /**
  * Make API request to Cal.com
+ *
+ * Supports both API key authentication (legacy) and OAuth Bearer tokens.
+ * Auto-detects auth method based on token format.
  */
 async function makeCalcomRequest<T>(
   endpoint: string,
@@ -129,16 +132,28 @@ async function makeCalcomRequest<T>(
     throw new Error('Cal.com API key not set. Provide apiKey parameter or set CALCOM_API_KEY.');
   }
 
-  logger.info({ method, endpoint }, 'Making Cal.com API request');
+  // Auto-detect OAuth: OAuth tokens are typically longer and don't start with 'cal_'
+  // API keys usually start with 'cal_' prefix
+  const isOAuthToken = !key.startsWith('cal_') && key.length > 50;
+
+  logger.info({ method, endpoint, authType: isOAuthToken ? 'OAuth' : 'API Key' }, 'Making Cal.com API request');
 
   const url = new URL(endpoint, CALCOM_API_BASE);
-  url.searchParams.append('apiKey', key);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // Use OAuth Bearer token or API key
+  if (isOAuthToken) {
+    headers['Authorization'] = `Bearer ${key}`;
+  } else {
+    url.searchParams.append('apiKey', key);
+  }
 
   const options: RequestInit = {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
   };
 
   if (body) {

@@ -3,7 +3,7 @@
 // Run: npm run generate:registry
 
 // logger imported but may not be used in auto-generated code
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 import { logger } from '@/lib/logger';
 
 export interface ModuleFunction {
@@ -1634,12 +1634,12 @@ export function getModuleRegistry(): ModuleCategory[] {
             {
               name: 'uploadFile',
               description: "Upload file",
-              signature: 'uploadFile(channel, file, filename, title?)',
+              signature: 'uploadFile(channel, file, filename, title?, token?)',
             },
             {
               name: 'addReaction',
               description: "React to message",
-              signature: 'addReaction(channel, timestamp, emoji)',
+              signature: 'addReaction(channel, timestamp, emoji, token?)',
             },
           ],
         },
@@ -2219,32 +2219,32 @@ export function getModuleRegistry(): ModuleCategory[] {
             {
               name: 'createRecord',
               description: "Create record",
-              signature: 'createRecord(baseId, tableName, fields)',
+              signature: 'createRecord(baseId, tableName, fields, apiKey?)',
             },
             {
               name: 'createRecords',
               description: "Create multiple records (batch)",
-              signature: 'createRecords(baseId, tableName, records)',
+              signature: 'createRecords(baseId, tableName, records, apiKey?)',
             },
             {
               name: 'updateRecord',
               description: "Update record",
-              signature: 'updateRecord(baseId, tableName, recordId, fields)',
+              signature: 'updateRecord(baseId, tableName, recordId, fields, apiKey?)',
             },
             {
               name: 'updateRecords',
               description: "Update multiple records (batch)",
-              signature: 'updateRecords(baseId, tableName, records)',
+              signature: 'updateRecords(baseId, tableName, records, apiKey?)',
             },
             {
               name: 'deleteRecord',
               description: "Delete record",
-              signature: 'deleteRecord(baseId, tableName, recordId)',
+              signature: 'deleteRecord(baseId, tableName, recordId, apiKey?)',
             },
             {
               name: 'deleteRecords',
               description: "Delete multiple records (batch)",
-              signature: 'deleteRecords(baseId, tableName, recordIds)',
+              signature: 'deleteRecords(baseId, tableName, recordIds, apiKey?)',
             },
             {
               name: 'findRecord',
@@ -2642,6 +2642,41 @@ export function getModuleRegistry(): ModuleCategory[] {
               name: 'appendToPage',
               description: "Append content to page",
               signature: 'appendToPage(pageId, blocks)',
+            },
+          ],
+        },
+        {
+          name: 'onedrive',
+          functions: [
+            {
+              name: 'listFiles',
+              description: "List files from OneDrive",
+              signature: 'listFiles(input)',
+              example: "const files = await listFiles({\n  accessToken: '{{credential.microsoft_onedrive}}',\n  folderId: 'root',\n  limit: 50\n});",
+            },
+            {
+              name: 'uploadFile',
+              description: "Upload file to OneDrive",
+              signature: 'uploadFile(input)',
+              example: "const file = await uploadFile({\n  accessToken: '{{credential.microsoft_onedrive}}',\n  fileName: 'report.pdf',\n  content: fileBuffer,\n  folderId: 'root'\n});",
+            },
+            {
+              name: 'deleteFile',
+              description: "Delete file from OneDrive",
+              signature: 'deleteFile(input)',
+              example: "await deleteFile({\n  accessToken: '{{credential.microsoft_onedrive}}',\n  fileId: '01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K'\n});",
+            },
+            {
+              name: 'getFile',
+              description: "Get file metadata from OneDrive",
+              signature: 'getFile(input)',
+              example: "const file = await getFile({\n  accessToken: '{{credential.microsoft_onedrive}}',\n  fileId: '01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K'\n});",
+            },
+            {
+              name: 'downloadFile',
+              description: "Download file content from OneDrive",
+              signature: 'downloadFile(input)',
+              example: "const content = await downloadFile({\n  accessToken: '{{credential.microsoft_onedrive}}',\n  fileId: '01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K'\n});",
             },
           ],
         },
@@ -6763,9 +6798,8 @@ export function getModuleRegistry(): ModuleCategory[] {
             },
             {
               name: 'extractFirstWord',
-              description: "Extract the first word from a string (useful for getting first name from full name)",
+              description: "Extract the first word from a string",
               signature: 'extractFirstWord(str)',
-              example: "extractFirstWord('Anna Smith') => 'Anna'",
             },
             {
               name: 'normalizeWhitespace',

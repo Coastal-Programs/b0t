@@ -14,9 +14,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
 
   // Performance optimizations (10-15% bundle size reduction)
   experimental: {

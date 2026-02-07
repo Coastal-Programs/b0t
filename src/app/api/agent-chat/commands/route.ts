@@ -23,6 +23,21 @@ const BUILT_IN_COMMANDS: SlashCommand[] = [
     description: 'Compact conversation history to reduce token usage',
     argumentHint: '',
   },
+  {
+    name: 'remember',
+    description: 'Store a fact in agent memory',
+    argumentHint: '[category] [subject]: [content]',
+  },
+  {
+    name: 'recall',
+    description: 'Search agent memory for relevant facts',
+    argumentHint: '[query]',
+  },
+  {
+    name: 'forget',
+    description: 'Delete a fact from agent memory',
+    argumentHint: '[fact-id]',
+  },
 ];
 
 function parseFrontmatter(content: string): { description: string; argumentHint: string } {

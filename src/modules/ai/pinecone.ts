@@ -1,4 +1,4 @@
-/* eslint-disable */
+ 
 // @ts-nocheck - External library type mismatches, to be fixed in future iteration
 import { Pinecone } from '@pinecone-database/pinecone';
 import { createCircuitBreaker } from '@/lib/resilience';

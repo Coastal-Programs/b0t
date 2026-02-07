@@ -1,0 +1,1300 @@
+{
+    "name": "Helicopter Landing Agreement ",
+    "flow": [
+        {
+            "id": 46,
+            "module": "airtable:TriggerWatchRecords",
+            "version": 3,
+            "parameters": {
+                "base": "appOtHs8KceHjArlC",
+                "view": "viwdMHSpTgta68Z3Z",
+                "table": "tbl1ji4j1evoeAgdX",
+                "config": {
+                    "labelField": "Pilot Full Name",
+                    "triggerField": "Date Signed"
+                },
+                "formula": "",
+                "maxRecords": 1,
+                "__IMTCONN__": 4216636,
+                "useColumnId": false
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                },
+                "restore": {
+                    "parameters": {
+                        "base": {
+                            "label": "Wise Eagle Bay"
+                        },
+                        "view": {
+                            "label": "Grid view"
+                        },
+                        "table": {
+                            "label": "Airstrip Usage"
+                        },
+                        "config": {
+                            "nested": {
+                                "labelField": {
+                                    "label": "Pilot Full Name"
+                                },
+                                "triggerField": {
+                                    "label": "Date Signed"
+                                }
+                            }
+                        },
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "airtable2"
+                            },
+                            "label": "All Airtable Bases"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:airtable3,airtable2",
+                        "label": "Connection",
+                        "required": true
+                    },
+                    {
+                        "name": "base",
+                        "type": "select",
+                        "label": "Base",
+                        "required": true
+                    },
+                    {
+                        "name": "useColumnId",
+                        "type": "boolean",
+                        "label": "Use Column ID",
+                        "required": true
+                    },
+                    {
+                        "name": "table",
+                        "type": "select",
+                        "label": "Table",
+                        "required": true
+                    },
+                    {
+                        "name": "config",
+                        "spec": [
+                            {
+                                "name": "triggerField",
+                                "type": "select",
+                                "label": "Trigger field",
+                                "required": true
+                            },
+                            {
+                                "name": "triggerField",
+                                "type": "hidden"
+                            },
+                            {
+                                "name": "labelField",
+                                "type": "select",
+                                "label": "Label field",
+                                "required": true
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Trigger configuration"
+                    },
+                    {
+                        "name": "maxRecords",
+                        "type": "integer",
+                        "label": "Limit",
+                        "required": true
+                    },
+                    {
+                        "name": "view",
+                        "type": "select",
+                        "label": "View"
+                    },
+                    {
+                        "name": "formula",
+                        "type": "text",
+                        "label": "Formula"
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "id",
+                        "type": "text",
+                        "label": "ID"
+                    },
+                    {
+                        "name": "createdTime",
+                        "type": "date",
+                        "label": "Created Time"
+                    },
+                    {
+                        "name": "Pilot Full Name",
+                        "type": "text",
+                        "label": "Pilot Full Name"
+                    },
+                    {
+                        "name": "Email",
+                        "type": "text",
+                        "label": "Email"
+                    },
+                    {
+                        "name": "Mobile",
+                        "type": "text",
+                        "label": "Mobile"
+                    },
+                    {
+                        "name": "Pilot's ARN (Aviation Registration Number)",
+                        "type": "number",
+                        "label": "Pilot's ARN (Aviation Registration Number)"
+                    },
+                    {
+                        "name": "Helicopter Registration (VH-XXX):",
+                        "type": "text",
+                        "label": "Helicopter Registration (VH-XXX):"
+                    },
+                    {
+                        "name": "Aviation Insurance Company",
+                        "type": "text",
+                        "label": "Aviation Insurance Company"
+                    },
+                    {
+                        "name": "Insurance Policy Number",
+                        "type": "text",
+                        "label": "Insurance Policy Number"
+                    },
+                    {
+                        "name": "Insurance Expiry Date",
+                        "time": false,
+                        "type": "date",
+                        "label": "Insurance Expiry Date"
+                    },
+                    {
+                        "name": "Current Insurance Certificate",
+                        "spec": [
+                            {
+                                "name": "id",
+                                "type": "text",
+                                "label": "ID"
+                            },
+                            {
+                                "name": "width",
+                                "type": "uinteger",
+                                "label": "Width"
+                            },
+                            {
+                                "name": "height",
+                                "type": "uinteger",
+                                "label": "Height"
+                            },
+                            {
+                                "name": "url",
+                                "type": "url",
+                                "label": "URL"
+                            },
+                            {
+                                "name": "filename",
+                                "type": "filename",
+                                "label": "File name"
+                            },
+                            {
+                                "name": "size",
+                                "type": "uinteger",
+                                "label": "Size"
+                            },
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "MIME type"
+                            },
+                            {
+                                "name": "thumbnails",
+                                "spec": [
+                                    {
+                                        "name": "small",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Small"
+                                    },
+                                    {
+                                        "name": "large",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Large"
+                                    },
+                                    {
+                                        "name": "full",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Full"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Thumbnails"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Current Insurance Certificate"
+                    },
+                    {
+                        "name": "Signature",
+                        "spec": [
+                            {
+                                "name": "id",
+                                "type": "text",
+                                "label": "ID"
+                            },
+                            {
+                                "name": "width",
+                                "type": "uinteger",
+                                "label": "Width"
+                            },
+                            {
+                                "name": "height",
+                                "type": "uinteger",
+                                "label": "Height"
+                            },
+                            {
+                                "name": "url",
+                                "type": "url",
+                                "label": "URL"
+                            },
+                            {
+                                "name": "filename",
+                                "type": "filename",
+                                "label": "File name"
+                            },
+                            {
+                                "name": "size",
+                                "type": "uinteger",
+                                "label": "Size"
+                            },
+                            {
+                                "name": "type",
+                                "type": "text",
+                                "label": "MIME type"
+                            },
+                            {
+                                "name": "thumbnails",
+                                "spec": [
+                                    {
+                                        "name": "small",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Small"
+                                    },
+                                    {
+                                        "name": "large",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Large"
+                                    },
+                                    {
+                                        "name": "full",
+                                        "spec": [
+                                            {
+                                                "name": "url",
+                                                "type": "url",
+                                                "label": "URL"
+                                            },
+                                            {
+                                                "name": "width",
+                                                "type": "uinteger",
+                                                "label": "Width"
+                                            },
+                                            {
+                                                "name": "height",
+                                                "type": "uinteger",
+                                                "label": "Height"
+                                            }
+                                        ],
+                                        "type": "collection",
+                                        "label": "Full"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Thumbnails"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Signature"
+                    },
+                    {
+                        "name": "Date Signed",
+                        "type": "date",
+                        "label": "Date Signed"
+                    },
+                    {
+                        "name": "Record ID",
+                        "type": "text",
+                        "label": "Record ID"
+                    }
+                ],
+                "advanced": true
+            }
+        },
+        {
+            "id": 27,
+            "module": "google-drive:copyAFile",
+            "version": 4,
+            "parameters": {
+                "__IMTCONN__": 2830038
+            },
+            "mapper": {
+                "copy": "drive",
+                "file": "/150gHEWsncVMxBKtRCIl5fcnPVayLAiqF/1_Q4tP54z18nD9Q0gr16sFDLiTq_H18pa/1qFU__K2z1YcIwiRw7D60pCuJ8Yj8MXmW/1atk88sjMx_FhbCf79AslMxrE7eiNDLXM/1olDrWY-_SuHhFlJU6Jizz9FYbaj5UFxv/16rQi9hQNjG78wbPoAJSF9q-8GQRjVHaJ5Mwj294hdZc",
+                "name": "{{46.`Pilot Full Name`}} Helicopter Landing Agreement & Pilot Indemnity",
+                "select": "list",
+                "folderId": "/1atk88sjMx_FhbCf79AslMxrE7eiNDLXM/1pyzJMc46oC5o5ucamfvPU1IRs1W5_1RL",
+                "destination": "drive"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "copy": {
+                            "label": "My Drive"
+                        },
+                        "file": {
+                            "mode": "chose",
+                            "path": [
+                                "[02] Work",
+                                "[01] Clients",
+                                "[01] Wise Winery",
+                                "[07] Airstrip Periodic Usage Agreement",
+                                "Template",
+                                "WISE WINERY HELICOPTER LANDING AGREEMENT AND PILOT INDEMNITY"
+                            ]
+                        },
+                        "select": {
+                            "label": "Select from the list"
+                        },
+                        "folderId": {
+                            "mode": "chose",
+                            "path": [
+                                "Airstrip Periodic Usage Agreement",
+                                "Bin"
+                            ]
+                        },
+                        "destination": {
+                            "label": "My Drive"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "google-restricted"
+                            },
+                            "label": "My Google Restricted connection (info@coastalprograms.com)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:google-restricted",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "type": "hidden"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Select the Method",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "list"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "type": "text",
+                        "label": "Copied File Name"
+                    },
+                    {
+                        "name": "copy",
+                        "type": "select",
+                        "label": "Original File's Drive",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "drive",
+                                "share",
+                                "team"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "destination",
+                        "type": "select",
+                        "label": "New Drive Location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "drive",
+                                "share",
+                                "team"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "file",
+                        "label": "Original File ID",
+                        "required": true
+                    },
+                    {
+                        "name": "folderId",
+                        "type": "folder",
+                        "label": "New Folder Location",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 20,
+            "module": "google-docs:addAnImageToADocument",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 2830061
+            },
+            "mapper": {
+                "index": "8552",
+                "choose": "mapping",
+                "select": "location",
+                "select1": "index",
+                "document": "{{27.id}}",
+                "index_uri": "{{46.Signature[].url}}",
+                "index_width_magnitude": "256",
+                "index_height_magnitude": "108"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "choose": {
+                            "label": "By Mapping"
+                        },
+                        "select": {
+                            "label": "By specification of location"
+                        },
+                        "select1": {
+                            "label": "By index"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "google"
+                            },
+                            "label": "My Google connection (info@coastalprograms.com)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:google",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "choose",
+                        "type": "select",
+                        "label": "Select a Document",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "mapping",
+                                "dropdown"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "document",
+                        "type": "text",
+                        "label": "Document ID",
+                        "required": true
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Insert an Image",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "location",
+                                "document",
+                                "segment"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "select1",
+                        "type": "select",
+                        "label": "Specify the location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "index",
+                                "segment"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "index",
+                        "type": "number",
+                        "label": "Index",
+                        "required": true
+                    },
+                    {
+                        "name": "index_uri",
+                        "type": "url",
+                        "label": "Image URL",
+                        "required": true
+                    },
+                    {
+                        "name": "index_height_magnitude",
+                        "type": "number",
+                        "label": "Height Magnitude in Points"
+                    },
+                    {
+                        "name": "index_width_magnitude",
+                        "type": "number",
+                        "label": "Width Magnitude in Points"
+                    }
+                ],
+                "advanced": true
+            }
+        },
+        {
+            "id": 8,
+            "module": "google-docs:createADocumentFromTemplate",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 2830061
+            },
+            "mapper": {
+                "name": "{{46.`Pilot First Name`}} Helicopter Landing Agreement & Pilot Indemnity",
+                "select": "map",
+                "document": "{{20.id}}",
+                "folderId": "/1atk88sjMx_FhbCf79AslMxrE7eiNDLXM",
+                "requests": [
+                    {
+                        "text": "firstName",
+                        "replaceText": "{{46.`Pilot First Name`}}"
+                    },
+                    {
+                        "text": "email",
+                        "replaceText": "{{46.Email}}"
+                    },
+                    {
+                        "text": "mobile",
+                        "replaceText": "{{46.Mobile}}"
+                    },
+                    {
+                        "text": "lastName",
+                        "replaceText": "{{46.`Pilot Last Name`}}"
+                    },
+                    {
+                        "text": "HR",
+                        "replaceText": "{{46.`Helicopter Registration`}}"
+                    },
+                    {
+                        "text": "insurance",
+                        "replaceText": "{{46.`Aviation Insurance Company`}}"
+                    },
+                    {
+                        "text": "policy-number",
+                        "replaceText": "{{46.`Insurance Policy Number`}}"
+                    },
+                    {
+                        "text": "insurance-expiry",
+                        "replaceText": "{{46.`Insurance Expiry Date`}}"
+                    },
+                    {
+                        "text": "date",
+                        "replaceText": "{{formatDate(46.`Date Signed`; \"DD-MM-YYYY\")}}"
+                    }
+                ],
+                "destination": "drive"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 900,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "select": {
+                            "label": "By Mapping"
+                        },
+                        "folderId": {
+                            "mode": "chose",
+                            "path": [
+                                "Airstrip Periodic Usage Agreement"
+                            ]
+                        },
+                        "requests": {
+                            "mode": "chose",
+                            "items": [
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                            ]
+                        },
+                        "destination": {
+                            "label": "My Drive"
+                        },
+                        "imageReplacement": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "google"
+                            },
+                            "label": "My Google connection (info@coastalprograms.com)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:google",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Create a Document from a Template",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "dropdown"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "type": "text",
+                        "label": "Title",
+                        "required": true
+                    },
+                    {
+                        "name": "destination",
+                        "type": "select",
+                        "label": "New Drive Location",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "drive",
+                                "share",
+                                "team"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "document",
+                        "type": "text",
+                        "label": "Document ID",
+                        "required": true
+                    },
+                    {
+                        "name": "requests",
+                        "spec": [
+                            {
+                                "name": "text",
+                                "type": "text",
+                                "label": "Tags",
+                                "required": true
+                            },
+                            {
+                                "name": "replaceText",
+                                "type": "text",
+                                "label": "Replaced Value"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Values"
+                    },
+                    {
+                        "name": "imageReplacement",
+                        "spec": [
+                            {
+                                "name": "imageObjectId",
+                                "type": "text",
+                                "label": "Image Object ID",
+                                "required": true
+                            },
+                            {
+                                "name": "url",
+                                "type": "text",
+                                "label": "Image URL",
+                                "required": true
+                            },
+                            {
+                                "name": "tabId",
+                                "type": "text",
+                                "label": "Tab ID"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Images Replacement"
+                    },
+                    {
+                        "name": "folderId",
+                        "type": "folder",
+                        "label": "New Document's Location",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 30,
+            "module": "google-drive:getAFile",
+            "version": 4,
+            "parameters": {
+                "__IMTCONN__": 2830038
+            },
+            "mapper": {
+                "file": "{{8.id}}",
+                "select": "map",
+                "formatDrawings": "image/jpeg",
+                "formatDocuments": "application/pdf",
+                "formatSpreadsheets": "application/pdf",
+                "formatPresentations": "application/pdf"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1200,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "select": {
+                            "label": "Enter manually"
+                        },
+                        "formatDrawings": {
+                            "label": "JPEG"
+                        },
+                        "formatDocuments": {
+                            "label": "PDF"
+                        },
+                        "formatSpreadsheets": {
+                            "label": "PDF"
+                        },
+                        "formatPresentations": {
+                            "label": "PDF"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "google-restricted"
+                            },
+                            "label": "My Google Restricted connection (info@coastalprograms.com)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:google-restricted",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "type": "hidden"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Enter a File ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "map",
+                                "value"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "formatDocuments",
+                        "type": "select",
+                        "label": "Convert Google Documents Files to Format",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/pdf",
+                                "application/vnd.oasis.opendocument.text",
+                                "text/html",
+                                "text/plain",
+                                "application/rtf",
+                                "text/markdown"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "formatSpreadsheets",
+                        "type": "select",
+                        "label": "Convert Google Spreadsheets Files to Format",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "application/x-vnd.oasis.opendocument.spreadsheet",
+                                "application/pdf",
+                                "text/csv"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "formatPresentations",
+                        "type": "select",
+                        "label": "Convert Google Slides Files to Format",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                "application/pdf"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "formatDrawings",
+                        "type": "select",
+                        "label": "Convert Google Drawings Files to Format",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "image/jpeg",
+                                "image/png",
+                                "image/svg+xml",
+                                "application/pdf"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "file",
+                        "type": "text",
+                        "label": "File ID",
+                        "required": true
+                    }
+                ],
+                "advanced": true
+            }
+        },
+        {
+            "id": 45,
+            "module": "microsoft-email:createAndSendAMessage",
+            "version": 2,
+            "parameters": {
+                "__IMTCONN__": 4493300
+            },
+            "mapper": {
+                "content": "<html>\r\n<head>\r\n    <meta charset=\"UTF-8\">\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n    <title>Wedding Information</title>\r\n</head>\r\n<body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px;\">\r\n    \r\n    <div style=\"max-width: 500px; margin: 0 auto;\">\r\n\n\n<p>Hi <strong>{{46.`Pilot First Name`}}</strong>,</p>\r\n<p>Thank you for submitting your helicopter landing agreement for Wise Winery.</p>\n\r\n<p>Attached is your completed <strong>Helicopter Landing Agreement and Pilot Indemnity</strong> form. Please review the details to ensure everything is correct, including your pilot and aircraft information.</p>\n\r\n<p>This agreement is valid for 1 year from today's date. You will be emailed 1 month before it's due for renewal.</p>\n\r\n<p>If any updates are required or your contact details change, feel free to get in touch.</p>\n\r\n<p>Please remember to call us 60 minutes before landing: <strong>(08) 9755 3331</strong></p>\n\r\n<p>Safe flying,</p>\r\n\r\n<br><br>\n\n<div style=\"text-align: center;\">\r\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial; margin: 0 auto;\"><tbody><tr><td><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"vertical-align: top;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"text-align: center;\"><img src=\"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjxDQJRpxq-gJ1lLJUBkdDMCJSm0P6owEsRQ&amp;s\" role=\"presentation\" width=\"130\" style=\"max-width: 128px; display: block;\"></td></tr><tr><td height=\"30\" aria-label=\"Horizontal Spacer\"></td></tr><tr><td style=\"text-align: center;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial; margin: 0px; padding: 0px; text-align: center; display: inline-block;\"><tbody><tr style=\"text-align: center;\"><td><a href=\"https://www.facebook.com/p/Wise-Vineyard-Weddings-100069605359392/\" style=\"display: inline-block; padding: 0px; background-color: rgb(112, 117, 219); border-radius: 50%;\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/facebook-icon-dark-2x.png\" alt=\"facebook\" width=\"24\" loading=\"lazy\" style=\"background-color: rgb(112, 117, 219); max-width: 135px; display: block; border-radius: inherit;\"></a></td><td width=\"5\" aria-label=\"Vertical Spacer\"><div style=\"width: 5px;\"></div></td><td><a href=\"https://www.instagram.com/wisewine/?hl=en\" style=\"display: inline-block; padding: 0px; background-color: rgb(112, 117, 219); border-radius: 50%;\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/instagram-icon-dark-2x.png\" alt=\"instagram\" width=\"24\" loading=\"lazy\" style=\"background-color: rgb(112, 117, 219); max-width: 135px; display: block; border-radius: inherit;\"></a></td><td width=\"5\" aria-label=\"Vertical Spacer\"><div style=\"width: 5px;\"></div></td></tr></tbody></table></td></tr></tbody></table></td><td width=\"46\" aria-label=\"Vertical Spacer\"><div style=\"width: 46px;\"></div></td><td style=\"padding: 0px; vertical-align: middle;\"><h2 style=\"margin: 0px; font-size: 18px; font-family: Arial; color: rgb(0, 0, 0); font-weight: 600;\"><span>Wise</span><span>&nbsp;</span><span>Team</span></h2><div style=\"margin: 0px; font-weight: 500; color: rgb(0, 0, 0); font-size: 14px; line-height: 22px;\"><span>Wise Eagle bay</span></div><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial; width: 100%;\"><tbody><tr><td height=\"30\" aria-label=\"Horizontal Spacer\"></td></tr><tr><td width=\"auto\" aria-label=\"Divider\" style=\"width: 100%; height: 1px; border-bottom: 1px solid rgb(248, 98, 149); border-left: none; display: block;\"></td></tr><tr><td height=\"30\" aria-label=\"Horizontal Spacer\"></td></tr></tbody></table><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr style=\"vertical-align: middle; height: 25px;\"><td width=\"30\" style=\"vertical-align: middle;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"vertical-align: bottom;\"><span style=\"display: inline-block; background-color: rgb(248, 98, 149);\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/phone-icon-dark-2x.png\" alt=\"mobilePhone\" width=\"13\" style=\"display: block; background-image: linear-gradient(rgb(248, 98, 149), rgb(248, 98, 149));\"></span></td></tr></tbody></table></td><td style=\"padding: 0px; color: rgb(0, 0, 0);\"><a href=\"tel:(08) 9755 3331\" style=\"text-decoration: none; color: rgb(0, 0, 0); font-size: 14px;\"><span>(08) 9755 3331</span></a></td></tr><tr style=\"vertical-align: middle; height: 25px;\"><td width=\"30\" style=\"vertical-align: middle;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"vertical-align: bottom;\"><span style=\"display: inline-block; background-color: rgb(248, 98, 149);\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/email-icon-dark-2x.png\" alt=\"emailAddress\" width=\"13\" style=\"display: block; background-image: linear-gradient(rgb(248, 98, 149), rgb(248, 98, 149));\"></span></td></tr></tbody></table></td><td style=\"padding: 0px; color: rgb(0, 0, 0);\"><a href=\"mailto:hello@wiseeaglebay.com.au\" style=\"text-decoration: none; color: rgb(0, 0, 0); font-size: 14px;\"><span>hello@wiseeaglebay.com.au</span></a></td></tr><tr style=\"vertical-align: middle; height: 25px;\"><td width=\"30\" style=\"vertical-align: middle;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"vertical-align: bottom;\"><span style=\"display: inline-block; background-color: rgb(248, 98, 149);\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/link-icon-dark-2x.png\" alt=\"website\" width=\"13\" style=\"display: block; background-image: linear-gradient(rgb(248, 98, 149), rgb(248, 98, 149));\"></span></td></tr></tbody></table></td><td style=\"padding: 0px; color: rgb(0, 0, 0);\"><a href=\"https://www.wisewine.com.au/\" style=\"text-decoration: none; color: rgb(0, 0, 0); font-size: 14px;\"><span>https://www.wisewine.com.au/</span></a></td></tr><tr style=\"vertical-align: middle; height: 25px;\"><td width=\"30\" style=\"vertical-align: middle;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td style=\"vertical-align: bottom;\"><span style=\"display: inline-block; background-color: rgb(248, 98, 149);\"><img src=\"https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/address-icon-dark-2x.png\" alt=\"address\" width=\"13\" style=\"display: block; background-image: linear-gradient(rgb(248, 98, 149), rgb(248, 98, 149));\"></span></td></tr></tbody></table></td><td style=\"padding: 0px; color: rgb(0, 0, 0);\"><span style=\"font-size: 14px; color: rgb(0, 0, 0);\"><span>237 Eagle Bay Rd Eagle Bay, Naturaliste WA 6281</span></span></td></tr></tbody></table><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"vertical-align: -webkit-baseline-middle; font-size: medium; font-family: Arial;\"><tbody><tr><td height=\"30\" aria-label=\"Horizontal Spacer\"></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>\r\n</div>",
+                "subject": "Your Helicopter Landing Agreement – Wise Winery",
+                "importance": "Normal",
+                "attachments": [
+                    {
+                        "data": "{{30.data}}",
+                        "filename": "{{30.name}}"
+                    }
+                ],
+                "contentType": "html",
+                "toRecipients": [
+                    {
+                        "name": "{{46.`Pilot First Name`}}",
+                        "address": "{{46.Email}}"
+                    }
+                ],
+                "singleValueExtendedProperties": {}
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1500,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "from": {
+                            "mode": "chose"
+                        },
+                        "replyTo": {
+                            "mode": "chose"
+                        },
+                        "importance": {
+                            "mode": "chose",
+                            "label": "Normal Priority"
+                        },
+                        "attachments": {
+                            "mode": "chose",
+                            "items": [
+                                null
+                            ]
+                        },
+                        "contentType": {
+                            "mode": "chose",
+                            "label": "HTML"
+                        },
+                        "ccRecipients": {
+                            "mode": "chose"
+                        },
+                        "toRecipients": {
+                            "mode": "chose",
+                            "items": [
+                                null
+                            ]
+                        },
+                        "bccRecipients": {
+                            "mode": "chose"
+                        },
+                        "internetMessageHeaders": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "azure"
+                            },
+                            "label": "hello@wiseeaglebay.com.au (Wise Eagle Bay <hello@wiseeaglebay.com.au>)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:azure",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "toRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "To Recipients",
+                        "required": true
+                    },
+                    {
+                        "name": "subject",
+                        "type": "text",
+                        "label": "Subject",
+                        "required": true
+                    },
+                    {
+                        "name": "content",
+                        "type": "text",
+                        "label": "Body Content",
+                        "required": true
+                    },
+                    {
+                        "name": "attachments",
+                        "spec": [
+                            {
+                                "name": "filename",
+                                "type": "filename",
+                                "label": "File Name",
+                                "required": true,
+                                "semantic": "file:name"
+                            },
+                            {
+                                "name": "data",
+                                "type": "buffer",
+                                "label": "Data",
+                                "required": true,
+                                "semantic": "file:data"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Attachments"
+                    },
+                    {
+                        "name": "replyTo",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Reply To"
+                    },
+                    {
+                        "name": "from",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "From",
+                        "validate": {
+                            "maxItems": 1
+                        }
+                    },
+                    {
+                        "name": "ccRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "CC Recipients"
+                    },
+                    {
+                        "name": "bccRecipients",
+                        "spec": [
+                            {
+                                "name": "address",
+                                "type": "email",
+                                "label": "Email Address",
+                                "required": true
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Bcc Recipients"
+                    },
+                    {
+                        "name": "importance",
+                        "type": "select",
+                        "label": "Importance",
+                        "validate": {
+                            "enum": [
+                                "Low",
+                                "Normal",
+                                "High"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "internetMessageHeaders",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value",
+                                "required": true
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Internet Message Headers"
+                    },
+                    {
+                        "name": "contentType",
+                        "type": "select",
+                        "label": "Body Content Type",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "html",
+                                "text"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "singleValueExtendedProperties",
+                        "spec": [
+                            {
+                                "name": "sensitivityLabel",
+                                "type": "text",
+                                "label": "Sensitivity Label"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Extended MAPI Properties"
+                    }
+                ]
+            }
+        }
+    ],
+    "metadata": {
+        "instant": false,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false,
+            "freshVariables": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

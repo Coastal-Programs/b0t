@@ -21,7 +21,7 @@ export async function refreshExpiringTokens(): Promise<void> {
     const oneHourFromNow = Math.floor(Date.now() / 1000) + 3600;
     const BATCH_SIZE = 100; // Process max 100 tokens per run
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const dbAny = db as any;
 
     const expiringAccounts = await dbAny

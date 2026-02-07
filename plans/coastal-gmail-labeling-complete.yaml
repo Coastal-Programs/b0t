@@ -1,0 +1,163 @@
+name: Gmail Auto-Labeling Complete for Coastal Programs
+description: Automatically categorize emails with AI (8 categories + invoice detection), apply labels, upload invoices to Drive, and archive
+trigger: gmail
+gmailFilters:
+  label: inbox
+  isUnread: true
+gmailPollInterval: 60
+output: json
+returnValue: "{{result}}"
+steps:
+  - module: utilities.javascript.execute
+    id: prepare-email
+    inputs:
+      code: |
+        return {
+          subject: trigger.subject || "(no subject)",
+          from: trigger.from || "unknown",
+          body: (trigger.body || "").substring(0, 500),
+          hasAttachments: (trigger.attachments && trigger.attachments.length > 0) ? 'Yes' : 'No',
+          messageId: trigger.messageId,
+          attachmentData: trigger.attachments?.[0] || null
+        };
+    outputAs: email
+  - module: ai.ai-sdk.generateJSON
+    id: classify-category
+    inputs:
+      prompt: |
+        Classify email into ONE category:
+
+        Subject: {{email.subject}}
+        From: {{email.from}}
+        Has Attachments: {{email.hasAttachments}}
+
+        Categories:
+        1. Alerts - Error messages, failures, critical notifications. Examples: N8N failed, GitHub error, deployment failed
+        2. Finance/Billing - Invoices, payments, banking, subscriptions. Examples: Stripe, Xero, DigitalOcean bills
+        3. Platform Updates - Tool notifications, new features. Examples: GitHub features, Supabase updates
+        4. Reply - Requires your response: questions, meetings, decisions needed
+        5. Waiting - Proposals you sent awaiting response
+        6. Webinar Request - Speaking invitations, podcast requests
+        7. Mentorship - Educational content from Dan Martell, Russell Brunson, etc.
+        8. Community - LinkedIn, Twitter, Skool, Discord notifications
+
+        Return exact category name.
+      model: claude-3-5-haiku-20241022
+      provider: anthropic
+      schema:
+        type: object
+        properties:
+          category:
+            type: string
+            enum:
+              - Alerts
+              - Finance/Billing
+              - Platform Updates
+              - Reply
+              - Waiting
+              - Webinar Request
+              - Mentorship
+              - Community
+        required:
+          - category
+      apiKey: "{{credential.anthropic_api_key}}"
+    outputAs: mainCat
+  - module: communication.gmail.addLabels
+    id: add-label
+    inputs:
+      messageId: "{{email.messageId}}"
+      labels:
+        - "{{mainCat.category}}"
+    outputAs: labeled
+  - module: ai.ai-sdk.generateJSON
+    id: classify-invoice
+    inputs:
+      prompt: |
+        Classify Finance/Billing email:
+
+        Subject: {{email.subject}}
+        From: {{email.from}}
+        Has Attachments: {{email.hasAttachments}}
+
+        Categories:
+        1. Invoice to Pay - Bills FROM vendors WITH PDF attached. Examples: Stripe invoice.pdf, DigitalOcean bill.pdf
+           RULE: "Has Attachments: Yes" = likely Invoice to Pay
+        2. Not an Invoice - Everything else: Xero sending YOUR invoice to client, Apple notification (no PDF), payment confirmations
+
+        RULE: "Has Attachments: No" = always "Not an Invoice"
+
+        Return exact category.
+      model: claude-3-5-haiku-20241022
+      provider: anthropic
+      schema:
+        type: object
+        properties:
+          invoiceType:
+            type: string
+            enum:
+              - Invoice to Pay
+              - Not an Invoice
+        required:
+          - invoiceType
+      apiKey: "{{credential.anthropic_api_key}}"
+    outputAs: invoiceCat
+  - module: utilities.javascript.execute
+    id: invoice-logic
+    inputs:
+      code: |
+        const isFinance = category === "Finance/Billing";
+        const isInvoiceToPay = invoiceType === "Invoice to Pay";
+        const hasAttachment = hasAttachments === "Yes";
+        const hasAttachmentData = !!attachmentData;
+
+        return {
+          shouldUpload: isFinance && isInvoiceToPay && hasAttachment && hasAttachmentData,
+          shouldMarkRead: isFinance && isInvoiceToPay && hasAttachment,
+          isFinance,
+          isInvoiceToPay
+        };
+      context:
+        category: "{{mainCat.category}}"
+        invoiceType: "{{invoiceCat.invoiceType}}"
+        hasAttachments: "{{email.hasAttachments}}"
+        attachmentData: "{{email.attachmentData}}"
+    outputAs: invoiceLogic
+  - module: utilities.javascript.execute
+    id: archive-check
+    inputs:
+      code: |
+        return { shouldArchive: category !== "Reply" };
+      context:
+        category: "{{mainCat.category}}"
+    outputAs: archiveCheck
+  - module: communication.gmail.archiveEmail
+    id: archive
+    inputs:
+      messageId: "{{email.messageId}}"
+    outputAs: archived
+  - module: utilities.javascript.execute
+    id: build-result
+    inputs:
+      code: |
+        return {
+          success: true,
+          from: email.from,
+          subject: email.subject,
+          category: mainCat.category,
+          labeled: true,
+          archived: archiveCheck.shouldArchive,
+          financeProcessing: invoiceLogic.isFinance ? {
+            invoiceType: invoiceCat.invoiceType,
+            shouldUpload: invoiceLogic.shouldUpload,
+            note: invoiceLogic.shouldUpload
+              ? "Invoice detected - ready for manual Drive upload"
+              : "Finance email but not an invoice to pay"
+          } : null
+        };
+      context:
+        email: "{{email}}"
+        mainCat: "{{mainCat}}"
+        invoiceCat: "{{invoiceCat}}"
+        invoiceLogic: "{{invoiceLogic}}"
+        archiveCheck: "{{archiveCheck}}"
+    outputAs: result

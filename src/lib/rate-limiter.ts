@@ -184,7 +184,7 @@ export const wordpressRateLimiter = createRateLimiter({
 /**
  * Wrap a function with rate limiting
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function withRateLimit<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   limiter: Bottleneck

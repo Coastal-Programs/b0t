@@ -26,7 +26,7 @@ const placidRateLimiter = createRateLimiter({
 });
 
 // Placid circuit breaker
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function createPlacidCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ) {

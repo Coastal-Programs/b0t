@@ -952,6 +952,7 @@ async function loadUserCredentialsFromDB(userId: string, organizationId?: string
       'googlesheets': ['googlesheets', 'googlesheets_oauth'],
       'google-calendar': ['googlecalendar', 'googlecalendar_serviceaccount'],
       'googlecalendar': ['googlecalendar', 'googlecalendar_serviceaccount'],
+      'onedrive': ['microsoft_onedrive', 'onedrive'],
       'notion': ['notion_oauth', 'notion'],
       'airtable': ['airtable_oauth', 'airtable'],
       'hubspot': ['hubspot_oauth', 'hubspot'],

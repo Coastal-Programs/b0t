@@ -68,6 +68,7 @@ export async function GET(
       type: credential.type,
       value,
       fields,
+      metadata,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get credential');

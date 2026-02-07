@@ -83,19 +83,25 @@ export function useWorkflowProgress(
     }
   }, []);
 
+  // Reset state when execution starts - use queueMicrotask to avoid cascading renders
+  useEffect(() => {
+    if (enabled && workflowId) {
+      queueMicrotask(() => {
+        setState({
+          status: 'running',
+          currentStep: 0,
+          totalSteps: 0,
+          steps: [],
+        });
+      });
+    }
+  }, [enabled, workflowId]);
+
   useEffect(() => {
     if (!enabled || !workflowId) {
       disconnect();
       return;
     }
-
-    // Reset state when starting new execution
-    setState({
-      status: 'running',
-      currentStep: 0,
-      totalSteps: 0,
-      steps: [],
-    });
 
     // Build stream URL with optional trigger data
     const params = new URLSearchParams();

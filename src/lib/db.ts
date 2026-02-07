@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { logger } from './logger';
+import * as schema from './schema';
 
 // PostgreSQL configuration
 const databaseUrl = process.env.DATABASE_URL;
@@ -87,7 +88,7 @@ if (process.env.DB_POOL_LOGGING === 'true') {
   });
 }
 
-export const db = drizzle(pool);
+export const db = drizzle(pool, { schema });
 
 // Export pool for monitoring
 export { pool };
