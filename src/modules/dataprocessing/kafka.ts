@@ -82,15 +82,17 @@ function getConfig(config?: Partial<KafkaConfig>): KafkaConfig {
 
   return {
     brokers,
-    clientId: config?.clientId || process.env.KAFKA_CLIENT_ID || 'odin-workflow',
-    ssl: config?.ssl ?? (process.env.KAFKA_SSL === 'true'),
-    sasl: config?.sasl || (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
-      ? {
-          mechanism: 'plain' as const,
-          username: process.env.KAFKA_USERNAME,
-          password: process.env.KAFKA_PASSWORD,
-        }
-      : undefined),
+    clientId: config?.clientId || process.env.KAFKA_CLIENT_ID || 'b0t-workflow',
+    ssl: config?.ssl ?? process.env.KAFKA_SSL === 'true',
+    sasl:
+      config?.sasl ||
+      (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD
+        ? {
+            mechanism: 'plain' as const,
+            username: process.env.KAFKA_USERNAME,
+            password: process.env.KAFKA_PASSWORD,
+          }
+        : undefined),
     connectionTimeout: config?.connectionTimeout || 30000,
     requestTimeout: config?.requestTimeout || 30000,
   };
@@ -228,7 +230,10 @@ async function getTopicInfoInternal(
       partitions: [],
     };
 
-    logger.info({ topic, partitionCount: mockMetadata.partitions.length }, 'Topic info retrieved successfully');
+    logger.info(
+      { topic, partitionCount: mockMetadata.partitions.length },
+      'Topic info retrieved successfully'
+    );
 
     return mockMetadata;
   } catch (error) {
@@ -248,8 +253,7 @@ const getTopicInfoWithBreaker = createCircuitBreaker(getTopicInfoInternal, {
 });
 
 export const getTopicInfo = withRateLimit(
-  (topic: string, config?: Partial<KafkaConfig>) =>
-    getTopicInfoWithBreaker.fire(topic, config),
+  (topic: string, config?: Partial<KafkaConfig>) => getTopicInfoWithBreaker.fire(topic, config),
   kafkaRateLimiter
 );
 
@@ -259,9 +263,7 @@ export const getTopicInfo = withRateLimit(
  * @param config - Optional Kafka configuration
  * @returns List of topic names
  */
-async function listTopicsInternal(
-  config?: Partial<KafkaConfig>
-): Promise<string[]> {
+async function listTopicsInternal(config?: Partial<KafkaConfig>): Promise<string[]> {
   logger.info('Listing Kafka topics');
 
   try {
@@ -293,8 +295,7 @@ const listTopicsWithBreaker = createCircuitBreaker(listTopicsInternal, {
 });
 
 export const listTopics = withRateLimit(
-  (config?: Partial<KafkaConfig>) =>
-    listTopicsWithBreaker.fire(config),
+  (config?: Partial<KafkaConfig>) => listTopicsWithBreaker.fire(config),
   kafkaRateLimiter
 );
 
@@ -341,8 +342,7 @@ const deleteTopicWithBreaker = createCircuitBreaker(deleteTopicInternal, {
 });
 
 export const deleteTopic = withRateLimit(
-  (topic: string, config?: Partial<KafkaConfig>) =>
-    deleteTopicWithBreaker.fire(topic, config),
+  (topic: string, config?: Partial<KafkaConfig>) => deleteTopicWithBreaker.fire(topic, config),
   kafkaRateLimiter
 );
 
@@ -386,7 +386,6 @@ const listConsumerGroupsWithBreaker = createCircuitBreaker(listConsumerGroupsInt
 });
 
 export const listConsumerGroups = withRateLimit(
-  (config?: Partial<KafkaConfig>) =>
-    listConsumerGroupsWithBreaker.fire(config),
+  (config?: Partial<KafkaConfig>) => listConsumerGroupsWithBreaker.fire(config),
   kafkaRateLimiter
 );

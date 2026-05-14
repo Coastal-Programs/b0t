@@ -21,17 +21,17 @@ import { logger } from './logger';
  */
 
 interface CircuitBreakerConfig {
-  timeout?: number;              // Request timeout in ms (default: 10000)
+  timeout?: number; // Request timeout in ms (default: 10000)
   errorThresholdPercentage?: number; // % of failures to open circuit (default: 50)
-  resetTimeout?: number;         // Time in ms before attempting recovery (default: 30000)
-  volumeThreshold?: number;      // Minimum requests before opening circuit (default: 5)
-  name?: string;                 // Circuit breaker name for logging
+  resetTimeout?: number; // Time in ms before attempting recovery (default: 30000)
+  volumeThreshold?: number; // Minimum requests before opening circuit (default: 5)
+  name?: string; // Circuit breaker name for logging
 }
 
 /**
  * Create a circuit breaker for an async function
  */
- 
+
 export function createCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   config?: CircuitBreakerConfig
@@ -75,24 +75,15 @@ export function createCircuitBreaker<T extends (...args: any[]) => Promise<any>>
   });
 
   breaker.on('failure', (error) => {
-    logger.error(
-      { circuit: name, error },
-      `Circuit breaker detected failure in ${name}`
-    );
+    logger.error({ circuit: name, error }, `Circuit breaker detected failure in ${name}`);
   });
 
   breaker.on('success', () => {
-    logger.debug(
-      { circuit: name },
-      `Circuit breaker success for ${name}`
-    );
+    logger.debug({ circuit: name }, `Circuit breaker success for ${name}`);
   });
 
   breaker.on('timeout', () => {
-    logger.error(
-      { circuit: name, timeout },
-      `Circuit breaker timeout for ${name} (${timeout}ms)`
-    );
+    logger.error({ circuit: name, timeout }, `Circuit breaker timeout for ${name} (${timeout}ms)`);
   });
 
   return breaker as CircuitBreaker<Parameters<T>, ReturnType<T>>;
@@ -104,150 +95,27 @@ export function createCircuitBreaker<T extends (...args: any[]) => Promise<any>>
 
 // Twitter API circuit breaker
 // More lenient timeout (15s) due to rate limiting delays
- 
+
 export function createTwitterCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
   fn: T
 ): CircuitBreaker<Parameters<T>, ReturnType<T>> {
   return createCircuitBreaker(fn, {
     timeout: 15000,
     errorThresholdPercentage: 60,
-    resetTimeout: 60000,         // Wait 1 minute before retry
+    resetTimeout: 60000, // Wait 1 minute before retry
     volumeThreshold: 3,
     name: `twitter:${fn.name}`,
   });
 }
 
-// YouTube API circuit breaker
-// Stricter settings due to quota limits
- 
-export function createYouTubeCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
-  fn: T
-): CircuitBreaker<Parameters<T>, ReturnType<T>> {
-  return createCircuitBreaker(fn, {
-    timeout: 10000,
-    errorThresholdPercentage: 50,
-    resetTimeout: 120000,        // Wait 2 minutes before retry
-    volumeThreshold: 3,
-    name: `youtube:${fn.name}`,
-  });
-}
-
-// OpenAI API circuit breaker
-// Longer timeout for AI generation (can take 30+ seconds)
- 
-export function createOpenAICircuitBreaker<T extends (...args: any[]) => Promise<any>>(
-  fn: T
-): CircuitBreaker<Parameters<T>, ReturnType<T>> {
-  return createCircuitBreaker(fn, {
-    timeout: 60000,              // 60 seconds for AI generation
-    errorThresholdPercentage: 50,
-    resetTimeout: 30000,
-    volumeThreshold: 3,
-    name: `openai:${fn.name}`,
-  });
-}
-
-// Instagram API circuit breaker
- 
-export function createInstagramCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
-  fn: T
-): CircuitBreaker<Parameters<T>, ReturnType<T>> {
-  return createCircuitBreaker(fn, {
-    timeout: 10000,
-    errorThresholdPercentage: 50,
-    resetTimeout: 60000,
-    volumeThreshold: 3,
-    name: `instagram:${fn.name}`,
-  });
-}
-
-// RapidAPI circuit breaker
- 
-export function createRapidAPICircuitBreaker<T extends (...args: any[]) => Promise<any>>(
-  fn: T
-): CircuitBreaker<Parameters<T>, ReturnType<T>> {
-  return createCircuitBreaker(fn, {
-    timeout: 10000,
-    errorThresholdPercentage: 50,
-    resetTimeout: 60000,
-    volumeThreshold: 5,
-    name: `rapidapi:${fn.name}`,
-  });
-}
-
-// WordPress API circuit breaker
- 
-export function createWordPressCircuitBreaker<T extends (...args: any[]) => Promise<any>>(
-  fn: T
-): CircuitBreaker<Parameters<T>, ReturnType<T>> {
-  return createCircuitBreaker(fn, {
-    timeout: 15000,              // 15 seconds for WordPress (can be slow)
-    errorThresholdPercentage: 50,
-    resetTimeout: 60000,         // Wait 1 minute before retry
-    volumeThreshold: 3,
-    name: `wordpress:${fn.name}`,
-  });
-}
-
-/**
- * Helper: Create circuit breaker with fallback
- */
- 
-export function withFallback<T extends (...args: any[]) => Promise<any>>(
-  breaker: CircuitBreaker<Parameters<T>, ReturnType<T>>,
-  fallbackFn: (...args: Parameters<T>) => ReturnType<T>
-): (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>> {
-  return async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
-    try {
-      return await breaker.fire(...args);
-    } catch (error) {
-      logger.warn(
-        { circuit: breaker.name, error },
-        `Circuit breaker failed, using fallback for ${breaker.name}`
-      );
-      return await fallbackFn(...args);
-    }
-  };
-}
-
-/**
- * Get circuit breaker stats for monitoring
- */
-export function getCircuitBreakerStats(breaker: CircuitBreaker<unknown[], unknown>) {
-  const stats = breaker.stats;
-
-  return {
-    name: breaker.name,
-    state: breaker.opened ? 'OPEN' : breaker.halfOpen ? 'HALF_OPEN' : 'CLOSED',
-    failures: stats.failures,
-    successes: stats.successes,
-    timeouts: stats.timeouts,
-    rejects: stats.rejects,
-    fires: stats.fires,
-    latencyMean: stats.latencyMean,
-  };
-}
-
 /**
  * Example usage:
  *
- * // Wrap an API function
- * const postTweetWithBreaker = createTwitterCircuitBreaker(postTweet);
- *
- * // Use it like normal
- * await postTweetWithBreaker('Hello world');
- *
- * // With fallback
- * const getTrendsWithFallback = withFallback(
- *   createTwitterCircuitBreaker(getTrends),
- *   () => ({ trends: [] }) // Return empty array if API fails
- * );
- *
- * // Manual control
- * const breaker = createCircuitBreaker(someAPICall);
+ * // Generic circuit breaker
+ * const breaker = createCircuitBreaker(someAPICall, { name: 'my-api', timeout: 15000 });
  * const result = await breaker.fire(arg1, arg2);
  *
- * // Check stats
- * const stats = getCircuitBreakerStats(breaker);
- * console.log(`Circuit: ${stats.name}, State: ${stats.state}, Failures: ${stats.failures}`);
+ * // Twitter-specific circuit breaker
+ * const postTweetWithBreaker = createTwitterCircuitBreaker(postTweet);
+ * await postTweetWithBreaker.fire('Hello world');
  */

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable, accountsTable } from '@/lib/schema';
-import { eq, and } from 'drizzle-orm';
+import {
+  appSettingsTable,
+  oauthStateTable,
+  userCredentialsTable,
+  accountsTable,
+} from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
-import { encrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/encryption';
 import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 import { randomUUID } from 'crypto';
 
@@ -20,6 +25,10 @@ import { randomUUID } from 'crypto';
  * 5. Return HTML to close popup and notify parent window
  */
 export async function GET(request: NextRequest) {
+  // Sanitize origin for postMessage - prevent wildcard target origin
+  const appOrigin = new URL(
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  ).origin;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
@@ -36,7 +45,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Authorization denied' }, '*');
+                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Authorization denied' }, '${appOrigin}');
               }
             </script>
             <p>Authorization was denied. This window will close automatically.</p>
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Invalid callback parameters' }, '*');
+                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Invalid callback parameters' }, '${appOrigin}');
               }
             </script>
             <p>Invalid callback. This window will close automatically.</p>
@@ -93,7 +102,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Invalid or expired state' }, '*');
+                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Invalid or expired state' }, '${appOrigin}');
               }
             </script>
             <p>Invalid or expired state. This window will close automatically.</p>
@@ -112,8 +121,8 @@ export async function GET(request: NextRequest) {
     const userId = stateRecord.userId;
 
     // Try platform-wide OAuth credentials (env vars) first
-    let clientId: string;
-    let clientSecret: string;
+    let clientId: string | undefined;
+    let clientSecret: string | undefined;
     const platformCreds = getPlatformOAuthCredentials('calcom');
 
     if (platformCreds) {
@@ -121,7 +130,36 @@ export async function GET(request: NextRequest) {
       clientId = platformCreds.clientId;
       clientSecret = platformCreds.clientSecret;
       logger.info({ userId }, 'Using platform-wide Cal.com OAuth credentials for callback');
-    } else {
+    }
+
+    // Try Platform Settings (appSettingsTable) - configured via Keys dialog
+    if (!clientId) {
+      const [idSetting] = await db
+        .select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.key, 'oauth_calcom_client_id'))
+        .limit(1);
+      const [secretSetting] = await db
+        .select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.key, 'oauth_calcom_client_secret'))
+        .limit(1);
+
+      if (idSetting && secretSetting) {
+        try {
+          clientId = decrypt(idSetting.value);
+          clientSecret = decrypt(secretSetting.value);
+          logger.info({ userId }, 'Using Platform Settings Cal.com OAuth credentials for callback');
+        } catch (e) {
+          logger.warn(
+            { error: e },
+            'Failed to decrypt Platform Settings Cal.com OAuth credentials'
+          );
+        }
+      }
+    }
+
+    if (!clientId) {
       // Fallback: Get user-specific OAuth app credentials from database
       const [appCred] = await db
         .select()
@@ -138,7 +176,7 @@ export async function GET(request: NextRequest) {
             <body>
               <script>
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'calcom-auth-error', error: 'OAuth app credentials not configured' }, '*');
+                  window.opener.postMessage({ type: 'calcom-auth-error', error: 'OAuth app credentials not configured' }, '${appOrigin}');
                 }
               </script>
               <p>OAuth app credentials not configured. This window will close automatically.</p>
@@ -168,7 +206,7 @@ export async function GET(request: NextRequest) {
             <body>
               <script>
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'calcom-auth-error', error: 'Failed to get OAuth app credentials' }, '*');
+                  window.opener.postMessage({ type: 'calcom-auth-error', error: 'Failed to get OAuth app credentials' }, '${appOrigin}');
                 }
               </script>
               <p>Failed to get OAuth app credentials. This window will close automatically.</p>
@@ -190,29 +228,37 @@ export async function GET(request: NextRequest) {
       ? `${process.env.NEXTAUTH_URL}/api/auth/calcom/callback`
       : 'http://localhost:3123/api/auth/calcom/callback';
 
-    // Exchange authorization code for tokens
-    // Cal.com uses JSON content type for token endpoint
-    const tokenResponse = await fetch('https://api.cal.com/v2/auth/oauth2/token', {
+    // Exchange authorization code for tokens (confidential client flow)
+    // Use form-urlencoded per OAuth 2.0 spec (RFC 6749)
+    const tokenBody = new URLSearchParams({
+      code: code,
+      client_id: clientId!,
+      client_secret: clientSecret!,
+      redirect_uri: callbackUrl,
+      grant_type: 'authorization_code',
+    });
+
+    const tokenResponse = await fetch('https://app.cal.com/api/auth/oauth/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: callbackUrl,
-        grant_type: 'authorization_code',
-      }),
+      body: tokenBody.toString(),
     });
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      logger.error({
-        error: errorData,
-        callbackUrl,
-        clientIdPreview: `${clientId.substring(0, 10)}...${clientId.substring(clientId.length - 10)}`,
-      }, 'Failed to exchange Cal.com authorization code');
+      logger.error(
+        {
+          error: errorData,
+          status: tokenResponse.status,
+          callbackUrl,
+          hasClientId: !!clientId,
+          hasClientSecret: !!clientSecret,
+          hasCode: !!code,
+        },
+        'Failed to exchange Cal.com authorization code'
+      );
       return new NextResponse(
         `<!DOCTYPE html>
         <html>
@@ -220,10 +266,11 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Failed to exchange OAuth token' }, '*');
+                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Failed to exchange OAuth token' }, '${appOrigin}');
               }
             </script>
-            <p>Failed to exchange OAuth token. This window will close automatically.</p>
+            <p>Failed to exchange OAuth token (${tokenResponse.status}).</p>
+            <p style="font-size: 0.85rem; color: #666; max-width: 600px; margin: 1rem auto; word-break: break-all;">${errorData.substring(0, 500)}</p>
             <style>
               body { font-family: system-ui; padding: 2rem; text-align: center; }
             </style>
@@ -248,7 +295,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Missing tokens from Cal.com' }, '*');
+                window.opener.postMessage({ type: 'calcom-auth-error', error: 'Missing tokens from Cal.com' }, '${appOrigin}');
               }
             </script>
             <p>Missing tokens from Cal.com. This window will close automatically.</p>
@@ -268,31 +315,51 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + (expires_in || 1800) * 1000);
 
     // Parse metadata from OAuth state
-    let metadata: { service?: string; mode?: string; credentialId?: string } = {};
+    let metadata: {
+      service?: string;
+      mode?: string;
+      credentialId?: string;
+      organizationId?: string;
+    } = {};
     try {
       if (stateRecord.metadata) {
-        metadata = typeof stateRecord.metadata === 'string'
-          ? JSON.parse(stateRecord.metadata)
-          : stateRecord.metadata;
+        metadata =
+          typeof stateRecord.metadata === 'string'
+            ? JSON.parse(stateRecord.metadata)
+            : stateRecord.metadata;
       }
     } catch (error) {
       logger.error({ error }, 'Failed to parse OAuth state metadata');
     }
 
     // Fetch user info from Cal.com
+    // Try v2 API first (returns email), fall back to legacy (username only)
     let connectedEmail = 'Unknown';
     let providerAccountId = '';
     try {
-      const userInfoResponse = await fetch('https://api.cal.com/v2/me', {
+      // V2 API returns { status, data: { id, email, username, ... } }
+      const v2Response = await fetch('https://api.cal.com/v2/me', {
         headers: {
-          'Authorization': `Bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
+          'cal-api-version': '2024-08-13',
         },
       });
-      if (userInfoResponse.ok) {
-        const userInfo = await userInfoResponse.json();
-        // Cal.com v2/me returns: { id, email, name, username, etc. }
-        connectedEmail = userInfo.email || userInfo.username || 'Unknown';
-        providerAccountId = userInfo.id?.toString() || '';
+      if (v2Response.ok) {
+        const v2Data = await v2Response.json();
+        const userData = v2Data.data || v2Data;
+        connectedEmail = userData.email || userData.username || 'Unknown';
+        providerAccountId = userData.id?.toString() || '';
+      } else {
+        // Fall back to legacy endpoint (only returns { username })
+        const legacyResponse = await fetch('https://app.cal.com/api/auth/oauth/me', {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        });
+        if (legacyResponse.ok) {
+          const legacyData = await legacyResponse.json();
+          connectedEmail = legacyData.username || 'Unknown';
+        }
       }
     } catch (error) {
       logger.error({ error }, 'Failed to fetch Cal.com user info');
@@ -334,8 +401,9 @@ export async function GET(request: NextRequest) {
       await db.insert(userCredentialsTable).values({
         id: randomUUID(),
         userId,
+        organizationId: metadata.organizationId || null,
         platform: metadata.service || 'calcom',
-        name: connectedEmail, // Use email/username as credential name
+        name: connectedEmail,
         type: 'oauth',
         encryptedValue,
         metadata: {
@@ -346,7 +414,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      logger.info({ userId, provider: 'calcom', service: metadata.service }, 'Cal.com OAuth completed successfully');
+      logger.info(
+        { userId, provider: 'calcom', service: metadata.service },
+        'Cal.com OAuth completed successfully'
+      );
     }
 
     // Store account record for OAuth status tracking (token expiry, etc.)
@@ -378,6 +449,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
+    // Invalidate credential cache so new tokens are immediately available
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(userId);
+
     // Clean up state record
     await db.delete(oauthStateTable).where(eq(oauthStateTable.state, state));
 
@@ -389,7 +464,7 @@ export async function GET(request: NextRequest) {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'calcom-auth-success' }, '*');
+              window.opener.postMessage({ type: 'calcom-auth-success' }, '${appOrigin}');
             }
           </script>
           <p>Authentication successful! This window will close automatically.</p>
@@ -412,7 +487,7 @@ export async function GET(request: NextRequest) {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'calcom-auth-error', error: 'OAuth callback failed' }, '*');
+              window.opener.postMessage({ type: 'calcom-auth-error', error: 'OAuth callback failed' }, '${appOrigin}');
             }
           </script>
           <p>OAuth callback failed. This window will close automatically.</p>

@@ -1,4 +1,4 @@
-# Odin
+# b0t
 
 **Workflow automation, but you just describe what you want and it happens.**
 
@@ -10,7 +10,7 @@ No drag-and-drop builders. No wiring nodes together. No watching tutorial videos
 
 ## What is this?
 
-Odin is a workflow automation platform where you create automations by talking to an AI. You know how Zapier makes you click through 47 dropdown menus to connect your apps? Or how n8n has that visual editor that looks cool in screenshots but turns into spaghetti after your 8th node?
+b0t is a workflow automation platform where you create automations by talking to an AI. You know how Zapier makes you click through 47 dropdown menus to connect your apps? Or how n8n has that visual editor that looks cool in screenshots but turns into spaghetti after your 8th node?
 
 Yeah, we skip all that.
 
@@ -36,7 +36,7 @@ If you've used Zapier, n8n, or Make.com, you know the pain:
 
 **The Make problem:** The visual editor is pretty, but you're still manually wiring things together. And good luck explaining your workflow to someone else when it looks like a bowl of spaghetti.
 
-**Odin's approach:** Conversation with Claude Code. That's it. Claude figures out the technical details. You get n8n's power with Zapier's ease of use, minus the part where either company holds your wallet hostage. And it's completely free and open source (run it on your own hardware for the cost of a $5/month VPS).
+**b0t's approach:** Conversation with Claude Code. That's it. Claude figures out the technical details. You get n8n's power with Zapier's ease of use, minus the part where either company holds your wallet hostage. And it's completely free and open source (run it on your own hardware for the cost of a $5/month VPS).
 
 ---
 
@@ -113,9 +113,9 @@ See your workflows run in real-time with progress bars, step-by-step status, and
 Results aren't just dumped as JSON. Claude Code formats them as tables, markdown, lists, or galleries depending on what makes sense. Trending GitHub repos? Table. YouTube video search? Gallery. Reddit posts? Markdown list with metadata.
 
 ### Infinitely Extensible (The Real Superpower)
-Here's where Odin destroys the competition: **you can customize literally anything.**
+Here's where b0t destroys the competition: **you can customize literally anything.**
 
-Zapier/Make won't let you modify their integrations. n8n is technically extensible, but good luck figuring out their node system. Odin? Every module is just a TypeScript file. Want to add a custom integration? Drop a file in `src/modules/`, export your functions, done.
+Zapier/Make won't let you modify their integrations. n8n is technically extensible, but good luck figuring out their node system. b0t? Every module is just a TypeScript file. Want to add a custom integration? Drop a file in `src/modules/`, export your functions, done.
 
 **Real cost savings:**
 - Need a custom Stripe webhook handler? Build it yourself instead of paying $299/month for Zapier's "Premium" tier.
@@ -143,7 +143,7 @@ Built for agencies and teams. Manage automations for multiple clients/organizati
 
 ## The Comparison Table (because you're thinking it)
 
-|  | Odin | Zapier | n8n | Make.com |
+|  | b0t | Zapier | n8n | Make.com |
 |---|-----|--------|-----|----------|
 | **How you build** | Claude Code conversation | Click through forms | Drag-and-drop nodes | Visual flowchart |
 | **Learning curve** | None (it's chat) | Low | High (technical) | Medium |
@@ -168,11 +168,11 @@ Built for agencies and teams. Manage automations for multiple clients/organizati
 
 ## Performance Comparison (Verified by Stress Tests)
 
-We ran comprehensive stress tests to verify real-world performance. Here's how Odin compares to n8n and other automation platforms:
+We ran comprehensive stress tests to verify real-world performance. Here's how b0t compares to n8n and other automation platforms:
 
 ### Concurrency & Throughput
 
-**Odin (Our stress test results):**
+**b0t (Our stress test results):**
 | Configuration | Throughput | Concurrent | Latency | Success Rate |
 |--------------|------------|------------|---------|--------------|
 | Dev (2 vCPU, 8GB) | 295,858/min | 500 workflows | 25ms P95 | 100% |
@@ -185,22 +185,22 @@ We ran comprehensive stress tests to verify real-world performance. Here's how O
 | Queue mode (2 vCPU, 4GB) | 4,320/min (72/sec) | 200 VUs | <3s | 100% |
 
 **Direct Comparison (similar hardware):**
-|  | Odin (2 vCPU, 8GB) | n8n Queue Mode (2 vCPU, 4GB) |
+|  | b0t (2 vCPU, 8GB) | n8n Queue Mode (2 vCPU, 4GB) |
 |---|-------------------|------------------------------|
 | **Throughput** | **157,480/min** | 4,320/min |
 | **Speedup** | **36x faster** | Baseline |
 | **Concurrent** | 100 workflows | 200 virtual users |
 | **Latency** | 16ms P95 | <3s |
 
-### Why Odin is Faster
+### Why b0t is Faster
 
 **1. Automatic Step-Level Parallelization**
-- Odin: Independent steps within a workflow run simultaneously (verified 3x speedup on multi-step workflows)
+- b0t: Independent steps within a workflow run simultaneously (verified 3x speedup on multi-step workflows)
 - This is automatic (no configuration needed)
 - n8n/Zapier/Make: Steps execute sequentially
 
 **2. Lightweight Execution Model**
-- Odin: Pure TypeScript functions, minimal overhead
+- b0t: Pure TypeScript functions, minimal overhead
 - Optimized for I/O-bound operations (API calls, database queries)
 - PostgreSQL connection pooling with configurable limits
 
@@ -211,7 +211,7 @@ We ran comprehensive stress tests to verify real-world performance. Here's how O
 
 ### Our Stress Test Results
 
-We tested Odin with progressively higher loads to find the breaking point. **We reached 500 concurrent workflows without failures.**
+We tested b0t with progressively higher loads to find the breaking point. **We reached 500 concurrent workflows without failures.**
 
 | Concurrent Workflows | Success Rate | Avg Latency | Throughput | DB Usage | Status |
 |---------------------|--------------|-------------|------------|----------|--------|
@@ -237,12 +237,12 @@ For comparable self-hosted setups handling 15,000 workflow executions per month:
 
 | Platform | Monthly Cost | Notes |
 |----------|--------------|-------|
-| **Odin** | **$5-10** | Basic VPS (2 vCPU, 4GB RAM) |
+| **b0t** | **$5-10** | Basic VPS (2 vCPU, 4GB RAM) |
 | **n8n** | $10-20 | Basic VPS + potential performance tuning needs |
 | **Zapier** | $29-75/month | Cloud only (Starter-Professional tier) |
 | **Make.com** | $9-29/month | Cloud only (Core-Pro tier) |
 
-**Key Difference:** Odin and n8n can self-host for VPS cost only. Zapier/Make.com require paid cloud subscriptions.
+**Key Difference:** b0t and n8n can self-host for VPS cost only. Zapier/Make.com require paid cloud subscriptions.
 
 ---
 
@@ -289,7 +289,7 @@ npm run dev:full
 ```
 
 Open **http://localhost:3000** and log in with:
-- Email: `jake@odin.build`
+- Email: `admin@b0t.dev`
 - Password: `admin`
 
 **IMPORTANT:** Change the admin password after first login (Settings → Security).
@@ -339,7 +339,7 @@ The setup script creates these automatically. Only change if you know what you'r
 | `ENCRYPTION_KEY` | API key encryption (auto-generated) | - |
 | `DATABASE_URL` | PostgreSQL connection | `postgresql://postgres:postgres@localhost:5434/odin_dev` |
 | `REDIS_URL` | Redis connection | `redis://localhost:6380` |
-| `ADMIN_EMAIL` | Initial admin email | `jake@odin.build` |
+| `ADMIN_EMAIL` | Initial admin email | `admin@b0t.dev` |
 | `ADMIN_PASSWORD` | Initial admin password | `admin` |
 
 **Critical:** Never lose your `ENCRYPTION_KEY`. It encrypts all API credentials. If lost, all stored credentials become unrecoverable.
@@ -508,7 +508,7 @@ Started as a weekend project. Turned into 60,000+ lines of production-grade auto
 
 ## License
 
-**AGPL-3.0**
+**AGPL-3.0-or-later**
 
 Open source. Self-hostable. No vendor lock-in. Fork it, modify it, deploy it, sell services with it. Just keep it open source (that's the AGPL part).
 
@@ -516,9 +516,10 @@ Open source. Self-hostable. No vendor lock-in. Fork it, modify it, deploy it, se
 
 ## Support & Community
 
+- **Architecture:** [ARCHITECTURE.md](./ARCHITECTURE.md) — system map, subsystems, data flows
 - **Docs:** [Full documentation](./docs/)
-- **Issues:** [GitHub Issues](https://github.com/kenkai/odin/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/kenkai/odin/discussions)
+- **Issues:** [GitHub Issues](https://github.com/jakeschepis/b0t/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/jakeschepis/b0t/discussions)
 - **YouTube:** [@kenkaidoesai](https://youtube.com/@kenkaidoesai)
 
 ---

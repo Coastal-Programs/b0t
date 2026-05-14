@@ -12,19 +12,19 @@ export const workflowSchema = {
     version: {
       type: 'string',
       const: '1.0',
-      description: 'Schema version for compatibility'
+      description: 'Schema version for compatibility',
     },
     name: {
       type: 'string',
       minLength: 1,
       maxLength: 100,
-      description: 'Workflow name'
+      description: 'Workflow name',
     },
     description: {
       type: 'string',
       minLength: 1,
       maxLength: 500,
-      description: 'Workflow description'
+      description: 'Workflow description',
     },
     trigger: {
       type: 'object',
@@ -32,14 +32,25 @@ export const workflowSchema = {
       properties: {
         type: {
           type: 'string',
-          enum: ['manual', 'cron', 'webhook', 'telegram', 'discord', 'chat', 'chat-input', 'gmail', 'outlook'],
-          description: 'Trigger type'
+          enum: [
+            'manual',
+            'cron',
+            'webhook',
+            'telegram',
+            'discord',
+            'chat',
+            'chat-input',
+            'gmail',
+            'outlook',
+            'airtable',
+          ],
+          description: 'Trigger type',
         },
         config: {
           type: 'object',
-          description: 'Trigger-specific configuration'
-        }
-      }
+          description: 'Trigger-specific configuration',
+        },
+      },
     },
     config: {
       type: 'object',
@@ -50,34 +61,80 @@ export const workflowSchema = {
           minItems: 1,
           items: {
             type: 'object',
-            required: ['id', 'module', 'inputs'],
+            required: ['id'],
             properties: {
               id: {
                 type: 'string',
                 pattern: '^[a-zA-Z0-9_-]+$',
-                description: 'Step identifier'
+                description: 'Step identifier',
+              },
+              type: {
+                type: 'string',
+                enum: ['action', 'condition', 'forEach', 'while'],
+                description: 'Step type (default: action)',
               },
               module: {
                 type: 'string',
                 pattern: '^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*\\.[a-z][a-zA-Z0-9]*$',
-                description: 'Module path: category.module.function (function name can be camelCase)'
+                description:
+                  'Module path: category.module.function (function name can be camelCase)',
               },
               inputs: {
                 type: 'object',
-                description: 'Step inputs'
+                description: 'Step inputs',
               },
               outputAs: {
                 type: 'string',
                 pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$',
-                description: 'Variable name for step output'
-              }
-            }
-          }
+                description: 'Variable name for step output',
+              },
+              when: {
+                type: 'string',
+                description: 'Conditional execution expression',
+              },
+              optional: {
+                type: 'boolean',
+                description: 'If true, step failure will not halt workflow',
+              },
+              condition: {
+                type: 'string',
+                description: 'Condition expression for condition/while steps',
+              },
+              then: {
+                type: 'array',
+                description: 'Steps to execute when condition is true',
+              },
+              else: {
+                type: 'array',
+                description: 'Steps to execute when condition is false',
+              },
+              array: {
+                type: 'string',
+                description: 'Array variable reference for forEach loops',
+              },
+              itemAs: {
+                type: 'string',
+                description: 'Variable name for current item in forEach',
+              },
+              indexAs: {
+                type: 'string',
+                description: 'Variable name for current index in forEach',
+              },
+              steps: {
+                type: 'array',
+                description: 'Nested steps for forEach/while loops',
+              },
+              maxIterations: {
+                type: 'number',
+                description: 'Maximum iterations for while loops',
+              },
+            },
+          },
         },
         returnValue: {
           type: 'string',
           pattern: '^\\{\\{[^}]+\\}\\}$',
-          description: 'Variable to return from workflow'
+          description: 'Variable to return from workflow',
         },
         outputDisplay: {
           type: 'object',
@@ -86,7 +143,7 @@ export const workflowSchema = {
             type: {
               type: 'string',
               enum: ['table', 'list', 'text', 'markdown', 'json', 'image', 'images', 'chart'],
-              description: 'Output display format'
+              description: 'Output display format',
             },
             columns: {
               type: 'array',
@@ -97,57 +154,57 @@ export const workflowSchema = {
                 properties: {
                   key: {
                     type: 'string',
-                    description: 'Column data key'
+                    description: 'Column data key',
                   },
                   label: {
                     type: 'string',
-                    description: 'Column display label'
+                    description: 'Column display label',
                   },
                   type: {
                     type: 'string',
                     enum: ['text', 'link', 'date', 'number', 'boolean'],
-                    description: 'Column data type'
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                    description: 'Column data type',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     metadata: {
       type: 'object',
       properties: {
         author: {
           type: 'string',
-          description: 'Workflow author'
+          description: 'Workflow author',
         },
         created: {
           type: 'string',
           format: 'date-time',
-          description: 'Creation timestamp'
+          description: 'Creation timestamp',
         },
         tags: {
           type: 'array',
           items: {
-            type: 'string'
+            type: 'string',
           },
-          description: 'Workflow tags'
+          description: 'Workflow tags',
         },
         category: {
           type: 'string',
-          description: 'Workflow category'
+          description: 'Workflow category',
         },
         requiresCredentials: {
           type: 'array',
           items: {
-            type: 'string'
+            type: 'string',
           },
-          description: 'Required credential providers'
-        }
-      }
-    }
-  }
+          description: 'Required credential providers',
+        },
+      },
+    },
+  },
 } as const;
 
 /**
@@ -165,25 +222,25 @@ export const chatInputTriggerSchema = {
         required: ['id', 'label', 'key', 'type', 'required'],
         properties: {
           id: {
-            type: 'string'
+            type: 'string',
           },
           label: {
             type: 'string',
-            minLength: 1
+            minLength: 1,
           },
           key: {
             type: 'string',
-            pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
+            pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$',
           },
           type: {
             type: 'string',
-            enum: ['text', 'textarea', 'number', 'date', 'select', 'checkbox']
+            enum: ['text', 'textarea', 'number', 'date', 'select', 'checkbox'],
           },
           required: {
-            type: 'boolean'
+            type: 'boolean',
           },
           placeholder: {
-            type: 'string'
+            type: 'string',
           },
           options: {
             type: 'array',
@@ -192,14 +249,14 @@ export const chatInputTriggerSchema = {
               required: ['label', 'value'],
               properties: {
                 label: { type: 'string' },
-                value: { type: 'string' }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+                value: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 } as const;
 
 /**
@@ -211,10 +268,11 @@ export const cronTriggerSchema = {
   properties: {
     schedule: {
       type: 'string',
-      pattern: '^(\\*|[0-5]?[0-9])\\s+(\\*|[01]?[0-9]|2[0-3])\\s+(\\*|[1-2]?[0-9]|3[01])\\s+(\\*|[1-9]|1[0-2])\\s+(\\*|[0-6])$',
-      description: 'Cron schedule expression'
-    }
-  }
+      pattern:
+        '^(\\*|[0-5]?[0-9])\\s+(\\*|[01]?[0-9]|2[0-3])\\s+(\\*|[1-2]?[0-9]|3[01])\\s+(\\*|[1-9]|1[0-2])\\s+(\\*|[0-6])$',
+      description: 'Cron schedule expression',
+    },
+  },
 } as const;
 
 /**
@@ -227,24 +285,24 @@ export const airtableTriggerSchema = {
     baseId: {
       type: 'string',
       pattern: '^app[a-zA-Z0-9]{14}$',
-      description: 'Airtable base ID (e.g., appOtHs8KceHjArlC)'
+      description: 'Airtable base ID (e.g., appOtHs8KceHjArlC)',
     },
     tableName: {
       type: 'string',
       minLength: 1,
-      description: 'Airtable table name'
+      description: 'Airtable table name',
     },
     triggerField: {
       type: 'string',
       minLength: 1,
-      description: 'Field to watch for changes (e.g., "Created")'
+      description: 'Field to watch for changes (e.g., "Created")',
     },
     pollInterval: {
       type: 'number',
       minimum: 1,
-      description: 'Poll interval in minutes (default: 1)'
-    }
-  }
+      description: 'Poll interval in minutes (default: 1)',
+    },
+  },
 } as const;
 
 /**
@@ -257,7 +315,125 @@ export const chatTriggerSchema = {
     inputVariable: {
       type: 'string',
       pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$',
-      description: 'Variable name for user input'
-    }
-  }
+      description: 'Variable name for user input',
+    },
+  },
+} as const;
+
+/**
+ * Gmail trigger specific schema
+ */
+export const gmailTriggerSchema = {
+  type: 'object',
+  properties: {
+    filters: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', description: 'Gmail label to watch (e.g., "inbox")' },
+        isUnread: { type: 'boolean', description: 'Only match unread emails' },
+        from: { type: 'string', description: 'Filter by sender email' },
+        subject: { type: 'string', description: 'Filter by subject pattern' },
+      },
+    },
+    pollInterval: {
+      type: 'number',
+      minimum: 10,
+      description: 'Poll interval in seconds (default: 60, minimum: 10)',
+    },
+  },
+} as const;
+
+/**
+ * Outlook trigger specific schema
+ */
+export const outlookTriggerSchema = {
+  type: 'object',
+  properties: {
+    filters: {
+      type: 'object',
+      properties: {
+        folder: { type: 'string', description: 'Outlook folder to watch (e.g., "Inbox")' },
+        isUnread: { type: 'boolean', description: 'Only match unread emails' },
+        from: { type: 'string', description: 'Filter by sender email' },
+        subject: { type: 'string', description: 'Filter by subject pattern' },
+      },
+    },
+    pollInterval: {
+      type: 'number',
+      minimum: 10,
+      description: 'Poll interval in seconds (default: 60, minimum: 10)',
+    },
+  },
+} as const;
+
+/**
+ * Webhook trigger specific schema
+ */
+export const webhookTriggerSchema = {
+  type: 'object',
+  properties: {
+    path: {
+      type: 'string',
+      description: 'Webhook endpoint path',
+    },
+    method: {
+      type: 'string',
+      enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      description: 'HTTP method to accept',
+    },
+    secret: {
+      type: 'string',
+      description: 'Shared secret for webhook verification',
+    },
+  },
+} as const;
+
+/**
+ * Telegram trigger specific schema
+ */
+export const telegramTriggerSchema = {
+  type: 'object',
+  properties: {
+    botToken: {
+      type: 'string',
+      description: 'Telegram bot token (or credential reference)',
+    },
+    allowedChatIds: {
+      type: 'array',
+      items: { type: ['string', 'number'] },
+      description: 'Chat IDs allowed to trigger the workflow',
+    },
+    commands: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Bot commands that trigger the workflow (e.g., ["/start", "/help"])',
+    },
+  },
+} as const;
+
+/**
+ * Discord trigger specific schema
+ */
+export const discordTriggerSchema = {
+  type: 'object',
+  properties: {
+    botToken: {
+      type: 'string',
+      description: 'Discord bot token (or credential reference)',
+    },
+    guildId: {
+      type: 'string',
+      description: 'Discord server (guild) ID',
+    },
+    channelIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Channel IDs to listen on',
+    },
+    commands: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Slash commands that trigger the workflow',
+    },
+  },
 } as const;

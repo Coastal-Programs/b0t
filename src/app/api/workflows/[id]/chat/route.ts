@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, createUIMessageStream, createUIMessageStreamResponse } from 'ai';
@@ -14,17 +14,17 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 // Chat AI configuration (can be overridden via env vars)
+// TODO: These defaults use process.env keys — should eventually resolve per-user via credential store
 const CHAT_AI_PROVIDER = (process.env.CHAT_AI_PROVIDER || 'openai') as 'openai' | 'anthropic';
-const CHAT_AI_MODEL = process.env.CHAT_AI_MODEL || (CHAT_AI_PROVIDER === 'openai' ? 'gpt-4-turbo' : 'claude-3-5-sonnet-20241022');
+const CHAT_AI_MODEL =
+  process.env.CHAT_AI_MODEL ||
+  (CHAT_AI_PROVIDER === 'openai' ? 'gpt-4-turbo' : 'claude-3-5-sonnet-20241022');
 
 /**
  * GET /api/workflows/[id]/chat?conversationId=xxx
  * Get messages for a specific conversation
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params;
   const { searchParams } = new URL(request.url);
   const conversationId = searchParams.get('conversationId');
@@ -44,12 +44,7 @@ export async function GET(
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, workflowId),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(workflowsTable.id, workflowId), eq(workflowsTable.userId, session.user.id)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -80,13 +75,16 @@ export async function GET(
       .orderBy(chatMessagesTable.createdAt)
       .limit(20); // Last 20 messages per user requirement
 
-    return Response.json({
+    return NextResponse.json({
       conversation: conversations[0],
       messages,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error({ workflowId, conversationId, error: errorMessage }, 'Failed to fetch conversation');
+    logger.error(
+      { workflowId, conversationId, error: errorMessage },
+      'Failed to fetch conversation'
+    );
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -98,10 +96,7 @@ export async function GET(
  * POST /api/workflows/[id]/chat
  * Chat with AI to execute workflow with natural language
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params;
   try {
     // Verify authentication
@@ -110,7 +105,18 @@ export async function POST(
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { messages, conversationId } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { messages, conversationId } = body;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ error: 'messages must be a non-empty array' }, { status: 400 });
+    }
 
     logger.info({ workflowId, conversationId }, 'Chat request received');
 
@@ -118,12 +124,7 @@ export async function POST(
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, workflowId),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(workflowsTable.id, workflowId), eq(workflowsTable.userId, session.user.id)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -172,9 +173,12 @@ export async function POST(
       conversation = newConv[0];
       logger.info({ conversationId: convId, workflowId }, 'Created new conversation');
     }
-    const config = typeof workflow.config === 'string'
-      ? JSON.parse(workflow.config)
-      : workflow.config;
+    let config;
+    try {
+      config = typeof workflow.config === 'string' ? JSON.parse(workflow.config) : workflow.config;
+    } catch {
+      return NextResponse.json({ error: 'Invalid workflow configuration' }, { status: 500 });
+    }
 
     // Check if this is an agent workflow (uses ai-agent modules)
     const isAgentWorkflow = config.steps?.some((step: { module: string }) =>
@@ -184,16 +188,19 @@ export async function POST(
     // Extract model and provider from workflow config (if available in first step)
     // For agent workflows, model is in inputs.options.model
     const firstStepInputs = config.steps?.[0]?.inputs;
-    const workflowModel = firstStepInputs?.options?.model || firstStepInputs?.model || CHAT_AI_MODEL;
-    const workflowProvider = firstStepInputs?.options?.provider || firstStepInputs?.provider || CHAT_AI_PROVIDER;
+    const workflowModel =
+      firstStepInputs?.options?.model || firstStepInputs?.model || CHAT_AI_MODEL;
+    const workflowProvider =
+      firstStepInputs?.options?.provider || firstStepInputs?.provider || CHAT_AI_PROVIDER;
 
     // Get the last user message - handle both content and parts format
     const lastMessage = messages[messages.length - 1];
     let userInput = '';
     if (lastMessage?.content) {
-      userInput = typeof lastMessage.content === 'string'
-        ? lastMessage.content
-        : JSON.stringify(lastMessage.content);
+      userInput =
+        typeof lastMessage.content === 'string'
+          ? lastMessage.content
+          : JSON.stringify(lastMessage.content);
     } else if (lastMessage?.parts) {
       // Handle parts format
       const textParts = (lastMessage.parts as Array<{ type: string; text?: string }>)
@@ -202,7 +209,10 @@ export async function POST(
       userInput = textParts.join(' ');
     }
 
-    logger.info({ workflowId, messageCount: messages.length, isAgentWorkflow }, 'Starting chat stream');
+    logger.info(
+      { workflowId, messageCount: messages.length, isAgentWorkflow },
+      'Starting chat stream'
+    );
 
     // For agent workflows, execute the workflow directly and return its response
     if (isAgentWorkflow) {
@@ -254,17 +264,28 @@ export async function POST(
         // Extract the agent response and tool calls from workflow output
         // The output structure is: { user: {...}, trigger: {...}, agentResponse: {...} }
         const rawOutput = workflowResult.output as Record<string, unknown> | string;
-        let agentResponse: { text?: string; toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }> } | undefined;
+        let agentResponse:
+          | {
+              text?: string;
+              toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
+            }
+          | undefined;
 
         if (typeof rawOutput === 'object' && rawOutput !== null && 'agentResponse' in rawOutput) {
           // Extract agentResponse from workflow context
-          agentResponse = rawOutput.agentResponse as { text?: string; toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }> };
+          agentResponse = rawOutput.agentResponse as {
+            text?: string;
+            toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
+          };
         } else if (typeof rawOutput === 'string') {
           // If it's already a string, use it directly
           agentResponse = { text: rawOutput };
         } else {
           // Fallback: treat entire output as agent response
-          agentResponse = rawOutput as { text?: string; toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }> };
+          agentResponse = rawOutput as {
+            text?: string;
+            toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
+          };
         }
 
         const agentText = agentResponse?.text || '';
@@ -307,13 +328,20 @@ export async function POST(
           })
           .where(eq(chatConversationsTable.id, conversation.id));
 
-        logger.info({ workflowId, toolCallCount: toolCalls.length }, 'Agent workflow executed successfully');
+        logger.info(
+          { workflowId, toolCallCount: toolCalls.length },
+          'Agent workflow executed successfully'
+        );
 
         // Return agent response with tool call metadata
-        logger.info({ workflowId, agentText, toolCallCount: toolCalls.length }, 'Returning agent response');
+        logger.info(
+          { workflowId, agentText, toolCallCount: toolCalls.length },
+          'Returning agent response'
+        );
 
         // If no text was generated, return an error message
-        const finalText = agentText || 'I apologize, but I encountered an issue and could not generate a response.';
+        const finalText =
+          agentText || 'I apologize, but I encountered an issue and could not generate a response.';
 
         // Create a UI message stream manually with the agent's response
         const stream = createUIMessageStream({
@@ -388,15 +416,21 @@ IMPORTANT: When formatting tables, always use proper markdown table syntax:
 Never use ASCII art tables with + and - characters. Always use the | and - markdown table format.`;
 
     // Convert messages from parts format to standard format and filter
-    type MessageLike = { role: string; content?: unknown; parts?: Array<{ type: string; text?: string }> };
+    type MessageLike = {
+      role: string;
+      content?: unknown;
+      parts?: Array<{ type: string; text?: string }>;
+    };
     const formattedMessages = (messages as MessageLike[])
-      .filter((msg) => msg.role === 'user') // Only keep user messages
+      .filter((msg) => msg.role === 'user' || msg.role === 'assistant') // Keep user and assistant messages for conversation context
       .map((msg) => {
+        const role = msg.role as 'user' | 'assistant';
+
         // If already has content field, use it
         if (msg.content) {
           return {
-            role: 'user' as const,
-            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+            role,
+            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
           };
         }
 
@@ -408,23 +442,26 @@ Never use ASCII art tables with + and - characters. Always use the | and - markd
             .join('\n');
 
           return {
-            role: 'user' as const,
-            content: textContent
+            role,
+            content: textContent,
           };
         }
 
         // Fallback
         return {
-          role: 'user' as const,
-          content: ''
+          role,
+          content: '',
         };
       })
       .filter((msg) => msg.content); // Remove empty messages
 
     // Get the AI model instance based on provider
-    const modelInstance = workflowProvider === 'openai'
-      ? createOpenAI({ apiKey: process.env.OPENAI_API_KEY })(workflowModel)
-      : createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })(workflowModel);
+    // TODO: This uses process.env API keys directly instead of the user credential system.
+    // Should be updated to resolve credentials per-user via the credential store.
+    const modelInstance =
+      workflowProvider === 'openai'
+        ? createOpenAI({ apiKey: process.env.OPENAI_API_KEY })(workflowModel)
+        : createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })(workflowModel);
 
     // Stream the AI response using AI SDK
     const result = streamText({
@@ -432,7 +469,10 @@ Never use ASCII art tables with + and - characters. Always use the | and - markd
       system: systemPrompt,
       messages: formattedMessages,
       async onFinish({ text }) {
-        logger.info({ workflowId, conversationId: conversation.id, responseLength: text.length }, 'AI response completed');
+        logger.info(
+          { workflowId, conversationId: conversation.id, responseLength: text.length },
+          'AI response completed'
+        );
 
         // Save user message
         await db.insert(chatMessagesTable).values({
@@ -469,13 +509,24 @@ Never use ASCII art tables with + and - characters. Always use the | and - markd
         // Execute the workflow using the workflow execution engine
         // Pass trigger data correctly - userMessage should be in the trigger object
         try {
-          await executeWorkflowConfig(config, workflow.userId, {
+          const workflowResult = await executeWorkflowConfig(config, workflow.userId, {
             userMessage: userInput,
           });
 
-          logger.info({ workflowId, conversationId: conversation.id }, 'Workflow executed successfully');
+          logger.info(
+            {
+              workflowId,
+              conversationId: conversation.id,
+              success: workflowResult.success,
+              output: workflowResult.output,
+            },
+            'Workflow execution completed'
+          );
         } catch (error) {
-          logger.error({ workflowId, conversationId: conversation.id, error }, 'Error executing workflow');
+          logger.error(
+            { workflowId, conversationId: conversation.id, error },
+            'Error executing workflow'
+          );
         }
       },
     });
@@ -487,13 +538,13 @@ Never use ASCII art tables with + and - characters. Always use the | and - markd
       {
         workflowId,
         error: errorMessage,
-        action: 'workflow_chat_failed'
+        action: 'workflow_chat_failed',
       },
       'Chat API error'
     );
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }

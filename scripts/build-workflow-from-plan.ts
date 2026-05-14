@@ -28,29 +28,74 @@ import YAML from 'yaml';
 import { getModuleRegistry } from '../src/lib/workflows/module-registry';
 import type { WorkflowExport } from '../src/lib/workflows/import-export';
 
+/**
+ * Local widened version of WorkflowExport for the builder: the public
+ * WorkflowExport contract only models simple action steps, but this script
+ * also emits control-flow steps (forEach/while/condition) which have a
+ * different shape (no `module`/`inputs`, plus `then`/`else`/nested `steps`).
+ * Steps are typed as Record<string, unknown> to accommodate both shapes;
+ * the resulting JSON is consumed by the workflow importer which validates
+ * the structure at runtime.
+ */
+type BuiltWorkflow = Omit<WorkflowExport, 'config'> & {
+  config: Omit<WorkflowExport['config'], 'steps'> & {
+    steps: Record<string, unknown>[];
+  };
+};
+import { MODULE_ALIASES, PARAMETER_ALIASES } from './shared/workflow-constants';
+
 interface WorkflowPlan {
   name: string;
   description?: string;
-  trigger: 'manual' | 'cron' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input';
-  webhookSync?: boolean;  // Enable synchronous webhook execution (returns workflow output)
-  webhookSecret?: string;  // HMAC secret for webhook signature verification
+  trigger:
+    | 'manual'
+    | 'cron'
+    | 'webhook'
+    | 'telegram'
+    | 'discord'
+    | 'chat'
+    | 'chat-input'
+    | 'airtable'
+    | 'gmail'
+    | 'outlook';
+  schedule?: string; // Cron schedule expression (e.g. "* * * * *" for every minute)
+  webhookSync?: boolean; // Enable synchronous webhook execution (returns workflow output)
+  webhookSecret?: string; // HMAC secret for webhook signature verification
+  gmailFilters?: Record<string, unknown>;
+  gmailPollInterval?: number;
+  airtableConfig?: Record<string, unknown>;
+  outlookFilters?: Record<string, unknown>;
+  outlookPollInterval?: number;
   output: 'json' | 'table' | 'list' | 'text' | 'markdown' | 'image' | 'images' | 'chart';
   outputColumns?: string[];
   category?: string;
   tags?: string[];
   timeout?: number;
   retries?: number;
-  returnValue?: string;  // Optional custom returnValue
+  returnValue?: string; // Optional custom returnValue
   steps: StepPlan[];
 }
 
 interface StepPlan {
-  module: string;
+  module?: string;
   id: string;
   name?: string;
-  inputs?: Record<string, unknown>;  // Optional - defaults to {} for modules with no params
+  type?: 'action' | 'condition' | 'forEach' | 'while';
+  inputs?: Record<string, unknown>; // Optional - defaults to {} for modules with no params
   outputAs?: string;
-  when?: string;  // Conditional execution based on previous step output
+  when?: string; // Conditional execution based on previous step output
+  // forEach/while loop properties
+  array?: string;
+  itemAs?: string;
+  indexAs?: string;
+  steps?: StepPlan[];
+  maxIterations?: number;
+  // condition properties
+  condition?: string;
+  then?: StepPlan[];
+  else?: StepPlan[];
+  dependsOn?: string[];
+  optional?: boolean;
 }
 
 /**
@@ -74,77 +119,7 @@ function findModuleInRegistry(modulePath: string) {
   return null;
 }
 
-/**
- * Module and parameter aliases
- */
-const MODULE_ALIASES: Record<string, string> = {
-  // Datetime shortcuts
-  'utilities.datetime.format': 'utilities.datetime.formatDate',
-  'utilities.datetime.diffDays': 'utilities.datetime.getDaysDifference',
-  'utilities.datetime.diffHours': 'utilities.datetime.getHoursDifference',
-  'utilities.datetime.diffMinutes': 'utilities.datetime.getMinutesDifference',
-  'utilities.datetime.startOfDay': 'utilities.datetime.getStartOfDay',
-  'utilities.datetime.endOfDay': 'utilities.datetime.getEndOfDay',
-  'utilities.datetime.startOfWeek': 'utilities.datetime.getStartOfWeek',
-  'utilities.datetime.endOfWeek': 'utilities.datetime.getEndOfWeek',
-  'utilities.datetime.startOfMonth': 'utilities.datetime.getStartOfMonth',
-  'utilities.datetime.endOfMonth': 'utilities.datetime.getEndOfMonth',
-
-  // String shortcuts
-  'utilities.string-utils.camelCase': 'utilities.string-utils.toCamelCase',
-  'utilities.string-utils.pascalCase': 'utilities.string-utils.toPascalCase',
-  'utilities.string-utils.snakeCase': 'utilities.string-utils.toSnakeCase',
-  'utilities.string-utils.kebabCase': 'utilities.string-utils.toKebabCase',
-  'utilities.string-utils.slug': 'utilities.string-utils.toSlug',
-
-  // Category corrections
-  'utilities.batching.chunk': 'utilities.array-utils.chunk',
-
-  // JSON transform aliases
-  'utilities.json-transform.stringify': 'utilities.json-transform.stringifyJson',
-  'utilities.json-transform.parse': 'utilities.json-transform.parseJson',
-  'utilities.json-transform.merge': 'utilities.json-transform.deepMerge',
-
-  // Aggregation aliases
-  'utilities.aggregation.stdDev': 'utilities.aggregation.stdDeviation',
-};
-
-const PARAMETER_ALIASES: Record<string, Record<string, string>> = {
-  'utilities.string-utils.toSlug': {
-    'str': 'text',
-  },
-  'utilities.string-utils.truncate': {
-    'length': 'maxLength',
-  },
-  'utilities.array-utils.first': {
-    'n': 'count',
-  },
-  'utilities.array-utils.last': {
-    'n': 'count',
-  },
-  'utilities.aggregation.percentile': {
-    'percentile': 'percent',
-  },
-  'utilities.math.round': {
-    'num': 'value',
-  },
-  'utilities.math.ceil': {
-    'num': 'value',
-  },
-  'utilities.math.floor': {
-    'num': 'value',
-  },
-  'utilities.math.abs': {
-    'num': 'value',
-  },
-  'utilities.math.sqrt': {
-    'num': 'value',
-  },
-  'utilities.control-flow.conditional': {
-    'trueValue': 'trueVal',
-    'falseValue': 'falseVal',
-  },
-};
+// MODULE_ALIASES and PARAMETER_ALIASES imported from ./shared/workflow-constants
 
 /**
  * Validate date-fns format strings
@@ -174,7 +149,10 @@ function validateDateFormat(formatString: string, stepId: string): string[] {
 /**
  * Normalize inputs using parameter aliases
  */
-function normalizeInputs(modulePath: string, inputs: Record<string, unknown>): Record<string, unknown> {
+function normalizeInputs(
+  modulePath: string,
+  inputs: Record<string, unknown>
+): Record<string, unknown> {
   const aliases = PARAMETER_ALIASES[modulePath];
   if (!aliases) return inputs;
 
@@ -202,19 +180,47 @@ function normalizeInputs(modulePath: string, inputs: Record<string, unknown>): R
 function validateStep(step: StepPlan, stepIndex: number): string[] {
   const errors: string[] = [];
 
+  // Control-flow steps (forEach, while, condition) don't have a module
+  if (step.type === 'forEach' || step.type === 'while' || step.type === 'condition') {
+    console.log(`   ✅ Step ${stepIndex + 1} ("${step.id}") is a ${step.type} control-flow step`);
+    // Recursively validate nested steps
+    const nestedSteps = step.steps || [];
+    const thenSteps = step.then || [];
+    const elseSteps = step.else || [];
+    for (let i = 0; i < nestedSteps.length; i++) {
+      errors.push(...validateStep(nestedSteps[i], i));
+    }
+    for (let i = 0; i < thenSteps.length; i++) {
+      errors.push(...validateStep(thenSteps[i], i));
+    }
+    for (let i = 0; i < elseSteps.length; i++) {
+      errors.push(...validateStep(elseSteps[i], i));
+    }
+    return errors;
+  }
+
+  if (!step.module) {
+    errors.push(`Step ${stepIndex + 1} ("${step.id}"): Missing module path`);
+    return errors;
+  }
+
   // Resolve module aliases
   const originalModule = step.module;
   const resolvedModule = MODULE_ALIASES[step.module] || step.module;
 
   if (resolvedModule !== originalModule) {
-    console.log(`   ℹ️  Step ${stepIndex + 1} ("${step.id}"): Using alias "${originalModule}" → "${resolvedModule}"`);
+    console.log(
+      `   ℹ️  Step ${stepIndex + 1} ("${step.id}"): Using alias "${originalModule}" → "${resolvedModule}"`
+    );
     step.module = resolvedModule;
   }
 
   // Check module exists
   const moduleInfo = findModuleInRegistry(step.module);
   if (!moduleInfo) {
-    errors.push(`Step ${stepIndex + 1} ("${step.id}"): Module "${step.module}" not found in registry`);
+    errors.push(
+      `Step ${stepIndex + 1} ("${step.id}"): Module "${step.module}" not found in registry`
+    );
     return errors;
   }
 
@@ -237,37 +243,44 @@ function validateStep(step: StepPlan, stepIndex: number): string[] {
 
   // Skip validation for wrapper functions (params/options)
   // These will be auto-wrapped during workflow build
-  const usesOptionsWrapper = (allParams === 'options' || allParams.startsWith('options:') || allParams.startsWith('options?'));
-  const usesParamsWrapper = (allParams === 'params' || allParams.startsWith('params:') || allParams.startsWith('params?'));
+  const usesOptionsWrapper =
+    allParams === 'options' || allParams.startsWith('options:') || allParams.startsWith('options?');
+  const usesParamsWrapper =
+    allParams === 'params' || allParams.startsWith('params:') || allParams.startsWith('params?');
 
   if (usesOptionsWrapper || usesParamsWrapper) {
-    console.log(`   ℹ️  Step ${stepIndex + 1} ("${step.id}") uses wrapper - inputs will be auto-wrapped`);
+    console.log(
+      `   ℹ️  Step ${stepIndex + 1} ("${step.id}") uses wrapper - inputs will be auto-wrapped`
+    );
     return errors; // Return any format errors but skip param validation
   }
 
   // For direct parameter functions, validate
-  const expectedParamNames = allParams
-    ?.split(',')
-    .map(p => p.trim().split(/[?:]/)[0].trim())
-    .filter(p => p && p !== 'params' && p !== 'options') || [];
+  const expectedParamNames =
+    allParams
+      ?.split(',')
+      .map((p) => p.trim().split(/[?:]/)[0].trim())
+      .filter((p) => p && p !== 'params' && p !== 'options') || [];
 
-  const requiredParamNames = expectedParamNames.filter(name =>
-    !allParams.includes(`${name}?`)
-  );
+  const requiredParamNames = expectedParamNames.filter((name) => !allParams.includes(`${name}?`));
 
   // Check missing params
-  const missingParams = requiredParamNames.filter(p => !providedParams.includes(p));
+  const missingParams = requiredParamNames.filter((p) => !providedParams.includes(p));
   if (missingParams.length > 0) {
-    errors.push(`Step ${stepIndex + 1} ("${step.id}"): Missing parameters: ${missingParams.join(', ')}`);
+    errors.push(
+      `Step ${stepIndex + 1} ("${step.id}"): Missing parameters: ${missingParams.join(', ')}`
+    );
     errors.push(`   Expected: [${expectedParamNames.join(', ')}]`);
     errors.push(`   Provided: [${providedParams.join(', ')}]`);
     errors.push(`   Signature: ${moduleInfo.signature}`);
   }
 
   // Check unexpected params
-  const unexpectedParams = providedParams.filter(p => !expectedParamNames.includes(p));
+  const unexpectedParams = providedParams.filter((p) => !expectedParamNames.includes(p));
   if (unexpectedParams.length > 0) {
-    errors.push(`Step ${stepIndex + 1} ("${step.id}"): Unexpected parameters: ${unexpectedParams.join(', ')}`);
+    errors.push(
+      `Step ${stepIndex + 1} ("${step.id}"): Unexpected parameters: ${unexpectedParams.join(', ')}`
+    );
     errors.push(`   Expected: [${expectedParamNames.join(', ')}]`);
   }
 
@@ -282,6 +295,75 @@ function generateFilename(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+/**
+ * Build a single step into JSON format, handling control-flow steps recursively
+ */
+function buildStepJSON(step: StepPlan): Record<string, unknown> {
+  // Control-flow steps (forEach, while, condition)
+  if (step.type === 'forEach' || step.type === 'while' || step.type === 'condition') {
+    const result: Record<string, unknown> = {
+      id: step.id,
+      type: step.type,
+      ...(step.name && { name: step.name }),
+      ...(step.outputAs && { outputAs: step.outputAs }),
+      ...(step.when && { when: step.when }),
+      ...(step.optional && { optional: step.optional }),
+      ...(step.dependsOn && { dependsOn: step.dependsOn }),
+    };
+
+    if (step.type === 'forEach') {
+      result.array = step.array;
+      if (step.itemAs) result.itemAs = step.itemAs;
+      if (step.indexAs) result.indexAs = step.indexAs;
+      if (step.maxIterations) result.maxIterations = step.maxIterations;
+      if (step.steps) result.steps = step.steps.map((s) => buildStepJSON(s));
+    } else if (step.type === 'while') {
+      result.condition = step.condition;
+      if (step.maxIterations) result.maxIterations = step.maxIterations;
+      if (step.steps) result.steps = step.steps.map((s) => buildStepJSON(s));
+    } else if (step.type === 'condition') {
+      result.condition = step.condition;
+      if (step.then) result.then = step.then.map((s) => buildStepJSON(s));
+      if (step.else) result.else = step.else.map((s) => buildStepJSON(s));
+    }
+
+    return result;
+  }
+
+  // Regular action steps
+  const inputsWithDefaults = step.inputs || {};
+
+  // Check if module uses wrapper (options/params)
+  const moduleInfo = step.module ? findModuleInRegistry(step.module) : null;
+  const allParams = moduleInfo?.signature.match(/\(([^)]*)\)/)?.[1] || '';
+  const usesOptionsWrapper =
+    allParams === 'options' || allParams.startsWith('options:') || allParams.startsWith('options?');
+  const usesParamsWrapper =
+    allParams === 'params' || allParams.startsWith('params:') || allParams.startsWith('params?');
+
+  // Auto-wrap inputs if module uses options/params wrapper
+  let finalInputs = inputsWithDefaults;
+  if (usesOptionsWrapper) {
+    finalInputs = { options: inputsWithDefaults };
+  } else if (usesParamsWrapper) {
+    finalInputs = { params: inputsWithDefaults };
+  }
+
+  // Default outputAs to id so step results are always stored
+  const outputAs = step.outputAs || step.id;
+
+  return {
+    id: step.id,
+    ...(step.name && { name: step.name }),
+    module: step.module,
+    inputs: finalInputs,
+    outputAs,
+    ...(step.when && { when: step.when }),
+    ...(step.dependsOn && { dependsOn: step.dependsOn }),
+    ...(step.optional && { optional: step.optional }),
+  };
 }
 
 /**
@@ -348,9 +430,23 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
     }
   }
 
+  // Check for duplicate step IDs (used as outputAs names)
+  const outputNames = new Set<string>();
+  for (let i = 0; i < plan.steps.length; i++) {
+    const step = plan.steps[i];
+    if (step.id) {
+      if (outputNames.has(step.id)) {
+        allErrors.push(
+          `Step ${i + 1}: Duplicate step id/outputAs "${step.id}" — already used by a previous step`
+        );
+      }
+      outputNames.add(step.id);
+    }
+  }
+
   if (allErrors.length > 0) {
     console.error('\n❌ Validation failed:\n');
-    allErrors.forEach(err => console.error(`   ${err}`));
+    allErrors.forEach((err) => console.error(`   ${err}`));
     throw new Error('Plan validation failed');
   }
 
@@ -365,19 +461,21 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
   // Create directory if needed
   const dir = dirname(workflowFile);
   if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true});
+    mkdirSync(dir, { recursive: true });
   }
 
   // Check if file exists
   if (existsSync(workflowFile)) {
-    throw new Error(`Workflow file already exists: ${workflowFile}\n   Delete it first or choose a different name`);
+    throw new Error(
+      `Workflow file already exists: ${workflowFile}\n   Delete it first or choose a different name`
+    );
   }
 
   // Build trigger config based on type
   const triggerConfig: Record<string, unknown> = {};
   if (plan.trigger === 'cron') {
-    // Add placeholder schedule for cron triggers (user configures in UI)
-    triggerConfig.schedule = '0 * * * *'; // Default: every hour
+    // Use schedule from plan if provided, otherwise default to every hour
+    triggerConfig.schedule = plan.schedule || '0 * * * *';
   } else if (plan.trigger === 'chat' || plan.trigger === 'chat-input') {
     // Add required inputVariable for chat triggers
     triggerConfig.inputVariable = 'userInput';
@@ -389,9 +487,17 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
     if (plan.webhookSecret) {
       triggerConfig.webhookSecret = plan.webhookSecret;
     }
+  } else if (plan.trigger === 'gmail') {
+    if (plan.gmailFilters) triggerConfig.filters = plan.gmailFilters;
+    if (plan.gmailPollInterval) triggerConfig.pollInterval = plan.gmailPollInterval;
+  } else if (plan.trigger === 'airtable') {
+    if (plan.airtableConfig) Object.assign(triggerConfig, plan.airtableConfig);
+  } else if (plan.trigger === 'outlook') {
+    if (plan.outlookFilters) triggerConfig.filters = plan.outlookFilters;
+    if (plan.outlookPollInterval) triggerConfig.pollInterval = plan.outlookPollInterval;
   }
 
-  const workflow: WorkflowExport = {
+  const workflow: BuiltWorkflow = {
     version: '1.0',
     name: plan.name,
     description: plan.description || `Workflow: ${plan.name}`,
@@ -403,58 +509,34 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
       timeout: plan.timeout || 300000,
       retries: plan.retries || 0,
       returnValue: plan.returnValue,
-      steps: plan.steps.map(step => {
-        // Default inputs to empty object if not provided
-        const inputsWithDefaults = step.inputs || {};
-
-        // Check if module uses wrapper (options/params)
-        const moduleInfo = findModuleInRegistry(step.module);
-        const allParams = moduleInfo?.signature.match(/\(([^)]*)\)/)?.[1] || '';
-        const usesOptionsWrapper = (allParams === 'options' || allParams.startsWith('options:') || allParams.startsWith('options?'));
-        const usesParamsWrapper = (allParams === 'params' || allParams.startsWith('params:') || allParams.startsWith('params?'));
-
-        // Auto-wrap inputs if module uses options/params wrapper
-        let finalInputs = inputsWithDefaults;
-        if (usesOptionsWrapper) {
-          finalInputs = { options: inputsWithDefaults };
-        } else if (usesParamsWrapper) {
-          finalInputs = { params: inputsWithDefaults };
-        }
-
-        return {
-          id: step.id,
-          ...(step.name && { name: step.name }),
-          module: step.module,
-          inputs: finalInputs,
-          ...(step.outputAs && { outputAs: step.outputAs }),
-          ...(step.when && { when: step.when }),
-        };
-      }),
+      steps: plan.steps.map((step) => buildStepJSON(step)),
       outputDisplay: {
         type: plan.output,
-        ...(plan.output === 'table' && plan.outputColumns && {
-          columns: plan.outputColumns.map(col => ({
-            key: col,
-            label: col.charAt(0).toUpperCase() + col.slice(1).replace(/_/g, ' '),
-          })),
-        }),
+        ...(plan.output === 'table' &&
+          plan.outputColumns && {
+            columns: plan.outputColumns.map((col) => ({
+              key: col,
+              label: col.charAt(0).toUpperCase() + col.slice(1).replace(/_/g, ' '),
+            })),
+          }),
       },
     },
-    ...(plan.category || plan.tags ? {
-      metadata: {
-        ...(plan.category && { category: plan.category }),
-        ...(plan.tags && { tags: plan.tags }),
-      },
-    } : {}),
+    ...(plan.category || plan.tags
+      ? {
+          metadata: {
+            ...(plan.category && { category: plan.category }),
+            ...(plan.tags && { tags: plan.tags }),
+          },
+        }
+      : {}),
   };
 
-  // Auto-set returnValue if not specified and last step has outputAs
+  // Auto-set returnValue if not specified — use outputAs or fall back to id
   if (!workflow.config.returnValue) {
     const lastStep = plan.steps[plan.steps.length - 1];
-    if (lastStep.outputAs) {
-      workflow.config.returnValue = `{{${lastStep.outputAs}}}`;
-      console.log(`   ℹ️  Auto-set returnValue to: {{${lastStep.outputAs}}}`);
-    }
+    const lastOutputAs = lastStep.outputAs || lastStep.id;
+    workflow.config.returnValue = `{{${lastOutputAs}}}`;
+    console.log(`   ℹ️  Auto-set returnValue to: {{${lastOutputAs}}}`);
   }
 
   // Write workflow file
@@ -474,12 +556,26 @@ async function buildWorkflowFromPlan(planFile: string, autoFix: boolean = true):
   console.log('\n✅ Workflow validation passed!\n');
 
   // Check if workflow uses AI modules (auto-skip dry-run for AI workflows)
-  const hasAIModules = plan.steps.some(step =>
-    step.module.startsWith('ai.') ||
-    step.module.includes('.ai-') ||
-    step.module.includes('openai') ||
-    step.module.includes('anthropic')
-  );
+  function checkAIModules(steps: StepPlan[]): boolean {
+    return steps.some((step) => {
+      if (step.module) {
+        if (
+          step.module.startsWith('ai.') ||
+          step.module.includes('.ai-') ||
+          step.module.includes('openai') ||
+          step.module.includes('anthropic')
+        ) {
+          return true;
+        }
+      }
+      // Check nested steps
+      if (step.steps && checkAIModules(step.steps)) return true;
+      if (step.then && checkAIModules(step.then)) return true;
+      if (step.else && checkAIModules(step.else)) return true;
+      return false;
+    });
+  }
+  const hasAIModules = checkAIModules(plan.steps);
 
   // Optional: Dry-run test (can be disabled with --skip-dry-run or auto-skipped for AI workflows)
   const skipDryRun = process.argv.includes('--skip-dry-run') || hasAIModules;
@@ -578,7 +674,7 @@ Note: Auto-fix runs automatically to correct common mistakes.
 
 const noAutoFix = args.includes('--no-auto-fix');
 const autoFix = !noAutoFix; // Auto-fix enabled by default
-const planFile = args.find(arg => !arg.startsWith('--'));
+const planFile = args.find((arg) => !arg.startsWith('--'));
 
 if (!planFile) {
   console.error('Error: No plan file specified');

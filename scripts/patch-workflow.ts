@@ -15,14 +15,13 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import type { Operation } from 'fast-json-patch';
 import { applyWorkflowPatch } from '../src/lib/workflows/workflow-patch';
-import { validateWorkflowComplete, formatValidationErrors } from '../src/lib/workflows/workflow-validator';
+import {
+  validateWorkflowComplete,
+  formatValidationErrors,
+} from '../src/lib/workflows/workflow-validator';
 import type { WorkflowExport } from '../src/lib/workflows/import-export';
 
-function patchWorkflow(
-  workflowFile: string,
-  patchContent: string,
-  shouldWrite: boolean
-): void {
+function patchWorkflow(workflowFile: string, patchContent: string, shouldWrite: boolean): void {
   try {
     // Read workflow
     const workflowPath = resolve(process.cwd(), workflowFile);
@@ -136,7 +135,7 @@ const shouldWrite = args.includes('--write');
 if (args.includes('--stdin')) {
   // Read patch from stdin
   const chunks: Buffer[] = [];
-  process.stdin.on('data', (chunk) => chunks.push(chunk));
+  process.stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
   process.stdin.on('end', () => {
     const patchContent = Buffer.concat(chunks).toString('utf-8');
     patchWorkflow(workflowFile, patchContent, shouldWrite);

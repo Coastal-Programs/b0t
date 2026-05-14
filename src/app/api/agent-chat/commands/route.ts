@@ -2,6 +2,9 @@ import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getAgentWorkspaceDir } from '@/lib/agent-workspace';
 import { logger } from '@/lib/logger';
+import { auth } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkAgentChatRateLimit } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,8 +59,17 @@ function parseFrontmatter(content: string): { description: string; argumentHint:
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Rate limit check
+    const rateLimitResult = await checkAgentChatRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
     const workspaceDir = getAgentWorkspaceDir();
     const commandsDir = join(workspaceDir, '.claude', 'commands');
 
@@ -82,9 +94,9 @@ export async function GET() {
       }
     }
 
-    return Response.json({ commands });
+    return NextResponse.json({ commands });
   } catch (error) {
     logger.error({ error }, 'Error loading commands');
-    return Response.json({ commands: BUILT_IN_COMMANDS });
+    return NextResponse.json({ commands: BUILT_IN_COMMANDS });
   }
 }

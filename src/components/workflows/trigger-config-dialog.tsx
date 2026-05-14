@@ -19,12 +19,23 @@ import { DiscordTriggerConfig } from './trigger-configs/discord-trigger-config';
 import { ChatInputTriggerConfig } from './trigger-configs/chat-input-trigger-config';
 import { GmailTriggerConfig } from './trigger-configs/gmail-trigger-config';
 import { OutlookTriggerConfig } from './trigger-configs/outlook-trigger-config';
+import { AirtableTriggerConfig } from './trigger-configs/airtable-trigger-config';
 import { logger } from '@/lib/logger';
 
 interface TriggerConfigDialogProps {
   workflowId: string;
   workflowName: string;
-  triggerType: 'manual' | 'cron' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'gmail' | 'outlook';
+  triggerType:
+    | 'manual'
+    | 'cron'
+    | 'webhook'
+    | 'telegram'
+    | 'discord'
+    | 'chat'
+    | 'chat-input'
+    | 'gmail'
+    | 'outlook'
+    | 'airtable';
   triggerConfig?: Record<string, unknown>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -98,6 +109,8 @@ export function TriggerConfigDialog({
         return 'Configure Gmail email filters and polling settings to automatically trigger this workflow when matching emails arrive.';
       case 'outlook':
         return 'Configure Outlook email filters and polling settings to automatically trigger this workflow when matching emails arrive.';
+      case 'airtable':
+        return 'Configure Airtable base and table polling to automatically trigger this workflow when records are created or updated.';
       default:
         return 'Configure trigger settings for this workflow.';
     }
@@ -123,6 +136,8 @@ export function TriggerConfigDialog({
         return 'Gmail Email Trigger';
       case 'outlook':
         return 'Outlook Email Trigger';
+      case 'airtable':
+        return 'Airtable Trigger';
       default:
         return 'Trigger Configuration';
     }
@@ -133,50 +148,32 @@ export function TriggerConfigDialog({
       case 'manual':
         return <ManualTriggerConfig onConfigChange={setTriggerData} />;
       case 'cron':
-        return (
-          <CronTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
-        );
+        return <CronTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />;
       case 'chat':
         return null; // Chat doesn't need config, it's handled in execution
       case 'webhook':
         return null; // Webhook config is read-only (just shows URL)
       case 'telegram':
         return (
-          <TelegramTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
+          <TelegramTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />
         );
       case 'discord':
         return (
-          <DiscordTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
+          <DiscordTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />
         );
       case 'chat-input':
         return (
-          <ChatInputTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
+          <ChatInputTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />
         );
       case 'gmail':
-        return (
-          <GmailTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
-        );
+        return <GmailTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />;
       case 'outlook':
         return (
-          <OutlookTriggerConfig
-            initialConfig={triggerConfig}
-            onConfigChange={setTriggerData}
-          />
+          <OutlookTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />
+        );
+      case 'airtable':
+        return (
+          <AirtableTriggerConfig initialConfig={triggerConfig} onConfigChange={setTriggerData} />
         );
       default:
         return <ManualTriggerConfig onConfigChange={setTriggerData} />;
@@ -201,9 +198,7 @@ export function TriggerConfigDialog({
           {(triggerType === 'chat' || triggerType === 'webhook') && (
             <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950 p-3">
               <p className="text-xs text-blue-900 dark:text-blue-100">
-                {triggerType === 'chat' && (
-                  <>Configured during execution. Click Run to chat.</>
-                )}
+                {triggerType === 'chat' && <>Configured during execution. Click Run to chat.</>}
                 {triggerType === 'webhook' && (
                   <>Configured via webhook URL. Test during execution.</>
                 )}

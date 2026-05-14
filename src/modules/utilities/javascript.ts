@@ -1,4 +1,3 @@
- 
 // @ts-nocheck - External library type mismatches, to be fixed in future iteration
 /**
  * Custom JavaScript Execution Module
@@ -15,10 +14,80 @@ import CircuitBreaker from 'opossum';
 import { logger } from '@/lib/logger';
 import * as vm from 'vm';
 import { Worker } from 'worker_threads';
-import { promisify } from 'util';
-import * as os from 'os';
-import * as path from 'path';
-import * as fs from 'fs';
+
+/**
+ * Sanitize context data for sandboxed execution.
+ * Only passes plain serializable values — strips functions, symbols, and
+ * anything that could leak host references. Credential objects are reduced
+ * to their primitive values only (strings/numbers/booleans).
+ */
+function sanitizeContext(context: Record<string, any>): Record<string, any> {
+  const seen = new WeakSet();
+
+  function sanitize(value: unknown, depth = 0): unknown {
+    if (depth > 10) return undefined;
+    if (value === null || value === undefined) return value;
+
+    const type = typeof value;
+    if (type === 'string' || type === 'number' || type === 'boolean') return value;
+    if (type === 'function' || type === 'symbol') return undefined;
+
+    if (typeof value === 'object') {
+      if (seen.has(value as object)) return undefined;
+      seen.add(value as object);
+
+      if (Array.isArray(value)) {
+        return value.map((v) => sanitize(v, depth + 1));
+      }
+
+      if (value instanceof Date) return value.toISOString();
+      if (value instanceof RegExp) return value.source;
+
+      const result: Record<string, unknown> = {};
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        const sanitized = sanitize((value as Record<string, unknown>)[key], depth + 1);
+        if (sanitized !== undefined) {
+          result[key] = sanitized;
+        }
+      }
+      return result;
+    }
+
+    return undefined;
+  }
+
+  return sanitize(context) as Record<string, any>;
+}
+
+/**
+ * Create a hardened VM context that mitigates prototype-chain escapes
+ * such as `this.constructor.constructor('return process')()`.
+ *
+ * Works by freezing the `Function` prototype inside the sandbox so user
+ * code cannot invoke the Function constructor to obtain host references.
+ */
+function createHardenedContext(sandboxValues: Record<string, any>): vm.Context {
+  const ctx = vm.createContext(sandboxValues);
+
+  // Freeze Function/Object constructors inside the sandbox context
+  // to prevent `this.constructor.constructor(...)` escapes.
+  vm.runInContext(
+    `(function() {
+      'use strict';
+      var F = (function(){}).constructor;
+      Object.defineProperty(F.prototype, 'constructor', {
+        value: F,
+        writable: false,
+        configurable: false
+      });
+      Object.freeze(F);
+      Object.freeze(F.prototype);
+    })();`,
+    ctx
+  );
+
+  return ctx;
+}
 
 const limiter = new Bottleneck({
   minTime: 100,
@@ -48,8 +117,9 @@ export async function execute(options: {
       timeout,
     });
 
+    const safeContext = sanitizeContext(context);
     const sandbox = {
-      ...context,
+      ...safeContext,
       console: {
         log: (...args: any[]) => logger.debug({ args }, 'Custom code console.log'),
         error: (...args: any[]) => logger.error({ args }, 'Custom code console.error'),
@@ -77,7 +147,7 @@ export async function execute(options: {
         filename: 'user-code.js',
       });
 
-      const context_vm = vm.createContext(sandbox);
+      const context_vm = createHardenedContext(sandbox);
 
       const startTime = Date.now();
       const result = script.runInContext(context_vm, {
@@ -89,13 +159,16 @@ export async function execute(options: {
       logger.info('Custom JavaScript executed successfully', { duration });
 
       return result;
-    } catch (error: any) {
-      logger.error({ error: error.message, stack: error.stack }, 'Custom JavaScript execution failed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      logger.error({ error: message, stack }, 'Custom JavaScript execution failed');
 
       // Provide helpful error messages for common issues
-      let errorMessage = `JavaScript execution error: ${error.message}`;
-      if (error.message.includes('await is only valid in async')) {
-        errorMessage += '\n\nHint: The standard execute() function does not support async/await. Use utilities.javascript.executeAsync instead for async operations.';
+      let errorMessage = `JavaScript execution error: ${message}`;
+      if (message.includes('await is only valid in async')) {
+        errorMessage +=
+          '\n\nHint: The standard execute() function does not support async/await. Use utilities.javascript.executeAsync instead for async operations.';
       }
 
       throw new Error(errorMessage);
@@ -146,8 +219,9 @@ export async function executeWithPackages(options: {
       return allowedPackages[moduleName]();
     };
 
+    const safeContext = sanitizeContext(context);
     const sandbox = {
-      ...context,
+      ...safeContext,
       require: customRequire,
       console: {
         log: (...args: any[]) => logger.debug({ args }, 'Custom code console.log'),
@@ -175,7 +249,7 @@ export async function executeWithPackages(options: {
         filename: 'user-code-with-packages.js',
       });
 
-      const context_vm = vm.createContext(sandbox);
+      const context_vm = createHardenedContext(sandbox);
 
       const startTime = Date.now();
       const result = script.runInContext(context_vm, {
@@ -187,9 +261,14 @@ export async function executeWithPackages(options: {
       logger.info('JavaScript with packages executed successfully', { duration, packages });
 
       return result;
-    } catch (error: any) {
-      logger.error({ error: error.message, stack: error.stack, packages }, 'JavaScript with packages execution failed');
-      throw new Error(`JavaScript execution error: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      logger.error(
+        { error: message, stack, packages },
+        'JavaScript with packages execution failed'
+      );
+      throw new Error(`JavaScript execution error: ${message}`);
     }
   };
 
@@ -213,8 +292,9 @@ export async function evaluateExpression(options: {
       contextKeys: Object.keys(context),
     });
 
+    const safeContext = sanitizeContext(context);
     const sandbox = {
-      ...context,
+      ...safeContext,
       setTimeout: undefined,
       setInterval: undefined,
       setImmediate: undefined,
@@ -228,7 +308,7 @@ export async function evaluateExpression(options: {
         filename: 'expression.js',
       });
 
-      const context_vm = vm.createContext(sandbox);
+      const context_vm = createHardenedContext(sandbox);
 
       const result = script.runInContext(context_vm, {
         timeout,
@@ -237,9 +317,10 @@ export async function evaluateExpression(options: {
 
       logger.info('Expression evaluated successfully', { result });
       return result;
-    } catch (error: any) {
-      logger.error({ error: error.message, expression }, 'Expression evaluation failed');
-      throw new Error(`Expression evaluation error: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message, expression }, 'Expression evaluation failed');
+      throw new Error(`Expression evaluation error: ${message}`);
     }
   };
 
@@ -268,8 +349,11 @@ export async function mapArray(options: {
       const wrappedCode = `(function() { 'use strict'; ${code} })()`;
 
       const script = new vm.Script(wrappedCode, { filename: `map-${i}.js` });
-      const context_vm = vm.createContext(sandbox);
-      const result = script.runInContext(context_vm, { timeout: Math.floor(timeout / items.length), displayErrors: true });
+      const context_vm = createHardenedContext(sandbox);
+      const result = script.runInContext(context_vm, {
+        timeout: Math.floor(timeout / items.length),
+        displayErrors: true,
+      });
       results.push(result);
     }
 
@@ -297,8 +381,11 @@ export async function filterArray(options: {
       const sandbox = { item: items[i], index: i, items };
       const wrappedCode = `(function() { 'use strict'; ${code} })()`;
       const script = new vm.Script(wrappedCode, { filename: `filter-${i}.js` });
-      const context_vm = vm.createContext(sandbox);
-      const shouldInclude = script.runInContext(context_vm, { timeout: Math.floor(timeout / items.length), displayErrors: true });
+      const context_vm = createHardenedContext(sandbox);
+      const shouldInclude = script.runInContext(context_vm, {
+        timeout: Math.floor(timeout / items.length),
+        displayErrors: true,
+      });
       if (shouldInclude) results.push(items[i]);
     }
 
@@ -327,8 +414,11 @@ export async function reduceArray(options: {
       const sandbox = { accumulator, item: items[i], index: i, items };
       const wrappedCode = `(function() { 'use strict'; ${code} })()`;
       const script = new vm.Script(wrappedCode, { filename: `reduce-${i}.js` });
-      const context_vm = vm.createContext(sandbox);
-      accumulator = script.runInContext(context_vm, { timeout: Math.floor(timeout / items.length), displayErrors: true });
+      const context_vm = createHardenedContext(sandbox);
+      accumulator = script.runInContext(context_vm, {
+        timeout: Math.floor(timeout / items.length),
+        displayErrors: true,
+      });
     }
 
     return accumulator;
@@ -339,8 +429,15 @@ export async function reduceArray(options: {
 }
 
 /**
- * Execute async JavaScript code in a worker thread
- * Supports async/await, fetch, and other async operations
+ * Execute async JavaScript code in a sandboxed worker thread.
+ *
+ * Security measures:
+ * - User code runs inside a `vm.createContext` sandbox within the worker
+ * - `require` is replaced with an allowlist (no fs, child_process, net, etc.)
+ * - Context is sanitized before transfer — only primitive/plain values pass through
+ * - No `Object.assign(global, ...)` — context is scoped to the sandbox only
+ * - Worker uses `eval: true` to avoid writing temp files to disk
+ * - Function prototype is frozen inside the sandbox to block constructor escapes
  */
 export async function executeAsync(options: {
   code: string;
@@ -350,29 +447,128 @@ export async function executeAsync(options: {
   const { code, context = {}, timeout = 30000 } = options;
 
   const operation = async () => {
+    const safeContext = sanitizeContext(context);
+
     logger.info('Executing async JavaScript', {
       codeLength: code.length,
-      contextKeys: Object.keys(context),
+      contextKeys: Object.keys(safeContext),
       timeout,
     });
 
     return new Promise((resolve, reject) => {
-      const workerCode = `
+      // The worker bootstrap runs user code inside a hardened vm context.
+      // `workerData.userCode` is the raw user code string (never interpolated
+      // into the bootstrap script) and `workerData.context` carries only
+      // sanitized, serializable values.
+      const bootstrapCode = `
         const { parentPort, workerData } = require('worker_threads');
+        const vm = require('vm');
+
+        // ── Blocked / allowed module lists ──────────────────────────
+        const BLOCKED = new Set([
+          'fs', 'fs/promises', 'child_process', 'cluster', 'dgram', 'dns',
+          'net', 'tls', 'http', 'https', 'http2', 'os', 'readline', 'repl',
+          'worker_threads', 'v8', 'process', 'path',
+          // node:-prefixed variants
+          'node:fs', 'node:fs/promises', 'node:child_process', 'node:cluster',
+          'node:dgram', 'node:dns', 'node:net', 'node:tls', 'node:http',
+          'node:https', 'node:http2', 'node:os', 'node:readline', 'node:repl',
+          'node:worker_threads', 'node:v8', 'node:process', 'node:path',
+          'node:vm',
+        ]);
+
+        const safeRequire = (name) => {
+          if (BLOCKED.has(name)) {
+            throw new Error("Module '" + name + "' is not available in sandboxed execution");
+          }
+          // Allow a curated set of safe utility modules
+          const ALLOWED = new Set([
+            'url', 'querystring', 'util', 'crypto', 'buffer',
+            'string_decoder', 'events', 'stream', 'assert', 'zlib',
+          ]);
+          if (ALLOWED.has(name) || ALLOWED.has(name.replace('node:', ''))) {
+            return require(name);
+          }
+          throw new Error("Module '" + name + "' is not available in sandboxed execution");
+        };
 
         (async () => {
           try {
-            const context = workerData.context;
-            const input = context.input || context;
+            const ctx = workerData.context || {};
 
-            // Make context variables available globally
-            Object.assign(global, context);
+            // Build sandbox with safe globals — context values are scoped,
+            // NOT dumped onto the worker global object.
+            const sandbox = Object.create(null);
+            Object.assign(sandbox, ctx);
+            sandbox.input = ctx.input || ctx;
+            sandbox.require = safeRequire;
+            sandbox.console = {
+              log: function() {},
+              error: function() {},
+              warn: function() {},
+              info: function() {},
+            };
+            sandbox.setTimeout = setTimeout;
+            sandbox.clearTimeout = clearTimeout;
+            sandbox.setInterval = undefined;
+            sandbox.setImmediate = undefined;
+            sandbox.Promise = Promise;
+            sandbox.Buffer = Buffer;
+            sandbox.URL = typeof URL !== 'undefined' ? URL : undefined;
+            sandbox.URLSearchParams = typeof URLSearchParams !== 'undefined' ? URLSearchParams : undefined;
+            sandbox.TextEncoder = typeof TextEncoder !== 'undefined' ? TextEncoder : undefined;
+            sandbox.TextDecoder = typeof TextDecoder !== 'undefined' ? TextDecoder : undefined;
+            sandbox.JSON = JSON;
+            sandbox.Math = Math;
+            sandbox.Date = Date;
+            sandbox.Array = Array;
+            sandbox.Object = Object;
+            sandbox.String = String;
+            sandbox.Number = Number;
+            sandbox.Boolean = Boolean;
+            sandbox.RegExp = RegExp;
+            sandbox.Map = Map;
+            sandbox.Set = Set;
+            sandbox.Error = Error;
+            sandbox.parseInt = parseInt;
+            sandbox.parseFloat = parseFloat;
+            sandbox.isNaN = isNaN;
+            sandbox.isFinite = isFinite;
+            sandbox.encodeURIComponent = encodeURIComponent;
+            sandbox.decodeURIComponent = decodeURIComponent;
+            sandbox.encodeURI = encodeURI;
+            sandbox.decodeURI = decodeURI;
+            sandbox.atob = typeof atob !== 'undefined' ? atob : undefined;
+            sandbox.btoa = typeof btoa !== 'undefined' ? btoa : undefined;
 
-            // User's code
-            const result = await (async function() {
-              ${code}
-            })();
+            // Provide fetch if available (Node 18+)
+            if (typeof fetch !== 'undefined') sandbox.fetch = fetch;
 
+            // Explicitly block dangerous globals
+            sandbox.process = undefined;
+            sandbox.global = undefined;
+            sandbox.globalThis = undefined;
+            sandbox.__dirname = undefined;
+            sandbox.__filename = undefined;
+
+            const vmContext = vm.createContext(sandbox);
+
+            // Freeze Function prototype inside sandbox to block
+            // this.constructor.constructor('return process')() escapes
+            vm.runInContext(
+              '(function(){' +
+              '  "use strict";' +
+              '  var F=(function(){}).constructor;' +
+              '  Object.defineProperty(F.prototype,"constructor",{value:F,writable:false,configurable:false});' +
+              '  Object.freeze(F);Object.freeze(F.prototype);' +
+              '})();',
+              vmContext
+            );
+
+            const wrappedCode = '(async function() { "use strict";\\n' + workerData.userCode + '\\n})()';
+            const script = new vm.Script(wrappedCode, { filename: 'user-async-code.js' });
+
+            const result = await script.runInContext(vmContext);
             parentPort.postMessage({ success: true, result });
           } catch (error) {
             parentPort.postMessage({
@@ -384,60 +580,61 @@ export async function executeAsync(options: {
         })();
       `;
 
-      const tmpDir = os.tmpdir();
-      const workerFile = path.join(tmpDir, `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.js`);
-
       try {
-        fs.writeFileSync(workerFile, workerCode);
-
-        const worker = new Worker(workerFile, {
-          workerData: { context },
-          eval: false,
+        const worker = new Worker(bootstrapCode, {
+          workerData: { context: safeContext, userCode: code },
+          eval: true,
         });
 
+        let settled = false;
+
         const timer = setTimeout(() => {
-          worker.terminate();
-          cleanup();
-          reject(new Error(`Async JavaScript execution timeout after ${timeout}ms`));
+          if (!settled) {
+            settled = true;
+            worker.terminate();
+            reject(new Error(`Async JavaScript execution timeout after ${timeout}ms`));
+          }
         }, timeout);
 
-        const cleanup = () => {
-          clearTimeout(timer);
-          try {
-            fs.unlinkSync(workerFile);
-          } catch (e) {
-            // Ignore cleanup errors
+        const settle = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
           }
         };
 
         worker.on('message', (message) => {
-          cleanup();
+          settle();
           worker.terminate();
 
           if (message.success) {
             logger.info('Async JavaScript executed successfully');
             resolve(message.result);
           } else {
-            logger.error({ error: message.error, stack: message.stack }, 'Async JavaScript execution failed');
+            logger.error(
+              { error: message.error, stack: message.stack },
+              'Async JavaScript execution failed'
+            );
             reject(new Error(`Async JavaScript execution error: ${message.error}`));
           }
         });
 
         worker.on('error', (error) => {
-          cleanup();
+          settle();
           logger.error({ error: error.message }, 'Worker thread error');
           reject(new Error(`Worker thread error: ${error.message}`));
         });
 
-        worker.on('exit', (code) => {
-          if (code !== 0) {
-            cleanup();
-            reject(new Error(`Worker stopped with exit code ${code}`));
+        worker.on('exit', (exitCode) => {
+          if (exitCode !== 0 && !settled) {
+            settle();
+            reject(new Error(`Worker stopped with exit code ${exitCode}`));
           }
         });
-      } catch (error: any) {
-        logger.error({ error: error.message }, 'Failed to create worker');
-        reject(new Error(`Failed to create worker: ${error.message}`));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error({ error: message }, 'Failed to create worker');
+        reject(new Error(`Failed to create worker: ${message}`));
       }
     });
   };

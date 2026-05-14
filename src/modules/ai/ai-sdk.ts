@@ -1,7 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { generateText as aiGenerateText, streamText, generateObject } from 'ai';
+import { generateText as aiGenerateText, streamText, Output, jsonSchema } from 'ai';
 import { createCircuitBreaker } from '@/lib/resilience';
 import { createRateLimiter, withRateLimit } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
@@ -121,6 +121,17 @@ function getModelInstance(provider: AIProvider, modelName: string, apiKey?: stri
       apiKey: apiKey,
     });
     return openrouterProvider.chat(modelName);
+  } else if (provider === 'perplexity') {
+    if (!apiKey) {
+      throw new Error(
+        'Perplexity API key not found. Please add a Perplexity API key in the credentials page.'
+      );
+    }
+    const perplexityProvider = createOpenAI({
+      apiKey: apiKey,
+      baseURL: 'https://api.perplexity.ai',
+    });
+    return perplexityProvider(modelName);
   }
   throw new Error(`Unknown provider: ${provider}`);
 }
@@ -136,16 +147,16 @@ function detectProvider(model?: string): AIProvider {
     return 'openrouter';
   }
 
-  if (
-    model.startsWith('gpt-') ||
-    model.startsWith('o1') ||
-    model.startsWith('o3')
-  ) {
+  if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3')) {
     return 'openai';
   }
 
   if (model.startsWith('claude-')) {
     return 'anthropic';
+  }
+
+  if (model.startsWith('sonar') || model.startsWith('llama-3.1-sonar')) {
+    return 'perplexity';
   }
 
   return 'openai'; // default
@@ -154,9 +165,7 @@ function detectProvider(model?: string): AIProvider {
 /**
  * Internal generate text function (unprotected)
  */
-async function generateTextInternal(
-  options: AIGenerateOptions
-): Promise<AIGenerateResponse> {
+async function generateTextInternal(options: AIGenerateOptions): Promise<AIGenerateResponse> {
   const {
     prompt,
     systemPrompt,
@@ -220,26 +229,21 @@ const generateTextWithBreaker = createCircuitBreaker(generateTextInternal, {
 });
 
 const generateTextRateLimited = withRateLimit(
-  async (options: AIGenerateOptions) =>
-    generateTextWithBreaker.fire(options),
+  async (options: AIGenerateOptions) => generateTextWithBreaker.fire(options),
   aiRateLimiter
 );
 
 /**
  * Generate text (main export)
  */
-export async function generateText(
-  options: AIGenerateOptions
-): Promise<AIGenerateResponse> {
+export async function generateText(options: AIGenerateOptions): Promise<AIGenerateResponse> {
   return (await generateTextRateLimited(options)) as unknown as AIGenerateResponse;
 }
 
 /**
  * Chat with conversation history
  */
-async function chatInternal(
-  options: AIChatOptions
-): Promise<AIGenerateResponse> {
+async function chatInternal(options: AIChatOptions): Promise<AIGenerateResponse> {
   const {
     messages,
     model = 'gpt-4o-mini',
@@ -318,9 +322,7 @@ export async function chat(options: AIChatOptions): Promise<AIGenerateResponse> 
 /**
  * Stream text generation
  */
-export async function* streamGeneration(
-  options: AIStreamOptions
-): AsyncGenerator<string> {
+export async function* streamGeneration(options: AIStreamOptions): AsyncGenerator<string> {
   const {
     prompt,
     systemPrompt,
@@ -360,11 +362,12 @@ export async function* streamGeneration(
 }
 
 /**
- * Generate structured JSON output
+ * Generate structured JSON output.
+ * Accepts either a Zod schema or a raw JSON Schema object (auto-converted via jsonSchema()).
  */
 export async function generateJSON<T = unknown>(
   options: AIGenerateOptions & {
-    schema: z.ZodSchema<T>;
+    schema: z.ZodSchema<T> | Record<string, unknown>;
   }
 ): Promise<T> {
   const {
@@ -390,18 +393,24 @@ export async function generateJSON<T = unknown>(
 
   const modelInstance = getModelInstance(provider, model, apiKey);
 
-  const result = await generateObject({
+  // Auto-convert plain JSON Schema objects to the AI SDK's jsonSchema() wrapper.
+  // Workflow JSON stores schemas as plain objects; Zod schemas have a _def property.
+  const resolvedSchema =
+    schema instanceof z.ZodType
+      ? schema
+      : jsonSchema<T>(schema as Parameters<typeof jsonSchema>[0]);
+
+  const result = await aiGenerateText({
     model: modelInstance,
     prompt,
     system: systemPrompt,
-    schema,
     temperature,
-    mode: 'json',
+    output: Output.object({ schema: resolvedSchema }),
   });
 
   logger.info('JSON generation completed');
 
-  return result.object;
+  return result.output as T;
 }
 
 /**

@@ -88,6 +88,7 @@ steps:
     outputAs: archiveDecision
   - module: communication.gmail.archiveEmail
     id: archive
+    when: "{{archiveDecision.shouldArchive}} === true"
     inputs:
       messageId: "{{emailData.messageId}}"
     outputAs: archiveResult

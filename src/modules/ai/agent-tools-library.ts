@@ -28,11 +28,23 @@ Use this to find current events, news, facts, or information not in your trainin
 Returns a list of search results with titles, links, and snippets.`,
   inputSchema: z.object({
     query: z.string().min(1).describe('The search query'),
-    type: z.enum(['search', 'news', 'images']).optional().describe('Type of search: "search" (default), "news", or "images"'),
-    limit: z.number().min(1).max(20).optional().describe('Number of results to return (default: 10)'),
+    type: z
+      .enum(['search', 'news', 'images'])
+      .optional()
+      .describe('Type of search: "search" (default), "news", or "images"'),
+    limit: z
+      .number()
+      .min(1)
+      .max(20)
+      .optional()
+      .describe('Number of results to return (default: 10)'),
   }),
   execute: async (params) => {
-    const { query, type = 'search', limit = 10 } = params as {
+    const {
+      query,
+      type = 'search',
+      limit = 10,
+    } = params as {
       query: string;
       type?: 'search' | 'news' | 'images';
       limit?: number;
@@ -108,7 +120,7 @@ Examples: news articles, documentation pages, blog posts, product pages.`,
         '.post-content',
         '.article-content',
         '#content',
-        'body'
+        'body',
       ];
 
       let text = '';
@@ -131,7 +143,10 @@ Examples: news articles, documentation pages, blog posts, product pages.`,
       // Clean up whitespace
       text = text.replace(/\s+/g, ' ').trim();
 
-      logger.info({ url, titleLength: title.length, textLength: text.length }, 'Web page fetched successfully');
+      logger.info(
+        { url, titleLength: title.length, textLength: text.length },
+        'Web page fetched successfully'
+      );
 
       return {
         success: true,
@@ -166,12 +181,32 @@ export const generateTextTool: Tool = {
 Supports any OpenAI or Anthropic model with configurable temperature and max tokens.`,
   inputSchema: z.object({
     prompt: z.string().min(1).describe('The prompt or instruction for text generation'),
-    model: z.string().optional().describe('AI model to use (e.g., gpt-4o, gpt-4o-mini, claude-3-5-sonnet-20241022). Default: gpt-4o-mini'),
-    temperature: z.number().min(0).max(2).optional().describe('Creativity level 0-2, higher = more creative (default: 0.7)'),
-    maxTokens: z.number().min(1).max(4096).optional().describe('Maximum length of response in tokens (default: 1000)'),
+    model: z
+      .string()
+      .optional()
+      .describe(
+        'AI model to use (e.g., gpt-4o, gpt-4o-mini, claude-3-5-sonnet-20241022). Default: gpt-4o-mini'
+      ),
+    temperature: z
+      .number()
+      .min(0)
+      .max(2)
+      .optional()
+      .describe('Creativity level 0-2, higher = more creative (default: 0.7)'),
+    maxTokens: z
+      .number()
+      .min(1)
+      .max(4096)
+      .optional()
+      .describe('Maximum length of response in tokens (default: 1000)'),
   }),
   execute: async (params) => {
-    const { prompt, model = 'gpt-4o-mini', temperature = 0.7, maxTokens = 1000 } = params as {
+    const {
+      prompt,
+      model = 'gpt-4o-mini',
+      temperature = 0.7,
+      maxTokens = 1000,
+    } = params as {
       prompt: string;
       model?: string;
       temperature?: number;
@@ -256,6 +291,102 @@ Returns ISO format, human-readable format, and Unix timestamp.`,
 };
 
 /**
+ * Safe math expression evaluator using recursive descent parsing.
+ * Supports: +, -, *, /, parentheses, decimal numbers, and negative numbers.
+ * No eval/Function — only parses arithmetic.
+ *
+ * Grammar:
+ *   expr    → term (('+' | '-') term)*
+ *   term    → unary (('*' | '/') unary)*
+ *   unary   → '-' unary | primary
+ *   primary → NUMBER | '(' expr ')'
+ */
+function evaluateMathExpression(expression: string): number {
+  // Strip whitespace for easier parsing
+  const expr = expression.replace(/\s+/g, '');
+  let pos = 0;
+
+  function parseExpr(): number {
+    let left = parseTerm();
+    while (pos < expr.length && (expr[pos] === '+' || expr[pos] === '-')) {
+      const op = expr[pos];
+      pos++;
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  function parseTerm(): number {
+    let left = parseUnary();
+    while (pos < expr.length && (expr[pos] === '*' || expr[pos] === '/')) {
+      const op = expr[pos];
+      pos++;
+      const right = parseUnary();
+      if (op === '/') {
+        if (right === 0) throw new Error('Division by zero');
+        left = left / right;
+      } else {
+        left = left * right;
+      }
+    }
+    return left;
+  }
+
+  function parseUnary(): number {
+    if (pos < expr.length && expr[pos] === '-') {
+      pos++;
+      return -parseUnary();
+    }
+    if (pos < expr.length && expr[pos] === '+') {
+      pos++;
+      return parseUnary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary(): number {
+    if (pos >= expr.length) throw new Error('Unexpected end of expression');
+
+    // Parenthesized expression
+    if (expr[pos] === '(') {
+      pos++; // skip (
+      const result = parseExpr();
+      if (pos >= expr.length || expr[pos] !== ')') {
+        throw new Error('Expected closing parenthesis');
+      }
+      pos++; // skip )
+      return result;
+    }
+
+    // Number (integer or decimal)
+    const start = pos;
+    while (pos < expr.length && /[0-9.]/.test(expr[pos])) {
+      pos++;
+    }
+
+    if (pos === start) {
+      throw new Error(`Unexpected character at position ${pos}: "${expr[pos]}"`);
+    }
+
+    const num = Number(expr.slice(start, pos));
+    if (isNaN(num)) {
+      throw new Error(`Invalid number: "${expr.slice(start, pos)}"`);
+    }
+
+    return num;
+  }
+
+  const result = parseExpr();
+
+  if (pos < expr.length) {
+    throw new Error(`Unexpected character at position ${pos}: "${expr[pos]}"`);
+  }
+
+  return result;
+}
+
+/**
  * Perform calculations
  */
 export const calculateTool: Tool = {
@@ -263,7 +394,10 @@ export const calculateTool: Tool = {
 Supports basic arithmetic, percentages, powers, and common math functions.
 Use this for any mathematical operations or computations.`,
   inputSchema: z.object({
-    expression: z.string().min(1).describe('Mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)", "10 * 5 + 3")'),
+    expression: z
+      .string()
+      .min(1)
+      .describe('Mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)", "10 * 5 + 3")'),
   }),
   execute: async (params) => {
     const { expression } = params as { expression: string };
@@ -271,12 +405,8 @@ Use this for any mathematical operations or computations.`,
     try {
       logger.info({ expression }, 'Agent tool: Calculating');
 
-      // Safe evaluation - only allow math operations
-      // Remove any dangerous operations
-      const sanitized = expression.replace(/[^0-9+\-*/().,\s]/g, '');
-
-      // Use Function constructor for safe evaluation
-      const result = Function('"use strict"; return (' + sanitized + ')')();
+      // Safe math evaluation using recursive descent parser (no eval/Function)
+      const result = evaluateMathExpression(expression);
 
       logger.info({ expression, result }, 'Calculation completed');
 
@@ -377,9 +507,8 @@ export function getAllAgentTools(): Record<string, Tool> {
 export async function getMCPAgentTools(mcpServers?: string[]): Promise<Record<string, Tool>> {
   try {
     // Dynamic import to avoid circular dependencies
-    const { getMCPTools, getAllMCPTools, getMCPClient, connectToMCPServer } = await import(
-      '@/lib/mcp/client'
-    );
+    const { getMCPTools, getAllMCPTools, getMCPClient, connectToMCPServer } =
+      await import('@/lib/mcp/client');
     const { MCP_SERVER_CONFIGS } = await import('@/lib/mcp/server-configs');
 
     // If specific servers are requested, connect to them if needed

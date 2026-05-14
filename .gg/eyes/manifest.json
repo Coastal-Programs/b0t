@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "probes": [
+    {
+      "name": "http",
+      "capability": "http",
+      "impl": "curl",
+      "script": ".gg/eyes/http.sh",
+      "status": "verified"
+    },
+    {
+      "name": "logs",
+      "capability": "runtime_logs",
+      "impl": "docker",
+      "script": ".gg/eyes/logs.sh",
+      "status": "verified"
+    },
+    {
+      "name": "mail",
+      "capability": "capture_email",
+      "impl": "mailpit",
+      "script": ".gg/eyes/mail.sh",
+      "status": "failed",
+      "error": "test.sh exit 1"
+    },
+    {
+      "name": "visual",
+      "capability": "visual",
+      "impl": "playwright",
+      "script": ".gg/eyes/visual.sh",
+      "status": "failed",
+      "error": "test.sh exit 1"
+    }
+  ]
+}

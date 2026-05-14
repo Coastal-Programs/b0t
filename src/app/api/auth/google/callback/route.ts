@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable, accountsTable } from '@/lib/schema';
+import {
+  oauthStateTable,
+  userCredentialsTable,
+  accountsTable,
+  appSettingsTable,
+} from '@/lib/schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
-import { encrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/encryption';
 import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 import { randomUUID } from 'crypto';
 
@@ -19,6 +24,10 @@ import { randomUUID } from 'crypto';
  * 4. Redirect user back to credentials page
  */
 export async function GET(request: NextRequest) {
+  // Sanitize origin for postMessage - prevent wildcard target origin
+  const appOrigin = new URL(
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  ).origin;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
@@ -35,7 +44,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-auth-error', error: 'Authorization denied' }, '*');
+                window.opener.postMessage({ type: 'google-auth-error', error: 'Authorization denied' }, '${appOrigin}');
               }
             </script>
             <p>Authorization was denied. This window will close automatically.</p>
@@ -60,7 +69,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-auth-error', error: 'Invalid callback parameters' }, '*');
+                window.opener.postMessage({ type: 'google-auth-error', error: 'Invalid callback parameters' }, '${appOrigin}');
               }
             </script>
             <p>Invalid callback. This window will close automatically.</p>
@@ -92,7 +101,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-auth-error', error: 'Invalid or expired state' }, '*');
+                window.opener.postMessage({ type: 'google-auth-error', error: 'Invalid or expired state' }, '${appOrigin}');
               }
             </script>
             <p>Invalid or expired state. This window will close automatically.</p>
@@ -110,78 +119,92 @@ export async function GET(request: NextRequest) {
 
     const userId = stateRecord.userId;
 
-    // Try platform-wide OAuth credentials (env vars) first
-    let clientId: string;
-    let clientSecret: string;
-    const platformCreds = getPlatformOAuthCredentials('google');
+    // Resolve OAuth client credentials using the same chain as the authorize route:
+    // 1. Platform env vars (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)
+    // 2. App settings table (Settings UI / Keys dialog)
+    // 3. Legacy database credentials (google_oauth_app in user_credentials)
+    let clientId: string | undefined;
+    let clientSecret: string | undefined;
 
+    // 1. Try platform-wide OAuth credentials (env vars)
+    const platformCreds = getPlatformOAuthCredentials('google');
     if (platformCreds) {
-      // Use platform-wide credentials from environment variables
       clientId = platformCreds.clientId;
       clientSecret = platformCreds.clientSecret;
       logger.info({ userId }, 'Using platform-wide Google OAuth credentials for callback');
-    } else {
-      // Fallback: Get user-specific OAuth app credentials from database
+    }
+
+    // 2. Try app settings table (Settings UI / Keys dialog)
+    if (!clientId || !clientSecret) {
+      try {
+        const [idSetting] = await db
+          .select()
+          .from(appSettingsTable)
+          .where(eq(appSettingsTable.key, 'oauth_google_client_id'))
+          .limit(1);
+        const [secretSetting] = await db
+          .select()
+          .from(appSettingsTable)
+          .where(eq(appSettingsTable.key, 'oauth_google_client_secret'))
+          .limit(1);
+
+        if (idSetting && secretSetting) {
+          clientId = decrypt(idSetting.value);
+          clientSecret = decrypt(secretSetting.value);
+          logger.info({ userId }, 'Using app settings Google OAuth credentials for callback');
+        }
+      } catch (settingsError) {
+        logger.warn(
+          { error: settingsError },
+          'Failed to read app settings for Google OAuth callback'
+        );
+      }
+    }
+
+    // 3. Fallback: Legacy database credentials (google_oauth_app in user_credentials)
+    if (!clientId || !clientSecret) {
       const [appCred] = await db
         .select()
         .from(userCredentialsTable)
         .where(eq(userCredentialsTable.platform, 'google_oauth_app'))
         .limit(1);
 
-      if (!appCred) {
-        logger.error('Google OAuth app credentials not configured');
-        return new NextResponse(
-          `<!DOCTYPE html>
-          <html>
-            <head><title>Configuration Missing</title></head>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({ type: 'google-auth-error', error: 'OAuth app credentials not configured' }, '*');
-                }
-              </script>
-              <p>OAuth app credentials not configured. This window will close automatically.</p>
-              <style>
-                body { font-family: system-ui; padding: 2rem; text-align: center; }
-              </style>
-            </body>
-          </html>`,
-          {
-            status: 200,
-            headers: { 'Content-Type': 'text/html' },
-          }
-        );
+      if (appCred) {
+        try {
+          const creds = getOAuthAppCredentials(appCred, 'Google');
+          clientId = creds.clientId;
+          clientSecret = creds.clientSecret;
+        } catch (credError) {
+          logger.error({ error: credError }, 'Failed to get Google OAuth app credentials');
+        }
       }
+    }
 
-      // Get client credentials
-      try {
-        const creds = getOAuthAppCredentials(appCred, 'Google');
-        clientId = creds.clientId;
-        clientSecret = creds.clientSecret;
-      } catch (error) {
-        logger.error({ error }, 'Failed to get Google OAuth app credentials');
-        return new NextResponse(
-          `<!DOCTYPE html>
-          <html>
-            <head><title>Configuration Error</title></head>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({ type: 'google-auth-error', error: 'Failed to get OAuth app credentials' }, '*');
-                }
-              </script>
-              <p>Failed to get OAuth app credentials. This window will close automatically.</p>
-              <style>
-                body { font-family: system-ui; padding: 2rem; text-align: center; }
-              </style>
-            </body>
-          </html>`,
-          {
-            status: 200,
-            headers: { 'Content-Type': 'text/html' },
-          }
-        );
-      }
+    if (!clientId || !clientSecret) {
+      logger.error(
+        'Google OAuth app credentials not configured (checked env vars, app settings, and legacy credentials)'
+      );
+      return new NextResponse(
+        `<!DOCTYPE html>
+        <html>
+          <head><title>Configuration Missing</title></head>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'google-auth-error', error: 'OAuth app credentials not configured' }, '${appOrigin}');
+              }
+            </script>
+            <p>OAuth app credentials not configured. This window will close automatically.</p>
+            <style>
+              body { font-family: system-ui; padding: 2rem; text-align: center; }
+            </style>
+          </body>
+        </html>`,
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }
+      );
     }
 
     // Generate callback URL (must match the one in authorize route)
@@ -190,12 +213,15 @@ export async function GET(request: NextRequest) {
       : 'http://localhost:3123/api/auth/google/callback';
 
     // Log token exchange details for debugging
-    logger.info({
-      callbackUrl,
-      clientIdPreview: `${clientId.substring(0, 10)}...${clientId.substring(clientId.length - 10)}`,
-      codePreview: `${code.substring(0, 10)}...`,
-      hasClientSecret: !!clientSecret,
-    }, 'Exchanging authorization code for tokens');
+    logger.info(
+      {
+        callbackUrl,
+        clientIdPreview: `${clientId.substring(0, 10)}...${clientId.substring(clientId.length - 10)}`,
+        codePreview: `${code.substring(0, 10)}...`,
+        hasClientSecret: !!clientSecret,
+      },
+      'Exchanging authorization code for tokens'
+    );
 
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -214,11 +240,14 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      logger.error({
-        error: errorData,
-        callbackUrl,
-        clientIdPreview: `${clientId.substring(0, 10)}...${clientId.substring(clientId.length - 10)}`,
-      }, 'Failed to exchange Google authorization code');
+      logger.error(
+        {
+          error: errorData,
+          callbackUrl,
+          clientIdPreview: `${clientId.substring(0, 10)}...${clientId.substring(clientId.length - 10)}`,
+        },
+        'Failed to exchange Google authorization code'
+      );
       return new NextResponse(
         `<!DOCTYPE html>
         <html>
@@ -226,7 +255,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-auth-error', error: 'Failed to exchange OAuth token' }, '*');
+                window.opener.postMessage({ type: 'google-auth-error', error: 'Failed to exchange OAuth token' }, '${appOrigin}');
               }
             </script>
             <p>Failed to exchange OAuth token. This window will close automatically.</p>
@@ -254,7 +283,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-auth-error', error: 'Missing tokens from Google' }, '*');
+                window.opener.postMessage({ type: 'google-auth-error', error: 'Missing tokens from Google' }, '${appOrigin}');
               }
             </script>
             <p>Missing tokens from Google. This window will close automatically.</p>
@@ -274,12 +303,19 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
     // Parse metadata from OAuth state
-    let metadata: { requestedScopes?: string[]; service?: string; mode?: string; credentialId?: string; organizationId?: string } = {};
+    let metadata: {
+      requestedScopes?: string[];
+      service?: string;
+      mode?: string;
+      credentialId?: string;
+      organizationId?: string;
+    } = {};
     try {
       if (stateRecord.metadata) {
-        metadata = typeof stateRecord.metadata === 'string'
-          ? JSON.parse(stateRecord.metadata)
-          : stateRecord.metadata;
+        metadata =
+          typeof stateRecord.metadata === 'string'
+            ? JSON.parse(stateRecord.metadata)
+            : stateRecord.metadata;
       }
     } catch (error) {
       logger.error({ error }, 'Failed to parse OAuth state metadata');
@@ -294,7 +330,7 @@ export async function GET(request: NextRequest) {
     try {
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
-          'Authorization': `Bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
         },
       });
       if (userInfoResponse.ok) {
@@ -352,7 +388,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      logger.info({ userId, provider: 'google', service: metadata.service }, 'Google OAuth completed successfully');
+      logger.info(
+        { userId, provider: 'google', service: metadata.service },
+        'Google OAuth completed successfully'
+      );
     }
 
     // Store account record for OAuth status tracking (token expiry, etc.)
@@ -402,6 +441,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
+    // Invalidate credential cache so new tokens are immediately available
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(userId);
+
     // Clean up state record
     await db.delete(oauthStateTable).where(eq(oauthStateTable.state, state));
 
@@ -413,7 +456,7 @@ export async function GET(request: NextRequest) {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'google-auth-success' }, '*');
+              window.opener.postMessage({ type: 'google-auth-success' }, '${appOrigin}');
             }
           </script>
           <p>Authentication successful! This window will close automatically.</p>
@@ -436,7 +479,7 @@ export async function GET(request: NextRequest) {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'google-auth-error', error: 'OAuth callback failed' }, '*');
+              window.opener.postMessage({ type: 'google-auth-error', error: 'OAuth callback failed' }, '${appOrigin}');
             }
           </script>
           <p>OAuth callback failed. This window will close automatically.</p>

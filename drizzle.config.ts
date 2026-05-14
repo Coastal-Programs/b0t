@@ -1,10 +1,10 @@
-import type { Config } from 'drizzle-kit';
+import { defineConfig } from 'drizzle-kit';
 
 // If DATABASE_URL is not set, use SQLite for local development
 const databaseUrl = process.env.DATABASE_URL;
 const useSQLite = !databaseUrl;
 
-export default {
+export default defineConfig({
   schema: './src/lib/schema.ts',
   out: './drizzle',
   dialect: useSQLite ? 'sqlite' : 'postgresql',
@@ -15,4 +15,4 @@ export default {
     : {
         url: databaseUrl!,
       },
-} satisfies Config;
+});

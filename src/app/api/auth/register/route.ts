@@ -30,20 +30,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (!password || typeof password !== 'string' || password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
     }
 
     // Find invitation
-     
-    const [invitation] = await (db as any)
+    const [invitation] = await db
       .select()
       .from(invitationsTable)
-      .where(
-        and(
-          eq(invitationsTable.token, token),
-          eq(invitationsTable.email, email)
-        )
-      )
+      .where(and(eq(invitationsTable.token, token), eq(invitationsTable.email, email)))
       .limit(1);
 
     if (!invitation) {
@@ -61,8 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-     
-    const [existingUser] = await (db as any)
+    const [existingUser] = await db
       .select()
       .from(usersTable)
       .where(eq(usersTable.email, email))
@@ -75,38 +71,41 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user, add to organization, and mark invitation as accepted atomically
     const userId = nanoid();
-     
-    await (db as any).insert(usersTable).values({
-      id: userId,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      name: name || null,
-      emailVerified: true, // Consider them verified since they used the invitation
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
 
-    // Add user to organization
-     
-    await (db as any).insert(organizationMembersTable).values({
-      id: nanoid(),
-      organizationId: invitation.organizationId,
-      userId,
-      role: invitation.role,
-      joinedAt: new Date(),
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(usersTable).values({
+        id: userId,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        name: name || null,
+        emailVerified: 1, // Consider them verified since they used the invitation
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    // Mark invitation as accepted
-     
-    await (db as any)
-      .update(invitationsTable)
-      .set({ acceptedAt: new Date() })
-      .where(eq(invitationsTable.id, invitation.id));
+      await tx.insert(organizationMembersTable).values({
+        id: nanoid(),
+        organizationId: invitation.organizationId,
+        userId,
+        role: invitation.role,
+        joinedAt: new Date(),
+      });
+
+      await tx
+        .update(invitationsTable)
+        .set({ acceptedAt: new Date() })
+        .where(eq(invitationsTable.id, invitation.id));
+    });
 
     logger.info(
-      { userId, email: email.toLowerCase(), organizationId: invitation.organizationId, action: 'user_register_success' },
+      {
+        userId,
+        email: email.toLowerCase(),
+        organizationId: invitation.organizationId,
+        action: 'user_register_success',
+      },
       'User registered successfully'
     );
 
@@ -116,7 +115,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error(
-      { error: error instanceof Error ? error.message : String(error), action: 'user_register_failed' },
+      {
+        error: error instanceof Error ? error.message : String(error),
+        action: 'user_register_failed',
+      },
       'Failed to register user'
     );
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

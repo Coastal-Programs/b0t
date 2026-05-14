@@ -20,10 +20,7 @@ export const dynamic = 'force-dynamic';
  * - Automatic retries on failure
  * - Job prioritization
  */
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   // Apply rate limiting (3 requests per minute)
   const rateLimitResult = await checkStrictRateLimit(request);
   if (rateLimitResult) return rateLimitResult;
@@ -41,12 +38,7 @@ export async function POST(
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, id),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, session.user.id)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -54,10 +46,7 @@ export async function POST(
         { workflowId: id, userId: session.user.id },
         'Workflow not found or access denied'
       );
-      return NextResponse.json(
-        { error: 'Workflow not found or access denied' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Workflow not found or access denied' }, { status: 404 });
     }
 
     // Optional: Accept trigger data, trigger type, and priority from request body
@@ -85,12 +74,7 @@ export async function POST(
     }
 
     // Fallback: Direct execution (no Redis)
-    const result = await executeWorkflow(
-      id,
-      session.user.id,
-      triggerType,
-      triggerData
-    );
+    const result = await executeWorkflow(id, session.user.id, triggerType, triggerData);
 
     if (!result.success) {
       return NextResponse.json(
@@ -113,14 +97,14 @@ export async function POST(
       {
         error: error instanceof Error ? error.message : String(error),
         workflowId: id,
-        action: 'workflow_execution_failed'
+        action: 'workflow_execution_failed',
       },
       'Failed to execute workflow'
     );
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: 'Workflow execution failed',
       },
       { status: 500 }
     );

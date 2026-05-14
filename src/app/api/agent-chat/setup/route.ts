@@ -4,13 +4,18 @@ import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@/lib/logger';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkAgentChatRateLimit } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // GET /api/agent-chat/setup - Check if workspace is set up
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const rateLimitResult = await checkAgentChatRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
     if (!session?.user?.id) {
       return new Response('Unauthorized', { status: 401 });
@@ -20,7 +25,7 @@ export async function GET() {
     const workspaceDir = getAgentWorkspaceDir();
     const isInstalled = existsSync(join(workspaceDir, 'node_modules'));
 
-    return Response.json({
+    return NextResponse.json({
       isInstalled,
       workspaceDir: getAgentWorkspaceDir(),
     });
@@ -46,7 +51,9 @@ export async function POST() {
       async start(controller) {
         try {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'status', message: 'Installing dependencies...' })}\n\n`)
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'status', message: 'Installing dependencies...' })}\n\n`
+            )
           );
 
           // Run npm install
@@ -76,7 +83,9 @@ export async function POST() {
               );
             } else {
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'complete', success: false, error: `npm install exited with code ${code}` })}\n\n`)
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: 'complete', success: false, error: `npm install exited with code ${code}` })}\n\n`
+                )
               );
             }
             controller.close();
@@ -84,7 +93,9 @@ export async function POST() {
         } catch (error) {
           logger.error({ error }, 'Installation error');
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: error instanceof Error ? error.message : 'Unknown error' })}\n\n`)
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'error', error: error instanceof Error ? error.message : 'Unknown error' })}\n\n`
+            )
           );
           controller.close();
         }

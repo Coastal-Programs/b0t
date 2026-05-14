@@ -15,7 +15,10 @@ import * as aiSdk from './ai-sdk';
 import * as aiAgent from './ai-agent';
 import * as aiAgentStream from './ai-agent-stream';
 import * as aiTools from './ai-tools';
+import * as agentToolResolver from './agent-tool-resolver';
 import * as cohere from './cohere';
+import * as perplexity from './perplexity';
+import * as gemini from './gemini';
 import * as memorySearch from './memory-search';
 
 // Vector Databases
@@ -39,7 +42,10 @@ export {
   aiAgent,
   aiAgentStream,
   aiTools,
+  agentToolResolver,
   cohere,
+  perplexity,
+  gemini,
   memorySearch,
   pinecone,
   chroma,
@@ -48,5 +54,5 @@ export {
   runwayVideo,
   replicateVideo,
   suno,
-  mubert
+  mubert,
 };

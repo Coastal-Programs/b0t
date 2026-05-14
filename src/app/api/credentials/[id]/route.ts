@@ -9,14 +9,17 @@ import { decrypt } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
+function maskSecret(value: string): string {
+  if (value.length <= 4) return '••••••••';
+  return `${'•'.repeat(8)}${value.slice(-4)}`;
+}
+
 /**
  * GET /api/credentials/[id]
- * Get credential details with decrypted fields
+ * Get credential metadata (secrets are masked, never returned in full)
+ * Use POST /api/credentials/[id]/reveal to get decrypted values for editing
  */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
 
@@ -29,36 +32,40 @@ export async function GET(
     const [credential] = await db
       .select()
       .from(userCredentialsTable)
-      .where(
-        and(
-          eq(userCredentialsTable.id, id),
-          eq(userCredentialsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(userCredentialsTable.id, id), eq(userCredentialsTable.userId, session.user.id)))
       .limit(1);
 
     if (!credential) {
       return NextResponse.json({ error: 'Credential not found' }, { status: 404 });
     }
 
-    // Parse metadata
-    const metadata = typeof credential.metadata === 'string'
-      ? JSON.parse(credential.metadata)
-      : credential.metadata;
+    // Parse metadata (strip encrypted field values before returning)
+    const rawMetadata =
+      typeof credential.metadata === 'string'
+        ? JSON.parse(credential.metadata)
+        : credential.metadata;
 
-    // Decrypt fields if they exist in metadata
-    const fields: Record<string, string> = {};
+    // Build safe metadata without encrypted field blobs
+    const metadata = rawMetadata ? { ...rawMetadata } : rawMetadata;
     if (metadata && typeof metadata === 'object' && 'fields' in metadata) {
-      const encryptedFields = metadata.fields as Record<string, string>;
-      for (const [key, encryptedValue] of Object.entries(encryptedFields)) {
-        fields[key] = decrypt(encryptedValue);
-      }
+      // Remove the encrypted fields blob — return only the keys
+      const { fields: _encryptedFields, ...safeMetadata } = metadata as Record<string, unknown>;
+      Object.assign(metadata, safeMetadata);
+      delete metadata.fields;
     }
 
-    // Decrypt single value if it exists
-    let value: string | undefined;
+    // Determine which field keys exist without exposing values
+    const fieldKeys: string[] = [];
+    if (rawMetadata && typeof rawMetadata === 'object' && 'fields' in rawMetadata) {
+      const encryptedFields = rawMetadata.fields as Record<string, string>;
+      fieldKeys.push(...Object.keys(encryptedFields));
+    }
+
+    // Masked value indicator
+    let maskedValue: string | null = null;
     if (credential.encryptedValue) {
-      value = decrypt(credential.encryptedValue);
+      const decrypted = decrypt(credential.encryptedValue);
+      maskedValue = maskSecret(decrypted);
     }
 
     return NextResponse.json({
@@ -66,16 +73,14 @@ export async function GET(
       platform: credential.platform,
       name: credential.name,
       type: credential.type,
-      value,
-      fields,
+      hasValue: !!credential.encryptedValue,
+      maskedValue,
+      fieldKeys,
       metadata,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get credential');
-    return NextResponse.json(
-      { error: 'Failed to get credential' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get credential' }, { status: 500 });
   }
 }
 
@@ -83,10 +88,7 @@ export async function GET(
  * PATCH /api/credentials/[id]
  * Update a credential's name and/or value
  */
-export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
 
@@ -123,18 +125,23 @@ export async function PATCH(
       await updateCredentialName(session.user.id, id, name);
     }
 
+    // Invalidate credential cache so updated credential is immediately available
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(session.user.id);
+
     logger.info(
-      { userId: session.user.id, credentialId: id, updatedFields: { name: !!name, value: !!value, fields: !!fields } },
+      {
+        userId: session.user.id,
+        credentialId: id,
+        updatedFields: { name: !!name, value: !!value, fields: !!fields },
+      },
       'Credential updated'
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error({ error }, 'Failed to update credential');
-    return NextResponse.json(
-      { error: 'Failed to update credential' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update credential' }, { status: 500 });
   }
 }
 
@@ -142,10 +149,7 @@ export async function PATCH(
  * DELETE /api/credentials/[id]
  * Delete a credential
  */
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
 
@@ -157,17 +161,15 @@ export async function DELETE(
 
     await deleteCredential(session.user.id, id);
 
-    logger.info(
-      { userId: session.user.id, credentialId: id },
-      'Credential deleted'
-    );
+    // Invalidate credential cache so deleted credential is immediately removed
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(session.user.id);
+
+    logger.info({ userId: session.user.id, credentialId: id }, 'Credential deleted');
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error({ error }, 'Failed to delete credential');
-    return NextResponse.json(
-      { error: 'Failed to delete credential' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete credential' }, { status: 500 });
   }
 }

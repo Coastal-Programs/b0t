@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable, accountsTable } from '@/lib/schema';
+import {
+  oauthStateTable,
+  userCredentialsTable,
+  accountsTable,
+  appSettingsTable,
+} from '@/lib/schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
-import { encrypt } from '@/lib/encryption';
+import { encrypt, decrypt } from '@/lib/encryption';
 import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 import { randomUUID } from 'crypto';
 
@@ -20,6 +25,10 @@ import { randomUUID } from 'crypto';
  * 4. Redirect user back to credentials page
  */
 export async function GET(request: NextRequest) {
+  // Sanitize origin for postMessage - prevent wildcard target origin
+  const appOrigin = new URL(
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  ).origin;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
@@ -30,7 +39,10 @@ export async function GET(request: NextRequest) {
     if (error) {
       logger.warn({ error }, 'User denied Microsoft authorization');
       return NextResponse.redirect(
-        new URL(`/dashboard/credentials?error=${encodeURIComponent('Authorization denied')}`, request.url)
+        new URL(
+          `/dashboard/credentials?error=${encodeURIComponent('Authorization denied')}`,
+          request.url
+        )
       );
     }
 
@@ -57,42 +69,74 @@ export async function GET(request: NextRequest) {
 
     const userId = stateRecord.userId;
 
-    // Try platform-wide OAuth credentials (env vars) first
-    let clientId: string;
-    let clientSecret: string;
-    const platformCreds = getPlatformOAuthCredentials('outlook');
+    // Resolve OAuth client credentials using the same chain as the authorize route:
+    // 1. Platform env vars (MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET)
+    // 2. App settings table (Settings UI / Keys dialog)
+    // 3. Legacy database credentials (outlook_oauth_app in user_credentials)
+    let clientId: string | undefined;
+    let clientSecret: string | undefined;
 
+    // 1. Try platform-wide OAuth credentials (env vars)
+    const platformCreds = getPlatformOAuthCredentials('outlook');
     if (platformCreds) {
-      // Use platform-wide credentials from environment variables
       clientId = platformCreds.clientId;
       clientSecret = platformCreds.clientSecret;
       logger.info({ userId }, 'Using platform-wide Microsoft OAuth credentials for callback');
-    } else {
-      // Fallback: Get user-specific OAuth app credentials from database
+    }
+
+    // 2. Try app settings table (Settings UI / Keys dialog)
+    if (!clientId || !clientSecret) {
+      try {
+        const [idSetting] = await db
+          .select()
+          .from(appSettingsTable)
+          .where(eq(appSettingsTable.key, 'oauth_microsoft_client_id'))
+          .limit(1);
+        const [secretSetting] = await db
+          .select()
+          .from(appSettingsTable)
+          .where(eq(appSettingsTable.key, 'oauth_microsoft_client_secret'))
+          .limit(1);
+
+        if (idSetting && secretSetting) {
+          clientId = decrypt(idSetting.value);
+          clientSecret = decrypt(secretSetting.value);
+          logger.info({ userId }, 'Using app settings Microsoft OAuth credentials for callback');
+        }
+      } catch (settingsError) {
+        logger.warn(
+          { error: settingsError },
+          'Failed to read app settings for Microsoft OAuth callback'
+        );
+      }
+    }
+
+    // 3. Fallback: Legacy database credentials (outlook_oauth_app in user_credentials)
+    if (!clientId || !clientSecret) {
       const [appCred] = await db
         .select()
         .from(userCredentialsTable)
         .where(eq(userCredentialsTable.platform, 'outlook_oauth_app'))
         .limit(1);
 
-      if (!appCred) {
-        logger.error('Microsoft OAuth app credentials not configured');
-        return NextResponse.redirect(
-          new URL('/dashboard/credentials?error=config_missing', request.url)
-        );
+      if (appCred) {
+        try {
+          const creds = getOAuthAppCredentials(appCred, 'Microsoft');
+          clientId = creds.clientId;
+          clientSecret = creds.clientSecret;
+        } catch (credError) {
+          logger.error({ error: credError }, 'Failed to get Microsoft OAuth app credentials');
+        }
       }
+    }
 
-      // Get client credentials
-      try {
-        const creds = getOAuthAppCredentials(appCred, 'Microsoft');
-        clientId = creds.clientId;
-        clientSecret = creds.clientSecret;
-      } catch (error) {
-        logger.error({ error }, 'Failed to get Microsoft OAuth app credentials');
-        return NextResponse.redirect(
-          new URL('/dashboard/credentials?error=config_missing', request.url)
-        );
-      }
+    if (!clientId || !clientSecret) {
+      logger.error(
+        'Microsoft OAuth app credentials not configured (checked env vars, app settings, and legacy credentials)'
+      );
+      return NextResponse.redirect(
+        new URL('/dashboard/credentials?error=config_missing', request.url)
+      );
     }
 
     // Generate callback URL (must match the one in authorize route)
@@ -102,19 +146,22 @@ export async function GET(request: NextRequest) {
 
     // Exchange authorization code for tokens
     // Note: scope parameter is omitted - the authorization code already contains the granted scopes
-    const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: callbackUrl,
-        grant_type: 'authorization_code',
-      }),
-    });
+    const tokenResponse = await fetch(
+      'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: callbackUrl,
+          grant_type: 'authorization_code',
+        }),
+      }
+    );
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
@@ -126,7 +173,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'outlook-auth-error', error: 'token_exchange_failed' }, '*');
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'token_exchange_failed' }, '${appOrigin}');
               }
               setTimeout(() => window.close(), 2000);
             </script>
@@ -152,7 +199,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'outlook-auth-error', error: 'missing_tokens' }, '*');
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'missing_tokens' }, '${appOrigin}');
               }
               setTimeout(() => window.close(), 2000);
             </script>
@@ -170,25 +217,36 @@ export async function GET(request: NextRequest) {
     const expiresAt = Math.floor(Date.now() / 1000) + expires_in;
 
     // Parse metadata from OAuth state
-    let metadata: { requestedScopes?: string[]; service?: string; mode?: string; credentialId?: string; organizationId?: string } = {};
+    let metadata: {
+      requestedScopes?: string[];
+      service?: string;
+      mode?: string;
+      credentialId?: string;
+      organizationId?: string;
+    } = {};
     try {
       if (stateRecord.metadata) {
-        metadata = typeof stateRecord.metadata === 'string'
-          ? JSON.parse(stateRecord.metadata)
-          : stateRecord.metadata;
+        metadata =
+          typeof stateRecord.metadata === 'string'
+            ? JSON.parse(stateRecord.metadata)
+            : stateRecord.metadata;
       }
     } catch (error) {
       logger.error({ error }, 'Failed to parse OAuth state metadata');
     }
 
-    // Use the scopes the user originally requested, not what Microsoft returned
-    // (Microsoft may return additional scopes we didn't ask for)
-    const grantedScopes = metadata.requestedScopes || [];
+    // Use actual granted scopes from the token response if available.
+    // Microsoft returns a `scope` field with space-separated scopes that were actually granted.
+    // Fall back to requested scopes if the token response didn't include scope info.
+    const actualScopeString = tokens.scope as string | undefined;
+    const grantedScopes = actualScopeString
+      ? actualScopeString.split(' ')
+      : metadata.requestedScopes || [];
 
     // Fetch user info from Microsoft Graph API
     const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: {
-        'Authorization': `Bearer ${access_token}`,
+        Authorization: `Bearer ${access_token}`,
       },
     });
 
@@ -201,7 +259,7 @@ export async function GET(request: NextRequest) {
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'outlook-auth-error', error: 'user_info_failed' }, '*');
+                window.opener.postMessage({ type: 'outlook-auth-error', error: 'user_info_failed' }, '${appOrigin}');
               }
             </script>
             <p>Failed to fetch user information. Please try again.</p>
@@ -254,7 +312,7 @@ export async function GET(request: NextRequest) {
         id: randomUUID(),
         userId,
         organizationId: metadata.organizationId || null, // Set organization context if provided
-        platform: metadata.service || 'outlook',  // Use service ID as platform
+        platform: metadata.service || 'outlook', // Use service ID as platform
         name: accountEmail, // Use email address as credential name
         type: 'oauth',
         encryptedValue,
@@ -315,6 +373,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
+    // Invalidate credential cache so new tokens are immediately available
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(userId);
+
     // Clean up state record
     await db.delete(oauthStateTable).where(eq(oauthStateTable.state, state));
 
@@ -328,7 +390,7 @@ export async function GET(request: NextRequest) {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'outlook-auth-success' }, '*');
+              window.opener.postMessage({ type: 'outlook-auth-success' }, '${appOrigin}');
             }
           </script>
           <p>Authentication successful! This window will close automatically.</p>

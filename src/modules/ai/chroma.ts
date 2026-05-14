@@ -1,4 +1,3 @@
- 
 import { ChromaClient, Collection } from 'chromadb';
 import { createCircuitBreaker } from '@/lib/resilience';
 import { createRateLimiter, withRateLimit } from '@/lib/rate-limiter';
@@ -113,11 +112,11 @@ async function addDocumentsInternal(
   const collection = await client.getCollection({ name: collectionName });
 
   await collection.add({
-    ids: documents.map(d => d.id),
-    documents: documents.map(d => d.document),
-    metadatas: documents.map(d => d.metadata || {}),
-    embeddings: documents.some(d => d.embedding)
-      ? documents.map(d => d.embedding || [])
+    ids: documents.map((d) => d.id),
+    documents: documents.map((d) => d.document),
+    metadatas: documents.map((d) => d.metadata || {}),
+    embeddings: documents.some((d) => d.embedding)
+      ? documents.map((d) => d.embedding || [])
       : undefined,
   });
 
@@ -154,7 +153,10 @@ async function queryDocumentsInternal(
   nResults: number = 10,
   where?: Record<string, string | number | boolean>
 ): Promise<ChromaQueryResult> {
-  logger.info({ collectionName, queryCount: queryTexts.length, nResults }, 'Querying Chroma documents');
+  logger.info(
+    { collectionName, queryCount: queryTexts.length, nResults },
+    'Querying Chroma documents'
+  );
 
   const client = getChromaClient();
   const collection = await client.getCollection({ name: collectionName });
@@ -178,10 +180,9 @@ async function queryDocumentsInternal(
 
   return {
     ids: result.ids.flat(),
-    // @ts-ignore - chromadb types may include null but we filter them
     distances: result.distances?.flat().filter((d): d is number => d !== null) || [],
     documents: (result.documents?.flat() || []).filter((d): d is string => d !== null),
-    // @ts-ignore - chromadb metadata types are more flexible than our return type
+    // @ts-expect-error - chromadb metadata types are more flexible than our return type
     metadatas: result.metadatas?.flat() || [],
   };
 }
@@ -266,7 +267,7 @@ async function getDocumentsInternal(
   return {
     ids: result.ids,
     documents: (result.documents || []).filter((d): d is string => d !== null),
-    // @ts-ignore - chromadb metadata types are more flexible than our return type
+    // @ts-expect-error - chromadb metadata types are more flexible than our return type
     metadatas: result.metadatas || [],
   };
 }
@@ -301,11 +302,11 @@ async function updateDocumentsInternal(
   const collection = await client.getCollection({ name: collectionName });
 
   await collection.update({
-    ids: documents.map(d => d.id),
-    documents: documents.map(d => d.document),
-    metadatas: documents.map(d => d.metadata || {}),
-    embeddings: documents.some(d => d.embedding)
-      ? documents.map(d => d.embedding || [])
+    ids: documents.map((d) => d.id),
+    documents: documents.map((d) => d.document),
+    metadatas: documents.map((d) => d.metadata || {}),
+    embeddings: documents.some((d) => d.embedding)
+      ? documents.map((d) => d.embedding || [])
       : undefined,
   });
 
@@ -338,7 +339,7 @@ async function listCollectionsInternal(): Promise<{ collections: string[] }> {
   const client = getChromaClient();
   const collections = await client.listCollections();
 
-  const collectionNames = collections.map(c => c.name);
+  const collectionNames = collections.map((c) => c.name);
 
   logger.info({ collectionCount: collectionNames.length }, 'Collections listed successfully');
   return { collections: collectionNames };

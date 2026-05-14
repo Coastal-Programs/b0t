@@ -5,17 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Check, X, ExternalLink, Key, Unplug, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Command,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { getIcon } from '@/lib/icon-map';
 import { logger } from '@/lib/logger';
@@ -62,10 +53,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
         const data = await response.json();
         setCredentials(data.credentials || []);
 
-        // Load saved selections from API or localStorage
-        const savedSelections = localStorage.getItem(`workflow-${workflowId}-credentials`);
-        if (savedSelections) {
-          setSelectedCredentials(JSON.parse(savedSelections));
+        // Load saved selections from API (DB-persisted) or auto-select
+        if (data.savedSelections) {
+          setSelectedCredentials(data.savedSelections);
         } else {
           // Auto-select first credential for each platform
           const autoSelections: Record<string, string> = {};
@@ -91,6 +81,10 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
 
     // Listen for OAuth success messages from popup
     const handleMessage = (event: MessageEvent) => {
+      // Verify origin to prevent cross-origin attacks
+      const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      if (event.origin !== allowedOrigin) return;
+
       if (event.data?.type?.endsWith('-auth-success')) {
         // Refresh credentials when OAuth completes
         fetchCredentials();
@@ -101,14 +95,29 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
     return () => window.removeEventListener('message', handleMessage);
   }, [fetchCredentials]);
 
-  const handleCredentialSelect = useCallback((platform: string, credentialId: string) => {
-    setSelectedCredentials(prev => {
-      const updated = { ...prev, [platform]: credentialId };
-      // Save to localStorage
-      localStorage.setItem(`workflow-${workflowId}-credentials`, JSON.stringify(updated));
-      return updated;
-    });
-  }, [workflowId]);
+  const handleCredentialSelect = useCallback(
+    (platform: string, credentialId: string) => {
+      setSelectedCredentials((prev) => {
+        const updated = { ...prev, [platform]: credentialId };
+        // Persist to DB
+        fetch(`/api/workflows/${workflowId}/credentials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selections: updated }),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              toast.error('Failed to save credential selection');
+            }
+          })
+          .catch(() => {
+            toast.error('Failed to save credential selection');
+          });
+        return updated;
+      });
+    },
+    [workflowId]
+  );
 
   const handleOAuthConnect = (cred: CredentialStatus) => {
     // Open OAuth popup
@@ -184,7 +193,10 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
           const IconComponent = getIcon(cred.icon);
 
           // 'both' or 'optional' type - show both OAuth and API key options
-          if ((cred.type === 'both' || cred.type === 'optional') && (cred.accounts.length > 0 || cred.keys.length > 0)) {
+          if (
+            (cred.type === 'both' || cred.type === 'optional') &&
+            (cred.accounts.length > 0 || cred.keys.length > 0)
+          ) {
             const hasOAuth = cred.accounts.length > 0;
             const hasApiKey = cred.keys.length > 0;
 
@@ -195,7 +207,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
                   <div className="flex items-center gap-1 text-xs">
                     {hasOAuth && (
                       <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
@@ -241,7 +255,11 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
           }
 
           // 'both' or 'optional' type - no credentials yet, show both options
-          if ((cred.type === 'both' || cred.type === 'optional') && cred.accounts.length === 0 && cred.keys.length === 0) {
+          if (
+            (cred.type === 'both' || cred.type === 'optional') &&
+            cred.accounts.length === 0 &&
+            cred.keys.length === 0
+          ) {
             const preferred = cred.preferredType || 'api_key';
 
             return (
@@ -251,7 +269,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
                   {cred.type === 'optional' && (
                     <span className="text-[10px] text-muted-foreground">(optional)</span>
                   )}
@@ -284,7 +304,8 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
           // OAuth platform with multiple accounts
           if (cred.type === 'oauth' && cred.accounts.length > 1) {
             const selectedValue = selectedCredentials[cred.platform] || cred.accounts[0]?.id;
-            const selectedAccount = cred.accounts.find(acc => acc.id === selectedValue);
+            const selectedAccount = cred.accounts.find((acc) => acc.id === selectedValue);
+            const isSelectedConnected = !!selectedAccount && !selectedAccount.isExpired;
 
             return (
               <div
@@ -293,8 +314,16 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
-                  <Popover open={openPopovers[`oauth-${cred.platform}`]} onOpenChange={(open) => setOpenPopovers({ ...openPopovers, [`oauth-${cred.platform}`]: open })} modal={true}>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
+                  <Popover
+                    open={openPopovers[`oauth-${cred.platform}`]}
+                    onOpenChange={(open) =>
+                      setOpenPopovers({ ...openPopovers, [`oauth-${cred.platform}`]: open })
+                    }
+                    modal={true}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -309,11 +338,17 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
                               <span className="text-red-500 text-[10px]">(Expired)</span>
                             )}
                           </span>
-                        ) : 'Select account'}
+                        ) : (
+                          'Select account'
+                        )}
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                    <PopoverContent
+                      className="w-full p-0"
+                      align="start"
+                      style={{ width: 'var(--radix-popover-trigger-width)' }}
+                    >
                       <Command>
                         <CommandList className="max-h-[300px]">
                           <CommandGroup>
@@ -323,11 +358,16 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
                                 value={account.id}
                                 onSelect={() => {
                                   handleCredentialSelect(cred.platform, account.id);
-                                  setOpenPopovers({ ...openPopovers, [`oauth-${cred.platform}`]: false });
+                                  setOpenPopovers({
+                                    ...openPopovers,
+                                    [`oauth-${cred.platform}`]: false,
+                                  });
                                 }}
                                 className="text-xs py-1 min-h-0"
                               >
-                                <Check className={`mr-2 h-3 w-3 ${selectedValue === account.id ? 'opacity-100' : 'opacity-0'}`} />
+                                <Check
+                                  className={`mr-2 h-3 w-3 ${selectedValue === account.id ? 'opacity-100' : 'opacity-0'}`}
+                                />
                                 <div className="flex items-center gap-1">
                                   {account.accountName}
                                   {account.isExpired && (
@@ -341,6 +381,17 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
                       </Command>
                     </PopoverContent>
                   </Popover>
+                  {isSelectedConnected ? (
+                    <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                      <Check className="h-3 w-3" />
+                      <span>Connected</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                      <X className="h-3 w-3" />
+                      <span>{selectedAccount?.isExpired ? 'Expired' : 'Not connected'}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
@@ -367,7 +418,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
                   <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                     <Check className="h-3 w-3" />
                     <span className="text-muted-foreground">({account.accountName})</span>
@@ -400,7 +453,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
                   <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                     <X className="h-3 w-3" />
                     <span>Not connected</span>
@@ -422,7 +477,7 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
           // API key platform with multiple keys
           if (cred.type === 'api_key' && cred.keys.length > 1) {
             const selectedValue = selectedCredentials[cred.platform] || cred.keys[0]?.id;
-            const selectedKey = cred.keys.find(key => key.id === selectedValue);
+            const selectedKey = cred.keys.find((key) => key.id === selectedValue);
 
             return (
               <div
@@ -431,8 +486,16 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
-                  <Popover open={openPopovers[`apikey-${cred.platform}`]} onOpenChange={(open) => setOpenPopovers({ ...openPopovers, [`apikey-${cred.platform}`]: open })} modal={true}>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
+                  <Popover
+                    open={openPopovers[`apikey-${cred.platform}`]}
+                    onOpenChange={(open) =>
+                      setOpenPopovers({ ...openPopovers, [`apikey-${cred.platform}`]: open })
+                    }
+                    modal={true}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -444,7 +507,11 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                    <PopoverContent
+                      className="w-full p-0"
+                      align="start"
+                      style={{ width: 'var(--radix-popover-trigger-width)' }}
+                    >
                       <Command>
                         <CommandList className="max-h-[300px]">
                           <CommandGroup>
@@ -454,11 +521,16 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
                                 value={key.id}
                                 onSelect={() => {
                                   handleCredentialSelect(cred.platform, key.id);
-                                  setOpenPopovers({ ...openPopovers, [`apikey-${cred.platform}`]: false });
+                                  setOpenPopovers({
+                                    ...openPopovers,
+                                    [`apikey-${cred.platform}`]: false,
+                                  });
                                 }}
                                 className="text-xs py-1 min-h-0"
                               >
-                                <Check className={`mr-2 h-3 w-3 ${selectedValue === key.id ? 'opacity-100' : 'opacity-0'}`} />
+                                <Check
+                                  className={`mr-2 h-3 w-3 ${selectedValue === key.id ? 'opacity-100' : 'opacity-0'}`}
+                                />
                                 {key.name}
                               </CommandItem>
                             ))}
@@ -493,7 +565,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                  <span className="text-xs font-medium truncate text-foreground">
+                    {cred.displayName}
+                  </span>
                   <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                     <Check className="h-3 w-3" />
                     <span className="text-muted-foreground">({key.name})</span>
@@ -511,7 +585,9 @@ export function WorkflowCredentialsStatus({ workflowId }: WorkflowCredentialsSta
             >
               <div className="flex items-center gap-2 min-w-0">
                 <IconComponent className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="text-xs font-medium truncate text-foreground">{cred.displayName}</span>
+                <span className="text-xs font-medium truncate text-foreground">
+                  {cred.displayName}
+                </span>
                 <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                   <X className="h-3 w-3" />
                   <span>Not added</span>

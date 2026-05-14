@@ -1,0 +1,4 @@
+C:\Users\dev\repo\src\lib\queue.ts(42,7): error TS2322: Type 'string' is not assignable to type 'number'.
+D:\projects\app\src\app\api\route.ts(1,1): error TS1208: 'route.ts' cannot be compiled under '--isolatedModules' because it is considered a global script file.
+C:\Users\dev\repo\src\lib\foo.ts(4,7): error TS2322: Type 'A' is not assignable to type 'B'.
+  Type 'number' is not assignable to type 'string'.

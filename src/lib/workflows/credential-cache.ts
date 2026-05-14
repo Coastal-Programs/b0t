@@ -31,7 +31,6 @@ export interface CacheStats {
  * Pre-loading credentials for all users ensures fast first execution
  */
 async function getActiveUsers(limit: number = 100): Promise<string[]> {
-   
   const dbAny = db as any;
 
   const users = await dbAny
@@ -147,14 +146,34 @@ export async function preloadCredentialCache(maxUsers: number = 100): Promise<Ca
 
 /**
  * Invalidate credential cache for a specific user
- * Call this when user updates their credentials
+ * Call this when user updates their credentials.
+ * Clears both Redis (shared across instances) and in-memory (process-local) caches.
  */
 export async function invalidateUserCredentialCache(userId: string): Promise<void> {
   logger.info({ userId }, 'Invalidating credential cache for user');
 
-  // Invalidate Redis cache (shared across instances)
+  // 1. Invalidate Redis cache (shared across instances)
   const { deleteCache, CacheKeys } = await import('@/lib/cache');
   await deleteCache(CacheKeys.userCredentials(userId));
 
-  logger.info({ userId }, 'Credential cache invalidated (Redis)');
+  // Also delete organization-scoped Redis keys by scanning for prefix
+  const { getRedisClient } = await import('@/lib/redis');
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const prefix = CacheKeys.userCredentials(userId);
+      const keys = await redis.keys(`${prefix}:*`);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } catch (error) {
+      logger.warn({ error, userId }, 'Failed to scan/delete org-scoped credential cache keys');
+    }
+  }
+
+  // 2. Invalidate in-memory cache (process-local)
+  const { clearInMemoryCredentialCache } = await import('./executor');
+  clearInMemoryCredentialCache(userId);
+
+  logger.info({ userId }, 'Credential cache invalidated (Redis + in-memory)');
 }

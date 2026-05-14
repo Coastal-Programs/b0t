@@ -189,6 +189,23 @@ export const uploadFile = withRateLimit(
 );
 
 /**
+ * Upload file to Google Drive (object-param version for workflow engine compatibility).
+ * Accepts fileName, fileContent (base64 string or Buffer), parentId, mimeType.
+ */
+export async function uploadFileFromParams(params: {
+  fileName: string;
+  fileContent: string | Buffer;
+  parentId?: string;
+  mimeType?: string;
+}): Promise<DriveFile> {
+  const { fileName, fileContent, parentId, mimeType } = params;
+  // Convert base64 string to Buffer if needed
+  const buffer: Buffer =
+    typeof fileContent === 'string' ? Buffer.from(fileContent, 'base64') : fileContent;
+  return uploadFile(fileName, buffer, parentId, mimeType);
+}
+
+/**
  * Delete file from Google Drive (internal)
  */
 async function deleteFileInternal(fileId: string): Promise<void> {

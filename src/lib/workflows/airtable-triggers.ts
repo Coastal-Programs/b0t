@@ -3,6 +3,7 @@ import { workflowsTable } from '@/lib/schema';
 import { sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { executeWorkflow } from './executor';
+import { queueWorkflowExecution, isWorkflowQueueAvailable } from './workflow-queue';
 import { selectRecords } from '@/modules/data/airtable';
 
 /**
@@ -91,7 +92,10 @@ class AirtableTriggerPoller {
       logger.info({ count: workflows.length }, 'Polling Airtable triggers');
 
       // Poll each workflow
-      logger.info({ workflows: workflows.map(w => ({ id: w.id, trigger: w.trigger })) }, 'Debug: Airtable workflows');
+      logger.info(
+        { workflows: workflows.map((w) => ({ id: w.id, trigger: w.trigger })) },
+        'Debug: Airtable workflows'
+      );
 
       await Promise.all(
         workflows.map((wf) => {
@@ -100,7 +104,7 @@ class AirtableTriggerPoller {
           return this.pollWorkflow({
             ...wf,
             trigger,
-            lastRun: wf.lastRun
+            lastRun: wf.lastRun,
           } as unknown as AirtableWorkflow & { lastRun: Date | null });
         })
       );
@@ -118,21 +122,26 @@ class AirtableTriggerPoller {
 
       // Get last poll time from database (lastRun) or in-memory Map
       // Use lastRun from DB as fallback to persist across server restarts
-      const lastPoll = this.lastPollTimes.get(workflow.id)
-        || workflow.lastRun
-        || new Date(Date.now() - 60000);
+      const lastPoll =
+        this.lastPollTimes.get(workflow.id) || workflow.lastRun || new Date(Date.now() - 60000);
 
       // Load user credentials to get Airtable API key
       const { loadUserCredentials } = await import('./executor');
-      const credentials = await loadUserCredentials(workflow.userId, workflow.organizationId || undefined);
+      const credentials = await loadUserCredentials(
+        workflow.userId,
+        workflow.organizationId || undefined
+      );
 
       const airtableApiKey = credentials.airtable as string;
       if (!airtableApiKey) {
-        logger.warn({
-          workflowId: workflow.id,
-          workflowName: workflow.name,
-          userId: workflow.userId
-        }, 'No Airtable credentials found for user');
+        logger.warn(
+          {
+            workflowId: workflow.id,
+            workflowName: workflow.name,
+            userId: workflow.userId,
+          },
+          'No Airtable credentials found for user'
+        );
         return;
       }
 
@@ -142,7 +151,7 @@ class AirtableTriggerPoller {
         tableName,
         sort: [{ field: triggerField, direction: 'desc' }],
         maxRecords: 100, // Limit to recent 100 records
-        apiKey: airtableApiKey
+        apiKey: airtableApiKey,
       });
 
       // Filter records created since last poll
@@ -156,7 +165,7 @@ class AirtableTriggerPoller {
           {
             workflowId: workflow.id,
             workflowName: workflow.name,
-            newRecords: newRecords.length
+            newRecords: newRecords.length,
           },
           'Found new Airtable records'
         );
@@ -175,7 +184,7 @@ class AirtableTriggerPoller {
           error: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
           workflowId: workflow.id,
-          workflowName: workflow.name
+          workflowName: workflow.name,
         },
         'Error polling Airtable workflow'
       );
@@ -194,34 +203,37 @@ class AirtableTriggerPoller {
         userId: workflow.userId,
         action: 'created',
         base: {
-          id: workflow.trigger.config.baseId
+          id: workflow.trigger.config.baseId,
         },
         table: {
           id: record.id.split('/')[0], // Extract table ID from record ID if needed
-          name: workflow.trigger.config.tableName
+          name: workflow.trigger.config.tableName,
         },
         body: {
           id: record.id,
           fields: record.fields,
-          createdTime: record.createdTime
-        }
+          createdTime: record.createdTime,
+        },
       };
 
       logger.info(
         {
           workflowId: workflow.id,
           workflowName: workflow.name,
-          recordId: record.id
+          recordId: record.id,
         },
         'Triggering workflow for new Airtable record'
       );
 
-      await executeWorkflow(
-        workflow.id,
-        workflow.userId,
-        'airtable',
-        triggerData
-      );
+      // Use queue if available for concurrency control and retry logic
+      if (isWorkflowQueueAvailable()) {
+        await queueWorkflowExecution(workflow.id, workflow.userId, 'airtable', triggerData, {
+          organizationId: workflow.organizationId,
+        });
+      } else {
+        // Direct execution fallback when Redis is not configured
+        await executeWorkflow(workflow.id, workflow.userId, 'airtable', triggerData);
+      }
     } catch (error) {
       logger.error(
         { error, workflowId: workflow.id, recordId: record.id },

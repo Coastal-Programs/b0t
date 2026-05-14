@@ -71,6 +71,7 @@ steps:
     outputAs: labeled
   - module: ai.ai-sdk.generateJSON
     id: classify-invoice
+    when: "{{mainCat.category}} === 'Finance/Billing'"
     inputs:
       prompt: |
         Classify Finance/Billing email:
@@ -132,6 +133,7 @@ steps:
     outputAs: archiveCheck
   - module: communication.gmail.archiveEmail
     id: archive
+    when: "{{archiveCheck.shouldArchive}} === true"
     inputs:
       messageId: "{{email.messageId}}"
     outputAs: archived

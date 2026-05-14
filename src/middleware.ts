@@ -33,6 +33,22 @@ export default auth((req) => {
 
     // Permissions-Policy: Restrict browser features
     response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+    // Content-Security-Policy: Mitigate XSS and injection attacks
+    response.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-inline/eval needed for Next.js
+        "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for Tailwind/styled components
+        "img-src 'self' data: https: blob:",
+        "font-src 'self' data:",
+        "connect-src 'self' https: wss:", // Allow API calls and WebSocket connections
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join('; ')
+    );
   }
 
   // Define public routes (no authentication required)
@@ -41,37 +57,56 @@ export default auth((req) => {
     '/auth/signin',
     '/auth/error',
     '/api/auth',
-    '/api/system/status',          // System status endpoint (public operational info)
-    '/api/workflows/import-test',  // Test endpoint for development
-    '/api/workflows/execute-test', // Test endpoint for development
-    '/api/workflows/build-from-plan', // Agent workflow builder (no auth for local agent)
-    '/api/modules/search',         // Module search for agent (no auth for local agent)
+    '/api/system/status', // System status endpoint (public operational info)
   ];
 
   // Check if this is a webhook endpoint (pattern: /api/workflows/[id]/webhook)
   const isWebhookEndpoint = /^\/api\/workflows\/[^\/]+\/webhook$/.test(pathname);
 
   // Check if the current path is public or is the root path
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
   // Root path is handled by page.tsx, so we allow it through middleware
   const isRootPath = pathname === '/';
 
-  // If route is not public, not root, not webhook, and user is not authenticated, redirect to signin
-  if (!isPublicRoute && !isRootPath && !isWebhookEndpoint && !isAuthenticated) {
+  // Allow API key authentication for API routes (used by scripts)
+  const authHeader = req.headers.get('authorization');
+  const apiKey = process.env.B0T_API_KEY;
+  const hasValidApiKey = apiKey && authHeader === `Bearer ${apiKey}`;
+
+  // If route is not public, not root, not webhook, not API-key-authed, and user is not authenticated, redirect to signin
+  if (!isPublicRoute && !isRootPath && !isWebhookEndpoint && !hasValidApiKey && !isAuthenticated) {
     const signInUrl = new URL('/auth/signin', req.url);
     signInUrl.searchParams.set('callbackUrl', pathname);
     const redirectResponse = NextResponse.redirect(signInUrl);
 
     // Apply security headers to redirect response too
     if (process.env.NODE_ENV === 'production') {
-      redirectResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      redirectResponse.headers.set(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains'
+      );
       redirectResponse.headers.set('X-Frame-Options', 'DENY');
       redirectResponse.headers.set('X-Content-Type-Options', 'nosniff');
       redirectResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-      redirectResponse.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+      redirectResponse.headers.set(
+        'Permissions-Policy',
+        'geolocation=(), microphone=(), camera=()'
+      );
+      redirectResponse.headers.set(
+        'Content-Security-Policy',
+        [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: https: blob:",
+          "font-src 'self' data:",
+          "connect-src 'self' https: wss:",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+        ].join('; ')
+      );
     }
 
     return redirectResponse;

@@ -6,7 +6,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 export type ProgressEvent =
   | { type: 'workflow_started'; workflowId: string; runId: string; totalSteps: number }
   | { type: 'step_started'; stepId: string; stepIndex: number; totalSteps: number; module: string }
-  | { type: 'step_completed'; stepId: string; stepIndex: number; duration: number; output?: unknown }
+  | {
+      type: 'step_completed';
+      stepId: string;
+      stepIndex: number;
+      duration: number;
+      output?: unknown;
+    }
   | { type: 'step_failed'; stepId: string; stepIndex: number; error: string }
   | { type: 'workflow_completed'; runId: string; duration: number; output?: unknown }
   | { type: 'workflow_failed'; runId: string; error: string; errorStep?: string };
@@ -35,6 +41,7 @@ export interface WorkflowExecutionState {
   duration?: number;
   output?: unknown;
   error?: string;
+  errorStep?: string;
 }
 
 /**
@@ -173,9 +180,7 @@ export function useWorkflowProgress(
         status: 'failed',
         error: data.error, // Set workflow-level error from step failure
         steps: prev.steps.map((step, i) =>
-          i === data.stepIndex
-            ? { ...step, status: 'failed' as const, error: data.error }
-            : step
+          i === data.stepIndex ? { ...step, status: 'failed' as const, error: data.error } : step
         ),
       }));
     });
@@ -199,17 +204,28 @@ export function useWorkflowProgress(
         ...prev,
         status: 'failed',
         error: data.error,
+        errorStep: data.errorStep,
       }));
       disconnect();
     });
 
-    // Handle errors
+    // Handle errors — distinguish custom server error events from connection errors
     eventSource.addEventListener('error', (e) => {
       console.error('SSE error:', e);
+      let errorMessage = 'Connection lost';
+      const messageEvent = e as MessageEvent;
+      if (messageEvent.data) {
+        try {
+          const data = JSON.parse(messageEvent.data);
+          errorMessage = data.error || data.message || errorMessage;
+        } catch {
+          errorMessage = String(messageEvent.data);
+        }
+      }
       setState((prev) => ({
         ...prev,
         status: 'failed',
-        error: 'Connection lost',
+        error: errorMessage,
       }));
       disconnect();
     });

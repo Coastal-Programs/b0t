@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { useTheme } from 'next-themes';
 import { useClient } from '@/components/providers/ClientProvider';
 import { useWeather } from '@/hooks/useWeather';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut, Loader2, ChevronDown, Building2, KeyRound, Brain, Network } from 'lucide-react';
+import {
+  LogIn,
+  LogOut,
+  Loader2,
+  ChevronDown,
+  Building2,
+  KeyRound,
+  Brain,
+  BookOpen,
+  Bell,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react';
 import { SystemStatusBadge } from '@/components/SystemStatusBadge';
 import { PlatformSettingsDialog } from '@/components/settings/platform-settings-dialog';
 import { MemorySettingsDialog } from '@/components/settings/memory-settings-dialog';
 import { MindMapDialog } from '@/components/memory/mind-map-dialog';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { NotificationPreferencesDialog } from '@/components/notifications/notification-preferences-dialog';
+
+// useSyncExternalStore helpers for a hydration-safe "have we mounted yet?" flag.
+// The store never changes after subscription — getSnapshot returns true on the
+// client, and getServerSnapshot returns false, so React renders `false` for
+// SSR + first paint and `true` after hydration.
+const subscribeNoop = (): (() => void) => () => {};
+const getMountedSnapshot = (): boolean => true;
+const getServerMountedSnapshot = (): boolean => false;
 
 export function Header() {
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -26,9 +50,21 @@ export function Header() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [memorySettingsOpen, setMemorySettingsOpen] = useState(false);
   const [mindMapOpen, setMindMapOpen] = useState(false);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  // Hydration-safe mount flag: returns false on the server and during the
+  // initial client render, then true after hydration. Avoids the
+  // useEffect(setState, []) pattern flagged by react-hooks/set-state-in-effect.
+  const mounted = useSyncExternalStore(subscribeNoop, getMountedSnapshot, getServerMountedSnapshot);
   const { data: session, status } = useSession();
-  const { currentClient, clients, setCurrentClient, isLoading: clientsLoading, isPlatformAdmin } = useClient();
+  const {
+    currentClient,
+    clients,
+    setCurrentClient,
+    isLoading: clientsLoading,
+    isPlatformAdmin,
+  } = useClient();
   const { display: weatherDisplay } = useWeather();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   // Initialize timezone once - use queueMicrotask to avoid cascading renders
   useEffect(() => {
     queueMicrotask(() => {
@@ -85,9 +121,7 @@ export function Header() {
           </div>
 
           {/* System Status Badge - Only show for platform admins */}
-          {isPlatformAdmin && session?.user && (
-            <SystemStatusBadge />
-          )}
+          {isPlatformAdmin && session?.user && <SystemStatusBadge />}
 
           {/* Timezone Clock & Weather */}
           {currentTime && (
@@ -126,9 +160,7 @@ export function Header() {
                       disabled={clientsLoading}
                     >
                       <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                      <span className="hidden sm:inline">
-                        {currentClient?.name || 'Admin'}
-                      </span>
+                      <span className="hidden sm:inline">{currentClient?.name || 'Admin'}</span>
                       <ChevronDown className="h-3 w-3 ml-1" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -141,9 +173,7 @@ export function Header() {
                         >
                           <div className="flex items-center justify-between w-full">
                             <span>Admin</span>
-                            {!currentClient && (
-                              <span className="text-blue-500">✓</span>
-                            )}
+                            {!currentClient && <span className="text-blue-500">✓</span>}
                           </div>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -168,6 +198,47 @@ export function Header() {
               )}
             </>
           )}
+
+          {/* Theme Toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Toggle theme">
+                {!mounted ? (
+                  <Sun className="h-4 w-4" />
+                ) : resolvedTheme === 'dark' ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[140px]">
+              <DropdownMenuItem
+                onClick={() => setTheme('light')}
+                className="text-xs cursor-pointer"
+              >
+                <Sun className="h-3.5 w-3.5 mr-2" />
+                Light
+                {theme === 'light' && <span className="ml-auto text-blue-500">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('dark')} className="text-xs cursor-pointer">
+                <Moon className="h-3.5 w-3.5 mr-2" />
+                Dark
+                {theme === 'dark' && <span className="ml-auto text-blue-500">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setTheme('system')}
+                className="text-xs cursor-pointer"
+              >
+                <Monitor className="h-3.5 w-3.5 mr-2" />
+                System
+                {theme === 'system' && <span className="ml-auto text-blue-500">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Notification Bell */}
+          {session?.user && <NotificationBell onOpenPreferences={() => setNotifPrefsOpen(true)} />}
 
           {/* User Avatar Dropdown */}
           {session?.user ? (
@@ -206,11 +277,19 @@ export function Header() {
                       onClick={() => setMindMapOpen(true)}
                       className="text-xs cursor-pointer"
                     >
-                      <Network className="h-3.5 w-3.5 mr-2" />
-                      Mind Map
+                      <BookOpen className="h-3.5 w-3.5 mr-2" />
+                      Knowledge Base
                     </DropdownMenuItem>
                   </>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setNotifPrefsOpen(true)}
+                  className="text-xs cursor-pointer"
+                >
+                  <Bell className="h-3.5 w-3.5 mr-2" />
+                  Notifications
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => signOut({ callbackUrl: '/auth/signin' })}
@@ -250,6 +329,7 @@ export function Header() {
           <MindMapDialog open={mindMapOpen} onOpenChange={setMindMapOpen} />
         </>
       )}
+      <NotificationPreferencesDialog open={notifPrefsOpen} onOpenChange={setNotifPrefsOpen} />
     </header>
   );
 }

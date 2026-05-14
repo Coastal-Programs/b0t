@@ -24,13 +24,13 @@ interface GraphData {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  user_info: '#3b82f6',    // blue
-  preferences: '#8b5cf6',  // violet
-  projects: '#10b981',     // emerald
-  people: '#f59e0b',       // amber
-  work: '#ef4444',         // red
-  notes: '#6366f1',        // indigo
-  decisions: '#ec4899',    // pink
+  user_info: '#3b82f6', // blue
+  preferences: '#8b5cf6', // violet
+  projects: '#10b981', // emerald
+  people: '#f59e0b', // amber
+  work: '#ef4444', // red
+  notes: '#6366f1', // indigo
+  decisions: '#ec4899', // pink
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -48,9 +48,22 @@ interface MemoryGraphProps {
   categoryFilter?: string;
   onDataLoaded?: (data: { nodeCount: number; linkCount: number }) => void;
   refreshKey?: number;
+  apiUrl?: string;
+  categoryColors?: Record<string, string>;
+  categoryLabels?: Record<string, string>;
 }
 
-export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refreshKey }: MemoryGraphProps) {
+export function MemoryGraph({
+  organizationId,
+  categoryFilter,
+  onDataLoaded,
+  refreshKey,
+  apiUrl,
+  categoryColors: customColors,
+  categoryLabels: customLabels,
+}: MemoryGraphProps) {
+  const colors = customColors ?? CATEGORY_COLORS;
+  const labels = customLabels ?? CATEGORY_LABELS;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
@@ -63,7 +76,8 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
         setLoading(true);
         const params = new URLSearchParams();
         if (organizationId) params.set('organizationId', organizationId);
-        const res = await fetch(`/api/memory/graph?${params}`);
+        const baseUrl = apiUrl ?? '/api/memory/graph';
+        const res = await fetch(`${baseUrl}?${params}`);
         if (!res.ok) throw new Error('Failed to fetch graph');
         const data = await res.json();
         setGraphData(data);
@@ -79,17 +93,19 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
   }, [organizationId, refreshKey]);
 
   const renderGraph = useCallback(() => {
-    if (!svgRef.current || !containerRef.current || !graphData || graphData.nodes.length === 0) return;
+    if (!svgRef.current || !containerRef.current || !graphData || graphData.nodes.length === 0)
+      return;
 
     // Apply category filter
-    const filteredNodes = categoryFilter && categoryFilter !== 'all'
-      ? graphData.nodes.filter(n => n.category === categoryFilter)
-      : graphData.nodes;
+    const filteredNodes =
+      categoryFilter && categoryFilter !== 'all'
+        ? graphData.nodes.filter((n) => n.category === categoryFilter)
+        : graphData.nodes;
 
     if (filteredNodes.length === 0) return;
 
-    const nodeIds = new Set(filteredNodes.map(n => n.id));
-    const filteredLinks = graphData.links.filter(l => {
+    const nodeIds = new Set(filteredNodes.map((n) => n.id));
+    const filteredLinks = graphData.links.filter((l) => {
       const sourceId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
       const targetId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
       return nodeIds.has(sourceId as string) && nodeIds.has(targetId as string);
@@ -111,7 +127,8 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
     // Zoom
     const g = svg.append('g');
     svg.call(
-      d3.zoom<SVGSVGElement, unknown>()
+      d3
+        .zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.3, 4])
         .on('zoom', (event) => {
           g.attr('transform', event.transform);
@@ -177,9 +194,9 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
     node
       .append('circle')
       .attr('r', 16)
-      .attr('fill', (d) => CATEGORY_COLORS[d.category] || '#6b7280')
+      .attr('fill', (d) => colors[d.category] || '#6b7280')
       .attr('fill-opacity', 0.8)
-      .attr('stroke', (d) => CATEGORY_COLORS[d.category] || '#6b7280')
+      .attr('stroke', (d) => colors[d.category] || '#6b7280')
       .attr('stroke-width', 2)
       .attr('stroke-opacity', 0.4)
       .style('cursor', 'pointer')
@@ -217,7 +234,7 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
     return () => {
       simulation.stop();
     };
-  }, [graphData, categoryFilter]);
+  }, [graphData, categoryFilter, colors]);
 
   useEffect(() => {
     const cleanup = renderGraph();
@@ -249,12 +266,9 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
       <div className="p-4">
         {/* Legend */}
         <div className="flex flex-wrap gap-3 mb-4">
-          {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+          {Object.entries(labels).map(([key, label]) => (
             <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: CATEGORY_COLORS[key] }}
-              />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[key] }} />
               {label}
             </div>
           ))}
@@ -271,16 +285,14 @@ export function MemoryGraph({ organizationId, categoryFilter, onDataLoaded, refr
             <div className="flex items-center gap-2">
               <div
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: CATEGORY_COLORS[hoveredNode.category] }}
+                style={{ backgroundColor: colors[hoveredNode.category] }}
               />
               <span className="font-medium text-sm">{hoveredNode.subject}</span>
               <span className="text-xs text-muted-foreground">
-                {CATEGORY_LABELS[hoveredNode.category] || hoveredNode.category}
+                {labels[hoveredNode.category] || hoveredNode.category}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-              {hoveredNode.content}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{hoveredNode.content}</p>
           </div>
         )}
       </div>

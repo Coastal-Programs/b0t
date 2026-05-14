@@ -1,57 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { appSettingsTable, oauthStateTable, userCredentialsTable } from '@/lib/schema';
+import { decrypt } from '@/lib/encryption';
 import { logger } from '@/lib/logger';
 import { getOAuthAppCredentials, getPlatformOAuthCredentials } from '@/lib/oauth-credential-helper';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
 /**
- * Helper to generate PKCE code verifier and challenge
- *
- * Cal.com OAuth requires PKCE (Proof Key for Code Exchange)
- * for security. This generates:
- * - code_verifier: Random cryptographically secure string
- * - code_challenge: Base64 URL-encoded SHA256 hash of verifier
- */
-function generatePKCE() {
-  // Generate random code verifier (43-128 characters)
-  const codeVerifier = crypto.randomBytes(32).toString('base64url');
-
-  // Generate code challenge (SHA256 hash of verifier, base64url encoded)
-  const codeChallenge = crypto
-    .createHash('sha256')
-    .update(codeVerifier)
-    .digest('base64url');
-
-  return { codeVerifier, codeChallenge };
-}
-
-/**
  * Cal.com OAuth 2.0 Authorization Endpoint
  *
- * Generates an OAuth 2.0 authorization URL and redirects the user to Cal.com
- * to authorize the application.
+ * Uses confidential client flow (client_secret, no PKCE).
  *
  * Flow:
  * 1. Check if user is authenticated
- * 2. Generate PKCE code verifier and challenge (required by Cal.com)
- * 3. Generate OAuth 2.0 authorization link
- * 4. Store state and metadata in database for verification
- * 5. Redirect user to Cal.com authorization page
- *
- * Note: Cal.com doesn't support granular scopes, so no scope validation needed
+ * 2. Generate OAuth 2.0 authorization link
+ * 3. Store state and metadata in database for verification
+ * 4. Redirect user to Cal.com authorization page
  */
 export async function GET(request: NextRequest) {
   try {
     // Check if user is authenticated
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized. Please login first.' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized. Please login first.' }, { status: 401 });
     }
 
     // Get service ID and mode from query parameters
@@ -59,19 +32,43 @@ export async function GET(request: NextRequest) {
     const service = searchParams.get('service') || 'calcom';
     const mode = searchParams.get('mode'); // 'update' if editing permissions
     const credentialId = searchParams.get('credentialId'); // Existing credential ID if updating
-
-    // Generate PKCE pair
-    const { codeVerifier, codeChallenge } = generatePKCE();
+    const organizationId = searchParams.get('organizationId'); // Organization/client context
 
     // Try platform-wide OAuth credentials (env vars) first
-    let clientId: string;
+    let clientId: string | undefined;
     const platformCreds = getPlatformOAuthCredentials('calcom');
 
     if (platformCreds) {
       // Use platform-wide credentials from environment variables
       clientId = platformCreds.clientId;
       logger.info({ userId: session.user.id }, 'Using platform-wide Cal.com OAuth credentials');
-    } else {
+    }
+
+    // Try Platform Settings (appSettingsTable) - configured via Keys dialog
+    if (!clientId) {
+      const [clientIdSetting] = await db
+        .select()
+        .from(appSettingsTable)
+        .where(eq(appSettingsTable.key, 'oauth_calcom_client_id'))
+        .limit(1);
+
+      if (clientIdSetting) {
+        try {
+          clientId = decrypt(clientIdSetting.value);
+          logger.info(
+            { userId: session.user.id },
+            'Using Platform Settings Cal.com OAuth credentials'
+          );
+        } catch (e) {
+          logger.warn(
+            { error: e },
+            'Failed to decrypt Platform Settings Cal.com OAuth credentials'
+          );
+        }
+      }
+    }
+
+    if (!clientId) {
       // Fallback: Get user-specific OAuth app credentials from database
       const [appCred] = await db
         .select()
@@ -82,7 +79,10 @@ export async function GET(request: NextRequest) {
       if (!appCred) {
         logger.error('Cal.com OAuth app credentials not configured');
         return NextResponse.json(
-          { error: 'Cal.com OAuth app not configured. Please contact admin or add your own Cal.com OAuth App Credentials in the credentials page.' },
+          {
+            error:
+              'Cal.com OAuth app not configured. Please contact admin or add your own Cal.com OAuth App Credentials in the credentials page.',
+          },
           { status: 500 }
         );
       }
@@ -94,7 +94,9 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         logger.error({ error }, 'Failed to get Cal.com OAuth app credentials');
         return NextResponse.json(
-          { error: error instanceof Error ? error.message : 'Invalid Cal.com OAuth app credentials' },
+          {
+            error: error instanceof Error ? error.message : 'Invalid Cal.com OAuth app credentials',
+          },
           { status: 500 }
         );
       }
@@ -111,23 +113,23 @@ export async function GET(request: NextRequest) {
     // Store state in database with metadata
     await db.insert(oauthStateTable).values({
       state,
-      codeVerifier, // Store verifier for callback verification
+      codeVerifier: 'confidential-client', // Not used for confidential client flow
       userId: session.user.id,
       provider: 'calcom',
       metadata: JSON.stringify({
         service,
         mode,
         credentialId,
+        organizationId,
       }),
     });
 
+    // Confidential client flow - no PKCE needed since we have client_secret
     const authUrl = new URL('https://app.cal.com/auth/oauth2/authorize');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', callbackUrl);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('code_challenge', codeChallenge);
-    authUrl.searchParams.set('code_challenge_method', 'S256');
 
     logger.info(
       { userId: session.user.id, provider: 'calcom', service },

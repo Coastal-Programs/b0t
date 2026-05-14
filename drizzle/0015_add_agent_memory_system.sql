@@ -10,8 +10,8 @@ CREATE TABLE agent_memory_facts (
   subject TEXT NOT NULL,
   content TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for performance
@@ -35,7 +35,7 @@ CREATE TABLE agent_memory_embeddings (
   fact_id VARCHAR(255) NOT NULL REFERENCES agent_memory_facts(id) ON DELETE CASCADE,
   content TEXT NOT NULL,  -- Combined: category + subject + content
   embedding vector(768),  -- Optimized: 768-dim for 50% storage savings, 2-3x faster search
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_memory_embeddings_fact ON agent_memory_embeddings(fact_id);
@@ -49,10 +49,10 @@ CREATE TABLE workflow_node_mappings (
   identifier_type TEXT NOT NULL,        -- 'node_type' (N8N) | 'module_action' (Make.com)
   odin_module_path TEXT NOT NULL,       -- 'data.airtable.watchRecords'
   conversion_config JSONB DEFAULT '{}'::jsonb,
-  confidence_score REAL DEFAULT 1.0,
-  usage_count INTEGER DEFAULT 1,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  confidence_score REAL NOT NULL DEFAULT 1.0,
+  usage_count INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Unique per platform + identifier
@@ -75,8 +75,8 @@ CREATE TABLE workflow_patterns (
   conversion_strategy JSONB NOT NULL,    -- How to convert pattern
   yaml_template TEXT,                    -- Template for this pattern
   example_workflows JSONB DEFAULT '[]'::jsonb,
-  success_rate REAL DEFAULT 1.0,
-  created_at TIMESTAMP DEFAULT NOW()
+  success_rate REAL NOT NULL DEFAULT 1.0,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX idx_workflow_patterns_platform_name
@@ -96,8 +96,8 @@ CREATE TABLE workflow_embeddings (
   odin_workflow_id VARCHAR(255),
   services TEXT[],                         -- Extracted service names for quick filtering
   pattern_type TEXT,                       -- E.g., "multi_service_research", "ai_agent_with_tools", "scheduled_enrichment"
-  similarity_threshold REAL DEFAULT 0.75,  -- Min similarity to consider a match
-  created_at TIMESTAMP DEFAULT NOW()
+  similarity_threshold REAL NOT NULL DEFAULT 0.75,  -- Min similarity to consider a match
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_workflow_embeddings_vector ON workflow_embeddings USING ivfflat (embedding vector_cosine_ops);
@@ -105,10 +105,9 @@ CREATE INDEX idx_workflow_embeddings_platform ON workflow_embeddings(source_plat
 CREATE INDEX idx_workflow_embeddings_services ON workflow_embeddings USING GIN(services);
 CREATE INDEX idx_workflow_embeddings_pattern ON workflow_embeddings(pattern_type);
 
--- Composite index for platform-filtered semantic search (most common query)
-CREATE INDEX idx_workflow_embeddings_platform_vector
-  ON workflow_embeddings(source_platform)
-  INCLUDE (embedding);
+-- Note: A btree INCLUDE (embedding) index was removed here because a 768-dim
+-- vector exceeds btree's 2704-byte row limit.  The ivfflat index above already
+-- covers vector searches; platform filtering uses idx_workflow_embeddings_platform.
 
 COMMENT ON COLUMN workflow_embeddings.source_platform IS
   'Separate embeddings by platform to avoid N8N/Make.com cross-contamination in similarity search';
@@ -119,9 +118,9 @@ CREATE TABLE agent_memory_graphs (
   user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   organization_id VARCHAR(255) REFERENCES organizations(id) ON DELETE CASCADE,
   graph_data JSONB NOT NULL,  -- Nodes and edges for D3.js
-  version INTEGER DEFAULT 1,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX idx_memory_graphs_user_org ON agent_memory_graphs(user_id, organization_id);

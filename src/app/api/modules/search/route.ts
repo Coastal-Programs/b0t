@@ -1,5 +1,7 @@
+import { NextResponse } from 'next/server';
 import { getModuleRegistry } from '@/lib/workflows/module-registry';
 import { logger } from '@/lib/logger';
+import { auth } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,8 +26,8 @@ function levenshteinDistance(str1: string, str2: string): number {
     for (let j = 1; j <= len2; j++) {
       const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
       matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,      // deletion
-        matrix[i][j - 1] + 1,      // insertion
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
         matrix[i - 1][j - 1] + cost // substitution
       );
     }
@@ -52,9 +54,28 @@ interface ModuleResult {
 }
 
 // GET /api/modules/search?q=keyword&limit=10
-// Search for modules (no auth required for agent use)
+// SECURITY: Requires session auth or API key (B0T_API_KEY env var).
 export async function GET(request: Request) {
   try {
+    // Check API key first (for agent/CLI use)
+    const authHeader = request.headers.get('authorization');
+    const apiKey = process.env.B0T_API_KEY;
+    const hasValidApiKey = apiKey && authHeader === `Bearer ${apiKey}`;
+
+    if (!hasValidApiKey) {
+      // Fall back to session auth
+      const session = await auth();
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          {
+            error:
+              'Unauthorized. Provide a valid session or Authorization: Bearer <B0T_API_KEY> header.',
+          },
+          { status: 401 }
+        );
+      }
+    }
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q')?.toLowerCase() || '';
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -84,10 +105,10 @@ export async function GET(request: Request) {
             exactResults.push(moduleData);
 
             if (exactResults.length >= limit) {
-              return Response.json({
+              return NextResponse.json({
                 results: exactResults,
                 total: exactResults.length,
-                suggestions: []
+                suggestions: [],
               });
             }
           }
@@ -98,28 +119,28 @@ export async function GET(request: Request) {
     // If no exact matches, provide fuzzy suggestions
     if (exactResults.length === 0 && query.length > 0) {
       const suggestions = allModules
-        .map(mod => ({
+        .map((mod) => ({
           ...mod,
           similarity: similarityScore(query, mod.path),
         }))
-        .filter(s => s.similarity > 30) // Only suggest if similarity > 30%
+        .filter((s) => s.similarity > 30) // Only suggest if similarity > 30%
         .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
         .slice(0, 5);
 
       if (suggestions.length > 0) {
-        return Response.json({
+        return NextResponse.json({
           results: [],
           total: 0,
           suggestions,
-          message: `No exact matches for "${query}". Did you mean one of these?`
+          message: `No exact matches for "${query}". Did you mean one of these?`,
         });
       }
     }
 
-    return Response.json({
+    return NextResponse.json({
       results: exactResults,
       total: exactResults.length,
-      suggestions: []
+      suggestions: [],
     });
   } catch (error) {
     logger.error({ error }, 'Module search error');

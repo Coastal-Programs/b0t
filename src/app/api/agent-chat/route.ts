@@ -8,6 +8,8 @@ import { getAgentWorkspaceDir, initializeAgentWorkspace } from '@/lib/agent-work
 import { expandSlashCommand } from '@/lib/slash-command-expander';
 import { MemoryManager } from '@/lib/memory/memory-manager';
 import { logger } from '@/lib/logger';
+import { NextRequest } from 'next/server';
+import { checkAgentChatRateLimit } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,6 +17,10 @@ export const dynamic = 'force-dynamic';
 // Server-Sent Events endpoint for agent chat with streaming
 export async function POST(request: Request) {
   try {
+    // Rate limit check
+    const rateLimitResult = await checkAgentChatRateLimit(request as NextRequest);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
     if (!session?.user?.id) {
       return new Response('Unauthorized', { status: 401 });
@@ -87,7 +93,7 @@ export async function POST(request: Request) {
 
           const contentBlocks: unknown[] = [];
 
-          // Initialize agent workspace (creates ~/Documents/odin and copies necessary folders)
+          // Initialize agent workspace (creates ~/Documents/b0t and copies necessary folders)
           initializeAgentWorkspace();
           const workingDir = getAgentWorkspaceDir();
 
@@ -109,9 +115,7 @@ export async function POST(request: Request) {
             );
             const memoryContext = await memMgr.getFactsForContext();
             if (memoryContext) {
-              systemPrompt = systemPrompt
-                ? `${systemPrompt}\n\n${memoryContext}`
-                : memoryContext;
+              systemPrompt = systemPrompt ? `${systemPrompt}\n\n${memoryContext}` : memoryContext;
             }
           } catch (memErr) {
             logger.warn({ error: memErr }, 'Failed to load memory context - continuing without it');
@@ -129,17 +133,15 @@ export async function POST(request: Request) {
                 .where(eq(agentChatSessionsTable.id, sessionId));
             }
 
-            // Save user message
-            await db.insert(agentChatMessagesTable).values({
-              id: nanoid(),
-              sessionId,
-              role: 'user',
-              content: '/clear',
-              metadata: null,
-            });
+            // User message already saved above (unconditional save before stream)
 
             // Send cleared message
-            const clearMessage = [{ type: 'text', text: '--- Context cleared. The AI will not remember previous messages ---' }];
+            const clearMessage = [
+              {
+                type: 'text',
+                text: '--- Context cleared. The AI will not remember previous messages ---',
+              },
+            ];
             await db.insert(agentChatMessagesTable).values({
               id: nanoid(),
               sessionId,
@@ -150,11 +152,11 @@ export async function POST(request: Request) {
 
             // Send to client
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'content_block', block: clearMessage[0] })}\n\n`)
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'content_block', block: clearMessage[0] })}\n\n`
+              )
             );
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
             return;
           }
@@ -166,7 +168,11 @@ export async function POST(request: Request) {
           );
 
           const trimmedMsg = message.trim();
-          if (trimmedMsg.startsWith('/remember ') || trimmedMsg.startsWith('/recall ') || trimmedMsg.startsWith('/forget ')) {
+          if (
+            trimmedMsg.startsWith('/remember ') ||
+            trimmedMsg.startsWith('/recall ') ||
+            trimmedMsg.startsWith('/forget ')
+          ) {
             const memoryResult = await handleMemoryCommand(trimmedMsg, memoryManager);
 
             const memoryBlock = [{ type: 'text', text: memoryResult }];
@@ -179,11 +185,11 @@ export async function POST(request: Request) {
             });
 
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'content_block', block: memoryBlock[0] })}\n\n`)
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'content_block', block: memoryBlock[0] })}\n\n`
+              )
             );
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
             return;
           }
@@ -221,7 +227,11 @@ export async function POST(request: Request) {
           // Iterate through messages from the subprocess
           for await (const msg of q) {
             // Capture SDK session ID from system messages
-            if (msg.type === 'system' && 'session_id' in msg && typeof msg.session_id === 'string') {
+            if (
+              msg.type === 'system' &&
+              'session_id' in msg &&
+              typeof msg.session_id === 'string'
+            ) {
               capturedSdkSessionId = msg.session_id;
               logger.info(`📋 Captured SDK session ID: ${capturedSdkSessionId}`);
             }
@@ -283,14 +293,12 @@ export async function POST(request: Request) {
             .where(eq(agentChatSessionsTable.id, sessionId));
 
           // Send completion event
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
 
           controller.close();
         } catch (error) {
           logger.error({ error }, 'Agent chat error');
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage = 'An internal error occurred';
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
           );
@@ -338,7 +346,15 @@ async function handleMemoryCommand(command: string, memoryManager: MemoryManager
     const category = beforeColon.substring(0, spaceIdx).trim();
     const subject = beforeColon.substring(spaceIdx + 1).trim();
 
-    const validCategories = ['user_info', 'preferences', 'projects', 'people', 'work', 'notes', 'decisions'];
+    const validCategories = [
+      'user_info',
+      'preferences',
+      'projects',
+      'people',
+      'work',
+      'notes',
+      'decisions',
+    ];
     if (!validCategories.includes(category)) {
       return `Invalid category "${category}". Valid categories: ${validCategories.join(', ')}`;
     }

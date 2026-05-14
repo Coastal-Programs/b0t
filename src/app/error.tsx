@@ -3,16 +3,15 @@
 import { useEffect } from 'react';
 import { logger } from '@/lib/logger';
 
-export const dynamic = 'force-dynamic';
-export const dynamicParams = true;
-export const revalidate = 0;
-
 export default function Error({
   error,
   reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
+  // unstable_retry: Next.js 16.2+ — calls router.refresh() + reset() in startTransition
+  unstable_retry?: () => void;
 }) {
   useEffect(() => {
     // Log the error to an error reporting service
@@ -29,13 +28,13 @@ export default function Error({
         </p>
         <div className="mt-8 flex gap-4 justify-center">
           <button
-            onClick={() => reset()}
+            onClick={() => (unstable_retry ?? reset)()}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
           >
             Try again
           </button>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => (window.location.href = '/')}
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
             Go Home

@@ -1,4 +1,5 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { chatConversationsTable, workflowsTable } from '@/lib/schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -10,18 +11,20 @@ export const dynamic = 'force-dynamic';
  * GET /api/workflows/[id]/conversations
  * List all conversations for a workflow
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   const { id: workflowId } = await params;
 
   try {
-    // Verify workflow exists
+    // Verify workflow exists and belongs to the user
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(eq(workflowsTable.id, workflowId))
+      .where(and(eq(workflowsTable.id, workflowId), eq(workflowsTable.userId, session.user.id)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -44,7 +47,7 @@ export async function GET(
       .orderBy(desc(chatConversationsTable.updatedAt))
       .limit(50); // Limit to 50 most recent conversations
 
-    return Response.json({
+    return NextResponse.json({
       conversations,
       workflow: {
         id: workflow.id,

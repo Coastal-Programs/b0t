@@ -1,0 +1,2596 @@
+{
+  "n8n": {
+    "@n8n/n8n-nodes-langchain.textClassifier": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "useEnumSchema": true,
+        "extractCategoryDescriptions": true,
+        "buildPromptFromDescriptions": true,
+        "modelDefault": "claude-3-5-haiku-20241022"
+      }
+    },
+    "@n8n/n8n-nodes-langchain.anthropic": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "anthropic",
+        "extractSystemPrompt": true,
+        "extractOptions": ["temperature", "maxTokens", "topP"]
+      }
+    },
+    "@n8n/n8n-nodes-langchain.openAi": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "openai",
+        "extractSystemPrompt": true
+      }
+    },
+    "n8n-nodes-base.airtable": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "operations": {
+        "search": {
+          "b0tFunction": "findRecord",
+          "description": "Search via airtable"
+        },
+        "create": {
+          "b0tFunction": "createRecord",
+          "description": "Create via airtable"
+        },
+        "update": {
+          "b0tFunction": "updateRecord",
+          "description": "Update via airtable"
+        },
+        "delete": {
+          "b0tFunction": "deleteRecord",
+          "description": "Delete via airtable"
+        },
+        "list": {
+          "b0tFunction": "selectRecords",
+          "description": "List via airtable"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve to 3-part path using operation. Default: selectRecords",
+        "mapOperationToMethod": true,
+        "operations": {
+          "search": "findRecord",
+          "create": "createRecord",
+          "update": "updateRecord",
+          "delete": "deleteRecord",
+          "list": "selectRecords"
+        },
+        "availableFunctions": [
+          "selectRecords",
+          "createRecord",
+          "createRecords",
+          "updateRecord",
+          "updateRecords",
+          "deleteRecord",
+          "deleteRecords",
+          "findRecord"
+        ]
+      }
+    },
+    "n8n-nodes-base.googleSheets": {
+      "b0tModule": "data.google-sheets",
+      "category": "data",
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve to 3-part path using operation. Default: getRows",
+        "mapOperationToMethod": true,
+        "availableFunctions": [
+          "getRows",
+          "addRow",
+          "addRows",
+          "updateRow",
+          "deleteRow",
+          "clearSheet",
+          "getCellValue",
+          "setCellValue",
+          "queryRows"
+        ]
+      }
+    },
+    "n8n-nodes-base.postgres": {
+      "b0tModule": "data.postgresql",
+      "category": "data",
+      "conversionConfig": {
+        "extractQuery": true
+      }
+    },
+    "n8n-nodes-base.gmail": {
+      "b0tModule": "communication.gmail",
+      "category": "communication",
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-action node — resolve to 3-part path using action. Default: sendEmail",
+        "mapActionsToMethods": true,
+        "availableFunctions": [
+          "fetchEmails",
+          "sendEmail",
+          "addLabels",
+          "removeLabels",
+          "markAsRead",
+          "markAsUnread",
+          "moveToTrash",
+          "archiveEmail",
+          "getLabels"
+        ]
+      }
+    },
+    "n8n-nodes-base.slack": {
+      "b0tModule": "communication.slack",
+      "category": "communication",
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-action node — resolve to 3-part path using action. Default: postMessage",
+        "mapActionsToMethods": true,
+        "availableFunctions": ["postMessage", "sendText", "uploadFile", "addReaction"]
+      }
+    },
+    "n8n-nodes-base.discord": {
+      "b0tModule": "communication.discord",
+      "category": "communication",
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-action node — resolve to 3-part path using action. Default: sendMessage",
+        "mapActionsToMethods": true,
+        "availableFunctions": ["sendMessage", "sendText", "sendEmbed", "sendFile", "addReaction"]
+      }
+    },
+    "n8n-nodes-base.httpRequest": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "extractMethod": true,
+        "extractHeaders": true,
+        "extractBody": true
+      }
+    },
+    "n8n-nodes-base.code": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "extractCode": true,
+        "wrapInFunction": false
+      }
+    },
+    "n8n-nodes-base.if": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "convertConditionsToJs": true,
+        "generateBooleanReturn": true
+      }
+    },
+    "n8n-nodes-base.scheduleTrigger": {
+      "b0tModule": "cron",
+      "category": "trigger",
+      "triggerType": "cron",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "cron",
+        "extractCronExpression": true
+      }
+    },
+    "n8n-nodes-base.webhook": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "conversionConfig": {
+        "extractPath": true,
+        "extractMethod": true
+      }
+    },
+    "n8n-nodes-base.manualTrigger": {
+      "b0tModule": "trigger.manual",
+      "category": "trigger",
+      "conversionConfig": {}
+    },
+    "n8n-nodes-base.airtableTrigger": {
+      "b0tModule": "data.airtable",
+      "category": "trigger",
+      "triggerType": "airtable",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "airtable",
+        "extractBaseId": true,
+        "extractTableName": true,
+        "extractTriggerField": true,
+        "pollInterval": 60000,
+        "note": "Polling trigger — runs automatically on schedule. NEVER use trigger.manual. Config needs: baseId, tableName, triggerField."
+      }
+    },
+    "n8n-nodes-base.gmailTrigger": {
+      "b0tModule": "communication.gmail",
+      "category": "trigger",
+      "triggerType": "gmail",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "gmail",
+        "pollInterval": 60000,
+        "note": "Polling trigger — runs automatically on schedule. NEVER use trigger.manual."
+      }
+    },
+    "n8n-nodes-base.telegram": {
+      "b0tModule": "communication.telegram",
+      "category": "communication",
+      "operations": {
+        "sendMessage": {
+          "b0tFunction": "sendMessage",
+          "description": "Send message via telegram"
+        },
+        "downloadFile": {
+          "b0tFunction": "downloadFile",
+          "description": "Download file via telegram"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve using operation. Default: sendMessage",
+        "mapOperationToMethod": true,
+        "operations": {
+          "sendMessage": "sendMessage",
+          "downloadFile": "downloadFile"
+        },
+        "parameterMapping": {
+          "chatId": "chatId",
+          "text": "text"
+        },
+        "availableFunctions": ["sendMessage", "downloadFile"]
+      }
+    },
+    "n8n-nodes-base.telegramTrigger": {
+      "b0tModule": "communication.telegram",
+      "category": "trigger",
+      "triggerType": "telegram",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "telegram",
+        "note": "Polling trigger — runs automatically. NEVER use trigger.manual."
+      }
+    },
+    "@n8n/n8n-nodes-langchain.agent": {
+      "b0tModule": "ai.ai-agent",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "AI agent with tools, check connections.ai_tool for tool nodes. Extract tools from connected tool nodes.",
+        "extractTools": true,
+        "extractSystemPrompt": true,
+        "checkConnectionsForTools": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.chainSummarization": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "Map summarization chain to generateText with summarization prompt. Extract text from input.",
+        "buildSummarizationPrompt": true
+      }
+    },
+    "n8n-nodes-base.microsoftOutlook": {
+      "b0tModule": "communication.outlook",
+      "category": "communication",
+      "conversionConfig": {
+        "parameterMapping": {
+          "to": "to",
+          "subject": "subject",
+          "bodyContent": "body"
+        }
+      }
+    },
+    "n8n-nodes-base.googleDrive": {
+      "b0tModule": "data.google-drive",
+      "category": "data",
+      "operations": {
+        "list": {
+          "b0tFunction": "listFiles",
+          "description": "List via googleDrive"
+        },
+        "upload": {
+          "b0tFunction": "uploadFile",
+          "description": "Upload via googleDrive"
+        },
+        "download": {
+          "b0tFunction": "getFile",
+          "description": "Download via googleDrive"
+        },
+        "delete": {
+          "b0tFunction": "deleteFile",
+          "description": "Delete via googleDrive"
+        },
+        "get": {
+          "b0tFunction": "getFile",
+          "description": "Get via googleDrive"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve using operation. Default: listFiles",
+        "mapOperationToMethod": true,
+        "operations": {
+          "list": "listFiles",
+          "upload": "uploadFile",
+          "download": "getFile",
+          "delete": "deleteFile",
+          "get": "getFile"
+        },
+        "availableFunctions": ["listFiles", "uploadFile", "deleteFile", "getFile"]
+      }
+    },
+    "n8n-nodes-base.notion": {
+      "b0tModule": "data.notion",
+      "category": "data",
+      "operations": {
+        "query": {
+          "b0tFunction": "queryDatabase",
+          "description": "Query via notion"
+        },
+        "create": {
+          "b0tFunction": "createPage",
+          "description": "Create via notion"
+        },
+        "update": {
+          "b0tFunction": "updatePage",
+          "description": "Update via notion"
+        },
+        "get": {
+          "b0tFunction": "retrievePage",
+          "description": "Get via notion"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve using resource+operation. Default: queryDatabase",
+        "mapOperationToMethod": true,
+        "operations": {
+          "query": "queryDatabase",
+          "create": "createPage",
+          "update": "updatePage",
+          "get": "retrievePage"
+        },
+        "availableFunctions": [
+          "queryDatabase",
+          "createPage",
+          "updatePage",
+          "retrievePage",
+          "retrievePageContent",
+          "appendToPage"
+        ]
+      }
+    },
+    "n8n-nodes-base.hubspot": {
+      "b0tModule": "business.hubspot",
+      "category": "business",
+      "operations": {
+        "createContact": {
+          "b0tFunction": "createContact",
+          "description": "Create contact via hubspot"
+        },
+        "updateContact": {
+          "b0tFunction": "updateContact",
+          "description": "Update contact via hubspot"
+        },
+        "getContact": {
+          "b0tFunction": "getContact",
+          "description": "Get contact via hubspot"
+        },
+        "searchContacts": {
+          "b0tFunction": "searchContacts",
+          "description": "Search contacts via hubspot"
+        },
+        "createDeal": {
+          "b0tFunction": "createDeal",
+          "description": "Create deal via hubspot"
+        },
+        "updateDeal": {
+          "b0tFunction": "updateDeal",
+          "description": "Update deal via hubspot"
+        },
+        "getDeal": {
+          "b0tFunction": "getDeal",
+          "description": "Get deal via hubspot"
+        },
+        "searchDeals": {
+          "b0tFunction": "searchDeals",
+          "description": "Search deals via hubspot"
+        },
+        "createCompany": {
+          "b0tFunction": "createCompany",
+          "description": "Create company via hubspot"
+        },
+        "updateCompany": {
+          "b0tFunction": "updateCompany",
+          "description": "Update company via hubspot"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — resolve using resource+operation. Default: createContact",
+        "mapOperationToMethod": true,
+        "operations": {
+          "createContact": "createContact",
+          "updateContact": "updateContact",
+          "getContact": "getContact",
+          "searchContacts": "searchContacts",
+          "createDeal": "createDeal",
+          "updateDeal": "updateDeal",
+          "getDeal": "getDeal",
+          "searchDeals": "searchDeals",
+          "createCompany": "createCompany",
+          "updateCompany": "updateCompany"
+        },
+        "availableFunctions": [
+          "createContact",
+          "updateContact",
+          "getContact",
+          "searchContacts",
+          "createDeal",
+          "updateDeal",
+          "getDeal",
+          "searchDeals",
+          "createCompany",
+          "updateCompany",
+          "getCompany",
+          "searchCompanies"
+        ]
+      }
+    },
+    "n8n-nodes-base.salesforce": {
+      "b0tModule": "business.salesforce",
+      "category": "business",
+      "operations": {
+        "query": {
+          "b0tFunction": "executeSOQL",
+          "description": "Query via salesforce"
+        },
+        "createLead": {
+          "b0tFunction": "createLead",
+          "description": "Create lead via salesforce"
+        },
+        "updateLead": {
+          "b0tFunction": "updateLead",
+          "description": "Update lead via salesforce"
+        },
+        "getLead": {
+          "b0tFunction": "getLead",
+          "description": "Get lead via salesforce"
+        },
+        "createOpportunity": {
+          "b0tFunction": "createOpportunity",
+          "description": "Create opportunity via salesforce"
+        },
+        "updateOpportunity": {
+          "b0tFunction": "updateOpportunity",
+          "description": "Update opportunity via salesforce"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — resolve using resource+operation. Default: executeSOQL",
+        "mapOperationToMethod": true,
+        "operations": {
+          "query": "executeSOQL",
+          "createLead": "createLead",
+          "updateLead": "updateLead",
+          "getLead": "getLead",
+          "createOpportunity": "createOpportunity",
+          "updateOpportunity": "updateOpportunity"
+        },
+        "availableFunctions": [
+          "executeSOQL",
+          "createLead",
+          "updateLead",
+          "getLead",
+          "convertLead",
+          "createOpportunity",
+          "updateOpportunity",
+          "getOpportunity",
+          "createAccount",
+          "updateAccount",
+          "getAccount",
+          "searchSOSL"
+        ]
+      }
+    },
+    "n8n-nodes-base.discordTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Discord triggers use webhook-based events. Configure Discord webhook to point to b0t webhook URL."
+      }
+    },
+    "n8n-nodes-base.merge": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Merge/join branches into single dataset. Use JavaScript to combine arrays: return [...input1, ...input2] or merge by key.",
+        "convertMergeToJs": true
+      }
+    },
+    "n8n-nodes-base.set": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Set node assigns/renames fields. Convert to JavaScript: return { newField: input.oldField, ... }",
+        "convertAssignmentsToJs": true
+      }
+    },
+    "n8n-nodes-base.itemLists": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Item Lists manipulates arrays (split, concatenate, limit, sort, removeDuplicates). Convert to JavaScript array operations.",
+        "convertItemListOpsToJs": true
+      }
+    },
+    "n8n-nodes-base.splitInBatches": {
+      "b0tModule": "CONTROL_FLOW_FOREACH",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Maps to b0t forEach control flow, not a module call. Extract batchSize from parameters.",
+        "extractBatchSize": true
+      }
+    },
+    "n8n-nodes-base.wait": {
+      "b0tModule": "utilities.control-flow",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Delay execution by specified duration. Extract wait time and convert to milliseconds.",
+        "extractWaitTime": true
+      }
+    },
+    "n8n-nodes-base.noOp": {
+      "b0tModule": "OMIT",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "No-operation pass-through node. Omit from b0t workflow entirely — data passes through automatically.",
+        "omitFromWorkflow": true
+      }
+    },
+    "n8n-nodes-base.respondToWebhook": {
+      "b0tModule": "utilities.webhook",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Sends response back to webhook caller. In b0t, the last step output is returned as webhook response automatically. Use sendWebhook for explicit response configuration.",
+        "extractResponseBody": true,
+        "extractStatusCode": true
+      }
+    },
+    "n8n-nodes-base.removeDuplicates": {
+      "b0tModule": "utilities.deduplication",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Remove duplicate items based on a field. Extract the deduplication key field from parameters.",
+        "extractDeduplicationKey": true
+      }
+    },
+    "n8n-nodes-base.xml": {
+      "b0tModule": "utilities.xml",
+      "category": "utility",
+      "operations": {
+        "xmlToJson": {
+          "b0tFunction": "parseXml",
+          "description": "Xml to json via xml"
+        },
+        "jsonToXml": {
+          "b0tFunction": "buildXml",
+          "description": "Json to xml via xml"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "XML parse/build node. Use parseXml for XML→JSON, buildXml for JSON→XML. Check mode parameter.",
+        "operations": {
+          "xmlToJson": "parseXml",
+          "jsonToXml": "buildXml"
+        },
+        "availableFunctions": ["parseXml", "buildXml", "validateXml", "extractValue", "prettifyXml"]
+      }
+    },
+    "n8n-nodes-base.spreadsheetFile": {
+      "b0tModule": "utilities.csv",
+      "category": "utility",
+      "operations": {
+        "read": {
+          "b0tFunction": "parseCsv",
+          "description": "Read via spreadsheetFile"
+        },
+        "write": {
+          "b0tFunction": "stringifyCsv",
+          "description": "Write via spreadsheetFile"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Spreadsheet/CSV file node. Use parseCsv for CSV→JSON, stringifyCsv for JSON→CSV.",
+        "operations": {
+          "read": "parseCsv",
+          "write": "stringifyCsv"
+        },
+        "availableFunctions": [
+          "parseCsv",
+          "stringifyCsv",
+          "csvToJson",
+          "jsonToCsv",
+          "filterCsv",
+          "sortCsv"
+        ]
+      }
+    },
+    "n8n-nodes-base.switch": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Convert switch logic to JavaScript conditionals returning the appropriate branch result"
+      }
+    },
+    "n8n-nodes-base.filter": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Convert filter conditions to JavaScript boolean expression. Return data if passes, null if filtered."
+      }
+    },
+    "n8n-nodes-base.aggregate": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Collects items into array - implement as JS step. Use JavaScript array methods (map, reduce, filter) for data aggregation."
+      }
+    },
+    "n8n-nodes-base.perplexity": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "perplexity",
+        "note": "Perplexity search/research node. Model typically \"sonar\". Uses perplexityApi credential. Extract query from parameters.",
+        "modelDefault": "sonar",
+        "credentialType": "perplexityApi",
+        "extractSystemPrompt": true
+      }
+    },
+    "n8n-nodes-base.supabase": {
+      "b0tModule": "data.supabase",
+      "category": "data",
+      "operations": {
+        "insert": {
+          "b0tFunction": "insert",
+          "description": "Insert via supabase"
+        },
+        "select": {
+          "b0tFunction": "select",
+          "description": "Select via supabase"
+        },
+        "update": {
+          "b0tFunction": "update",
+          "description": "Update via supabase"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — resolve using operation. Default: insert",
+        "mapOperationToMethod": true,
+        "operations": {
+          "insert": "insert",
+          "select": "select",
+          "update": "update"
+        },
+        "availableFunctions": ["insert", "select", "update"]
+      }
+    },
+    "n8n-nodes-base.limit": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Caps item count - implement as array.slice() in JS step. Extract maxItems from parameters.",
+        "extractMaxItems": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.toolWorkflow": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Sub-workflow used as AI tool - reference only, not a direct step. Extract workflow ID for tool definition.",
+        "isSubNode": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.toolCode": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Code executed as AI tool - extract code and add as tool in agent config. Extract jsCode from parameters.",
+        "isSubNode": true,
+        "extractCode": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.memoryBufferWindow": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Agent memory config - extract windowSize for agent memory settings. Not a direct workflow step.",
+        "isSubNode": true,
+        "extractWindowSize": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatOpenRouter": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "critical": "This is OpenRouter NOT OpenAI - use openrouter provider, extract model from parameters.model",
+        "note": "OpenRouter LLM config sub-node. Provides model to parent agent/chain node.",
+        "isSubNode": true,
+        "provider": "openrouter",
+        "extractModel": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatAnthropic": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "critical": "This is Anthropic direct - use anthropic provider",
+        "note": "Anthropic LLM config sub-node. Provides model to parent agent/chain node.",
+        "isSubNode": true,
+        "provider": "anthropic",
+        "extractModel": true
+      }
+    },
+    "n8n-nodes-base.html": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "HTML to text - use cheerio or regex in JS step. Extract operation (extractHtmlContent, convertToTable) from parameters.",
+        "convertHtmlOpsToJs": true
+      }
+    },
+    "n8n-nodes-base.stickyNote": {
+      "b0tModule": "SKIP",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Filter out entirely, not a workflow step. Sticky notes are visual annotations only.",
+        "skipEntirely": true
+      }
+    },
+    "n8n-nodes-base.dateTime": {
+      "b0tModule": "utilities.datetime",
+      "category": "utility",
+      "operations": {
+        "format": {
+          "b0tFunction": "formatDate",
+          "description": "Format via dateTime"
+        },
+        "add": {
+          "b0tFunction": "addToDate",
+          "description": "Add via dateTime"
+        },
+        "subtract": {
+          "b0tFunction": "subtractFromDate",
+          "description": "Subtract via dateTime"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Date/time formatting and manipulation. Extract action (format, add, subtract, roundUp, roundDown) and format/timezone params.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "format": "formatDate",
+          "add": "addToDate",
+          "subtract": "subtractFromDate"
+        },
+        "availableFunctions": [
+          "formatDate",
+          "addToDate",
+          "subtractFromDate",
+          "diffDates",
+          "parseDate",
+          "now"
+        ]
+      }
+    },
+    "n8n-nodes-base.crypto": {
+      "b0tModule": "utilities.encryption",
+      "category": "utility",
+      "operations": {
+        "hash": {
+          "b0tFunction": "hash",
+          "description": "Hash via crypto"
+        },
+        "hmac": {
+          "b0tFunction": "hmac",
+          "description": "Hmac via crypto"
+        },
+        "encrypt": {
+          "b0tFunction": "encrypt",
+          "description": "Encrypt via crypto"
+        },
+        "decrypt": {
+          "b0tFunction": "decrypt",
+          "description": "Decrypt via crypto"
+        },
+        "sign": {
+          "b0tFunction": "sign",
+          "description": "Sign via crypto"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Hash, HMAC, encrypt/decrypt, sign/verify. Extract action and algorithm from parameters.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "hash": "hash",
+          "hmac": "hmac",
+          "encrypt": "encrypt",
+          "decrypt": "decrypt",
+          "sign": "sign"
+        },
+        "availableFunctions": [
+          "hash",
+          "hmac",
+          "encrypt",
+          "decrypt",
+          "sign",
+          "verify",
+          "generateKey"
+        ]
+      }
+    },
+    "n8n-nodes-base.compression": {
+      "b0tModule": "utilities.compression",
+      "category": "utility",
+      "operations": {
+        "compress": {
+          "b0tFunction": "compress",
+          "description": "Compress via compression"
+        },
+        "decompress": {
+          "b0tFunction": "decompress",
+          "description": "Decompress via compression"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Zip/Gzip compress/decompress. Extract operation and format.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "compress": "compress",
+          "decompress": "decompress"
+        },
+        "availableFunctions": ["compress", "decompress"]
+      }
+    },
+    "n8n-nodes-base.compareDatasets": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Compare two datasets and find added/removed/changed items. Convert to JS with array comparison logic."
+      }
+    },
+    "n8n-nodes-base.editFields": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Edit Fields is the newer version of the Set node. Convert field assignments to JavaScript.",
+        "convertAssignmentsToJs": true
+      }
+    },
+    "n8n-nodes-base.splitOut": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Splits a single item with array field into multiple items. Convert to JS: return input.fieldName.map(item => ({...item}))"
+      }
+    },
+    "n8n-nodes-base.summarize": {
+      "b0tModule": "utilities.aggregation",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Summarize/aggregate data with operations (count, sum, average, min, max, concatenate). Extract aggregation config.",
+        "extractAggregations": true
+      }
+    },
+    "n8n-nodes-base.sort": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Sort items by field. Convert to JS: return items.sort((a,b) => a.field - b.field). Extract sortField and order."
+      }
+    },
+    "n8n-nodes-base.convertToFile": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Converts JSON data to file (CSV, HTML, ICS, JSON, ODS, RTF, XLS, XLSX). Use JS for data serialization."
+      }
+    },
+    "n8n-nodes-base.extractFromFile": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Extracts data from file (CSV, HTML, JSON, etc.) into JSON items. Use JS for data parsing."
+      }
+    },
+    "n8n-nodes-base.executeWorkflow": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Calls another n8n workflow as sub-workflow. In b0t, inline the sub-workflow steps or use HTTP call to trigger separately.",
+        "isSubWorkflowCall": true
+      }
+    },
+    "n8n-nodes-base.executeWorkflowTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Sub-workflow trigger — receives data from parent workflow. Map to webhook trigger in b0t."
+      }
+    },
+    "n8n-nodes-base.aiTransform": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "AI-powered data transform using natural language instructions. Extract instructions as prompt.",
+        "extractInstructions": true
+      }
+    },
+    "n8n-nodes-base.markdown": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Convert between Markdown and HTML. Use JS with marked/turndown libraries or regex."
+      }
+    },
+    "n8n-nodes-base.moveBinaryData": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Converts between binary and JSON data. Use JS Buffer operations for base64 encode/decode."
+      }
+    },
+    "n8n-nodes-base.readWriteFile": {
+      "b0tModule": "utilities.filesystem",
+      "category": "utility",
+      "operations": {
+        "read": {
+          "b0tFunction": "readFile",
+          "description": "Read via readWriteFile"
+        },
+        "write": {
+          "b0tFunction": "writeFile",
+          "description": "Write via readWriteFile"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Read or write files. Extract operation (read/write) and filePath.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "read": "readFile",
+          "write": "writeFile"
+        },
+        "availableFunctions": ["readFile", "writeFile", "appendFile", "deleteFile", "listDirectory"]
+      }
+    },
+    "n8n-nodes-base.rssFeedRead": {
+      "b0tModule": "utilities.rss",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Reads and parses an RSS feed URL. Extract feedUrl from parameters.",
+        "extractFeedUrl": true
+      }
+    },
+    "n8n-nodes-base.function": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Legacy Function node (deprecated, replaced by Code). Extract functionCode from parameters.",
+        "extractCode": true
+      }
+    },
+    "n8n-nodes-base.functionItem": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Legacy FunctionItem node (deprecated). Runs code per item. Extract functionCode.",
+        "extractCode": true
+      }
+    },
+    "n8n-nodes-base.n8n": {
+      "b0tModule": "OMIT",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Internal n8n operations (list workflows, get execution, etc.). Omit — no b0t equivalent.",
+        "omitFromWorkflow": true
+      }
+    },
+    "n8n-nodes-base.executionData": {
+      "b0tModule": "OMIT",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Saves metadata about the current execution. n8n internal — omit in b0t.",
+        "omitFromWorkflow": true
+      }
+    },
+    "n8n-nodes-base.microsoftTeams": {
+      "b0tModule": "communication.microsoft-teams",
+      "category": "communication",
+      "operations": {
+        "send": {
+          "b0tFunction": "sendMessage",
+          "description": "Send via microsoftTeams"
+        },
+        "get": {
+          "b0tFunction": "getMessage",
+          "description": "Get via microsoftTeams"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node (chat, channel). Extract resource+operation. Default: sendMessage",
+        "mapOperationToMethod": true,
+        "operations": {
+          "send": "sendMessage",
+          "get": "getMessage"
+        },
+        "availableFunctions": ["sendMessage", "getMessage", "listMessages"]
+      }
+    },
+    "n8n-nodes-base.microsoftOutlookTrigger": {
+      "b0tModule": "communication.outlook",
+      "category": "trigger",
+      "triggerType": "outlook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "outlook",
+        "pollInterval": 60000,
+        "note": "Polling trigger for new Outlook emails. NEVER use trigger.manual."
+      }
+    },
+    "n8n-nodes-base.sendEmail": {
+      "b0tModule": "communication.email",
+      "category": "communication",
+      "conversionConfig": {
+        "note": "Generic SMTP email send.",
+        "parameterMapping": {
+          "toEmail": "to",
+          "subject": "subject",
+          "text": "body",
+          "html": "htmlBody"
+        }
+      }
+    },
+    "n8n-nodes-base.emailSend": {
+      "b0tModule": "communication.email",
+      "category": "communication",
+      "conversionConfig": {
+        "note": "Legacy email send node.",
+        "parameterMapping": {
+          "toEmail": "to",
+          "subject": "subject",
+          "text": "body"
+        }
+      }
+    },
+    "n8n-nodes-base.emailReadImap": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "IMAP email polling trigger. Map to webhook or cron-based polling in b0t."
+      }
+    },
+    "n8n-nodes-base.twilio": {
+      "b0tModule": "communication.twilio",
+      "category": "communication",
+      "operations": {
+        "send": {
+          "b0tFunction": "sendSms",
+          "description": "Send via twilio"
+        },
+        "call": {
+          "b0tFunction": "makeCall",
+          "description": "Call via twilio"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — SMS, calls, etc. Default: sendSms",
+        "mapOperationToMethod": true,
+        "operations": {
+          "send": "sendSms",
+          "call": "makeCall"
+        },
+        "availableFunctions": ["sendSms", "makeCall", "sendWhatsApp"]
+      }
+    },
+    "n8n-nodes-base.whatsApp": {
+      "b0tModule": "communication.whatsapp",
+      "category": "communication",
+      "conversionConfig": {
+        "note": "WhatsApp Business API.",
+        "parameterMapping": {
+          "to": "phoneNumber",
+          "body": "message"
+        }
+      }
+    },
+    "n8n-nodes-base.sendGrid": {
+      "b0tModule": "communication.email",
+      "category": "communication",
+      "conversionConfig": {
+        "note": "SendGrid email service. Map to generic email send.",
+        "parameterMapping": {
+          "toEmail": "to",
+          "subject": "subject",
+          "dynamicTemplateData": "templateData"
+        }
+      }
+    },
+    "n8n-nodes-base.mailchimp": {
+      "b0tModule": "communication.mailchimp",
+      "category": "communication",
+      "operations": {
+        "subscribe": {
+          "b0tFunction": "addSubscriber",
+          "description": "Subscribe via mailchimp"
+        },
+        "unsubscribe": {
+          "b0tFunction": "removeSubscriber",
+          "description": "Unsubscribe via mailchimp"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — lists, members, campaigns.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "subscribe": "addSubscriber",
+          "unsubscribe": "removeSubscriber"
+        },
+        "availableFunctions": [
+          "addSubscriber",
+          "removeSubscriber",
+          "updateSubscriber",
+          "getSubscriber",
+          "listMembers"
+        ]
+      }
+    },
+    "n8n-nodes-base.mailgun": {
+      "b0tModule": "communication.email",
+      "category": "communication",
+      "conversionConfig": {
+        "note": "Mailgun email service. Map to generic email send.",
+        "parameterMapping": {
+          "to": "to",
+          "subject": "subject",
+          "text": "body"
+        }
+      }
+    },
+    "n8n-nodes-base.freshdesk": {
+      "b0tModule": "communication.freshdesk",
+      "category": "communication",
+      "operations": {
+        "create": {
+          "b0tFunction": "createTicket",
+          "description": "Create via freshdesk"
+        },
+        "update": {
+          "b0tFunction": "updateTicket",
+          "description": "Update via freshdesk"
+        },
+        "get": {
+          "b0tFunction": "getTicket",
+          "description": "Get via freshdesk"
+        },
+        "list": {
+          "b0tFunction": "listTickets",
+          "description": "List via freshdesk"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — tickets, contacts. Default: createTicket",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createTicket",
+          "update": "updateTicket",
+          "get": "getTicket",
+          "list": "listTickets"
+        },
+        "availableFunctions": [
+          "createTicket",
+          "updateTicket",
+          "getTicket",
+          "listTickets",
+          "deleteTicket",
+          "createNote"
+        ]
+      }
+    },
+    "n8n-nodes-base.zendesk": {
+      "b0tModule": "communication.zendesk",
+      "category": "communication",
+      "operations": {
+        "create": {
+          "b0tFunction": "createTicket",
+          "description": "Create via zendesk"
+        },
+        "update": {
+          "b0tFunction": "updateTicket",
+          "description": "Update via zendesk"
+        },
+        "get": {
+          "b0tFunction": "getTicket",
+          "description": "Get via zendesk"
+        },
+        "list": {
+          "b0tFunction": "listTickets",
+          "description": "List via zendesk"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — tickets, users, organizations. Default: createTicket",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createTicket",
+          "update": "updateTicket",
+          "get": "getTicket",
+          "list": "listTickets"
+        },
+        "availableFunctions": [
+          "createTicket",
+          "updateTicket",
+          "getTicket",
+          "listTickets",
+          "deleteTicket"
+        ]
+      }
+    },
+    "n8n-nodes-base.intercom": {
+      "b0tModule": "communication.intercom",
+      "category": "communication",
+      "operations": {
+        "create": {
+          "b0tFunction": "createContact",
+          "description": "Create via intercom"
+        },
+        "update": {
+          "b0tFunction": "updateContact",
+          "description": "Update via intercom"
+        },
+        "get": {
+          "b0tFunction": "getContact",
+          "description": "Get via intercom"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — contacts, conversations, messages. Default: createContact",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createContact",
+          "update": "updateContact",
+          "get": "getContact"
+        },
+        "availableFunctions": [
+          "createContact",
+          "updateContact",
+          "getContact",
+          "listContacts",
+          "sendMessage"
+        ]
+      }
+    },
+    "n8n-nodes-base.twitter": {
+      "b0tModule": "social.twitter",
+      "category": "social",
+      "operations": {
+        "post": {
+          "b0tFunction": "postTweet",
+          "description": "Post via twitter"
+        },
+        "search": {
+          "b0tFunction": "searchTweets",
+          "description": "Search via twitter"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — tweet, search, DM, etc. Default: postTweet",
+        "mapOperationToMethod": true,
+        "operations": {
+          "post": "postTweet",
+          "search": "searchTweets"
+        },
+        "availableFunctions": ["postTweet", "searchTweets", "getUserTweets", "deleteTweet"]
+      }
+    },
+    "n8n-nodes-base.linkedIn": {
+      "b0tModule": "social.linkedin",
+      "category": "social",
+      "operations": {
+        "create": {
+          "b0tFunction": "createPost",
+          "description": "Create via linkedIn"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — posts, comments. Default: createPost",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createPost"
+        },
+        "availableFunctions": ["createPost", "deletePost", "getProfile"]
+      }
+    },
+    "n8n-nodes-base.mongoDb": {
+      "b0tModule": "data.mongodb",
+      "category": "data",
+      "operations": {
+        "find": {
+          "b0tFunction": "find",
+          "description": "Find via mongoDb"
+        },
+        "insert": {
+          "b0tFunction": "insertOne",
+          "description": "Insert via mongoDb"
+        },
+        "update": {
+          "b0tFunction": "updateOne",
+          "description": "Update via mongoDb"
+        },
+        "delete": {
+          "b0tFunction": "deleteOne",
+          "description": "Delete via mongoDb"
+        },
+        "aggregate": {
+          "b0tFunction": "aggregate",
+          "description": "Aggregate via mongoDb"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — CRUD on MongoDB collections. Default: find",
+        "mapOperationToMethod": true,
+        "operations": {
+          "find": "find",
+          "insert": "insertOne",
+          "update": "updateOne",
+          "delete": "deleteOne",
+          "aggregate": "aggregate"
+        },
+        "availableFunctions": [
+          "find",
+          "findOne",
+          "insertOne",
+          "insertMany",
+          "updateOne",
+          "updateMany",
+          "deleteOne",
+          "deleteMany",
+          "aggregate"
+        ]
+      }
+    },
+    "n8n-nodes-base.mySql": {
+      "b0tModule": "data.mysql",
+      "category": "data",
+      "conversionConfig": {
+        "note": "Execute SQL queries against MySQL. Extract query from parameters.",
+        "extractQuery": true
+      }
+    },
+    "n8n-nodes-base.googleCalendar": {
+      "b0tModule": "productivity.calendar",
+      "category": "productivity",
+      "operations": {
+        "create": {
+          "b0tFunction": "createEvent",
+          "description": "Create via googleCalendar"
+        },
+        "update": {
+          "b0tFunction": "updateEvent",
+          "description": "Update via googleCalendar"
+        },
+        "get": {
+          "b0tFunction": "getEvent",
+          "description": "Get via googleCalendar"
+        },
+        "getAll": {
+          "b0tFunction": "listEvents",
+          "description": "Get all via googleCalendar"
+        },
+        "delete": {
+          "b0tFunction": "deleteEvent",
+          "description": "Delete via googleCalendar"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — events. Extract operation.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createEvent",
+          "update": "updateEvent",
+          "get": "getEvent",
+          "getAll": "listEvents",
+          "delete": "deleteEvent"
+        },
+        "availableFunctions": [
+          "createEvent",
+          "updateEvent",
+          "getEvent",
+          "listEvents",
+          "deleteEvent"
+        ]
+      }
+    },
+    "n8n-nodes-base.googleDocs": {
+      "b0tModule": "content.google-docs",
+      "category": "content",
+      "operations": {
+        "create": {
+          "b0tFunction": "createDocument",
+          "description": "Create via googleDocs"
+        },
+        "get": {
+          "b0tFunction": "getDocument",
+          "description": "Get via googleDocs"
+        },
+        "update": {
+          "b0tFunction": "updateDocument",
+          "description": "Update via googleDocs"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — documents. Default: getDocument",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createDocument",
+          "get": "getDocument",
+          "update": "updateDocument"
+        },
+        "availableFunctions": ["createDocument", "getDocument", "updateDocument", "appendText"]
+      }
+    },
+    "n8n-nodes-base.microsoftOneDrive": {
+      "b0tModule": "data.onedrive",
+      "category": "data",
+      "operations": {
+        "list": {
+          "b0tFunction": "listFiles",
+          "description": "List via microsoftOneDrive"
+        },
+        "download": {
+          "b0tFunction": "downloadFile",
+          "description": "Download via microsoftOneDrive"
+        },
+        "upload": {
+          "b0tFunction": "uploadFile",
+          "description": "Upload via microsoftOneDrive"
+        },
+        "delete": {
+          "b0tFunction": "deleteFile",
+          "description": "Delete via microsoftOneDrive"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-operation node — files and folders. Default: listFiles",
+        "mapOperationToMethod": true,
+        "operations": {
+          "list": "listFiles",
+          "download": "downloadFile",
+          "upload": "uploadFile",
+          "delete": "deleteFile"
+        },
+        "availableFunctions": [
+          "listFiles",
+          "downloadFile",
+          "uploadFile",
+          "deleteFile",
+          "createFolder"
+        ]
+      }
+    },
+    "n8n-nodes-base.googleAnalytics": {
+      "b0tModule": "data.google-analytics",
+      "category": "data",
+      "conversionConfig": {
+        "note": "Google Analytics reporting. Extract report parameters.",
+        "availableFunctions": ["runReport", "runRealtimeReport"]
+      }
+    },
+    "n8n-nodes-base.pipedrive": {
+      "b0tModule": "business.pipedrive",
+      "category": "business",
+      "operations": {
+        "create": {
+          "b0tFunction": "createDeal",
+          "description": "Create via pipedrive"
+        },
+        "update": {
+          "b0tFunction": "updateDeal",
+          "description": "Update via pipedrive"
+        },
+        "get": {
+          "b0tFunction": "getDeal",
+          "description": "Get via pipedrive"
+        },
+        "search": {
+          "b0tFunction": "searchDeals",
+          "description": "Search via pipedrive"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — deals, persons, organizations. Default: createDeal",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createDeal",
+          "update": "updateDeal",
+          "get": "getDeal",
+          "search": "searchDeals"
+        },
+        "availableFunctions": [
+          "createDeal",
+          "updateDeal",
+          "getDeal",
+          "searchDeals",
+          "createPerson",
+          "updatePerson",
+          "getPerson"
+        ]
+      }
+    },
+    "n8n-nodes-base.quickbooks": {
+      "b0tModule": "business.quickbooks",
+      "category": "business",
+      "operations": {
+        "create": {
+          "b0tFunction": "createInvoice",
+          "description": "Create via quickbooks"
+        },
+        "get": {
+          "b0tFunction": "getInvoice",
+          "description": "Get via quickbooks"
+        },
+        "query": {
+          "b0tFunction": "queryInvoices",
+          "description": "Query via quickbooks"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — invoices, customers, payments. Default: createInvoice",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createInvoice",
+          "get": "getInvoice",
+          "query": "queryInvoices"
+        },
+        "availableFunctions": [
+          "createInvoice",
+          "getInvoice",
+          "queryInvoices",
+          "createCustomer",
+          "getCustomer"
+        ]
+      }
+    },
+    "n8n-nodes-base.xero": {
+      "b0tModule": "business.xero",
+      "category": "business",
+      "operations": {
+        "create": {
+          "b0tFunction": "createInvoice",
+          "description": "Create via xero"
+        },
+        "get": {
+          "b0tFunction": "getInvoice",
+          "description": "Get via xero"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — invoices, contacts. Default: createInvoice",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createInvoice",
+          "get": "getInvoice"
+        },
+        "availableFunctions": ["createInvoice", "getInvoice", "createContact", "getContact"]
+      }
+    },
+    "n8n-nodes-base.shopify": {
+      "b0tModule": "ecommerce.shopify",
+      "category": "ecommerce",
+      "operations": {
+        "getAll": {
+          "b0tFunction": "getOrders",
+          "description": "Get all via shopify"
+        },
+        "get": {
+          "b0tFunction": "getOrder",
+          "description": "Get via shopify"
+        },
+        "create": {
+          "b0tFunction": "createProduct",
+          "description": "Create via shopify"
+        },
+        "update": {
+          "b0tFunction": "updateProduct",
+          "description": "Update via shopify"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — orders, products, customers. Default: getOrders",
+        "mapOperationToMethod": true,
+        "operations": {
+          "getAll": "getOrders",
+          "get": "getOrder",
+          "create": "createProduct",
+          "update": "updateProduct"
+        },
+        "availableFunctions": [
+          "getOrders",
+          "getOrder",
+          "createProduct",
+          "updateProduct",
+          "getProducts",
+          "getCustomers"
+        ]
+      }
+    },
+    "n8n-nodes-base.stripe": {
+      "b0tModule": "payments.stripe",
+      "category": "payments",
+      "operations": {
+        "create": {
+          "b0tFunction": "createCharge",
+          "description": "Create via stripe"
+        },
+        "get": {
+          "b0tFunction": "getCharge",
+          "description": "Get via stripe"
+        },
+        "list": {
+          "b0tFunction": "listCharges",
+          "description": "List via stripe"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — charges, customers, payment intents. Default: createCharge",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createCharge",
+          "get": "getCharge",
+          "list": "listCharges"
+        },
+        "availableFunctions": [
+          "createCharge",
+          "getCharge",
+          "listCharges",
+          "createCustomer",
+          "getCustomer",
+          "createPaymentIntent"
+        ]
+      }
+    },
+    "n8n-nodes-base.wooCommerce": {
+      "b0tModule": "ecommerce.woocommerce",
+      "category": "ecommerce",
+      "operations": {
+        "getAll": {
+          "b0tFunction": "getOrders",
+          "description": "Get all via wooCommerce"
+        },
+        "get": {
+          "b0tFunction": "getOrder",
+          "description": "Get via wooCommerce"
+        },
+        "create": {
+          "b0tFunction": "createProduct",
+          "description": "Create via wooCommerce"
+        },
+        "update": {
+          "b0tFunction": "updateProduct",
+          "description": "Update via wooCommerce"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — orders, products, customers. Default: getOrders",
+        "mapOperationToMethod": true,
+        "operations": {
+          "getAll": "getOrders",
+          "get": "getOrder",
+          "create": "createProduct",
+          "update": "updateProduct"
+        },
+        "availableFunctions": [
+          "getOrders",
+          "getOrder",
+          "createProduct",
+          "updateProduct",
+          "getProducts"
+        ]
+      }
+    },
+    "n8n-nodes-base.linear": {
+      "b0tModule": "productivity.linear",
+      "category": "productivity",
+      "operations": {
+        "create": {
+          "b0tFunction": "createIssue",
+          "description": "Create via linear"
+        },
+        "update": {
+          "b0tFunction": "updateIssue",
+          "description": "Update via linear"
+        },
+        "get": {
+          "b0tFunction": "getIssue",
+          "description": "Get via linear"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — issues, projects, teams. Default: createIssue",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createIssue",
+          "update": "updateIssue",
+          "get": "getIssue"
+        },
+        "availableFunctions": [
+          "createIssue",
+          "updateIssue",
+          "getIssue",
+          "listIssues",
+          "createProject"
+        ]
+      }
+    },
+    "n8n-nodes-base.typeform": {
+      "b0tModule": "productivity.typeform",
+      "category": "productivity",
+      "conversionConfig": {
+        "note": "Typeform form responses. Extract formId.",
+        "availableFunctions": ["getResponses", "getForm"]
+      }
+    },
+    "n8n-nodes-base.calendly": {
+      "b0tModule": "productivity.calendly",
+      "category": "productivity",
+      "conversionConfig": {
+        "note": "Calendly scheduling. Extract event type and date range.",
+        "availableFunctions": ["getEvents", "getEventTypes"]
+      }
+    },
+    "n8n-nodes-base.github": {
+      "b0tModule": "devtools.github",
+      "category": "devtools",
+      "operations": {
+        "create": {
+          "b0tFunction": "createIssue",
+          "description": "Create via github"
+        },
+        "get": {
+          "b0tFunction": "getIssue",
+          "description": "Get via github"
+        },
+        "list": {
+          "b0tFunction": "listIssues",
+          "description": "List via github"
+        },
+        "edit": {
+          "b0tFunction": "updateIssue",
+          "description": "Edit via github"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Multi-resource node — repos, issues, PRs, releases. Default: createIssue",
+        "mapOperationToMethod": true,
+        "operations": {
+          "create": "createIssue",
+          "get": "getIssue",
+          "list": "listIssues",
+          "edit": "updateIssue"
+        },
+        "availableFunctions": [
+          "createIssue",
+          "getIssue",
+          "listIssues",
+          "updateIssue",
+          "getRepo",
+          "listRepos",
+          "createPR",
+          "getFile"
+        ]
+      }
+    },
+    "n8n-nodes-base.slackTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Slack event trigger — map to webhook."
+      }
+    },
+    "n8n-nodes-base.notionTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Notion polling trigger — map to webhook/cron."
+      }
+    },
+    "n8n-nodes-base.githubTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "GitHub webhook trigger."
+      }
+    },
+    "n8n-nodes-base.googleSheetsTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Google Sheets change polling trigger."
+      }
+    },
+    "n8n-nodes-base.shopifyTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Shopify webhook trigger."
+      }
+    },
+    "n8n-nodes-base.stripeTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Stripe webhook trigger."
+      }
+    },
+    "n8n-nodes-base.typeformTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Typeform submission webhook trigger."
+      }
+    },
+    "n8n-nodes-base.jiraTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Jira webhook trigger."
+      }
+    },
+    "n8n-nodes-base.calTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Cal.com booking event trigger."
+      }
+    },
+    "n8n-nodes-base.calendlyTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Calendly event webhook trigger."
+      }
+    },
+    "n8n-nodes-base.hubspotTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "HubSpot webhook trigger for CRM events."
+      }
+    },
+    "n8n-nodes-base.clickUpTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "ClickUp webhook trigger."
+      }
+    },
+    "n8n-nodes-base.linearTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Linear webhook trigger."
+      }
+    },
+    "n8n-nodes-base.formTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "n8n form submission trigger."
+      }
+    },
+    "n8n-nodes-base.chatTrigger": {
+      "b0tModule": "trigger.chat",
+      "category": "trigger",
+      "triggerType": "chat",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "chat",
+        "note": "Chat interface trigger."
+      }
+    },
+    "n8n-nodes-base.errorTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "webhook",
+        "note": "Fires on workflow error."
+      }
+    },
+    "n8n-nodes-base.rssFeedTrigger": {
+      "b0tModule": "cron",
+      "category": "trigger",
+      "triggerType": "cron",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "cron",
+        "note": "RSS feed polling trigger — use cron with RSS read step.",
+        "pollInterval": 300000
+      }
+    },
+    "n8n-nodes-base.cron": {
+      "b0tModule": "cron",
+      "category": "trigger",
+      "triggerType": "cron",
+      "conversionConfig": {
+        "isTrigger": true,
+        "triggerType": "cron",
+        "extractCronExpression": true,
+        "note": "Legacy cron trigger."
+      }
+    },
+    "n8n-nodes-base.jira": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Jira — no native b0t module. Use HTTP request to Jira REST API.",
+        "isApiProxy": true,
+        "apiBaseUrl": "https://{domain}.atlassian.net/rest/api/3"
+      }
+    },
+    "n8n-nodes-base.trello": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Trello — no native b0t module. Use HTTP request to Trello REST API.",
+        "isApiProxy": true,
+        "apiBaseUrl": "https://api.trello.com/1"
+      }
+    },
+    "n8n-nodes-base.asana": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Asana — no native b0t module. Use HTTP request to Asana REST API.",
+        "isApiProxy": true,
+        "apiBaseUrl": "https://app.asana.com/api/1.0"
+      }
+    },
+    "n8n-nodes-base.clickUp": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "ClickUp — no native b0t module. Use HTTP request to ClickUp API.",
+        "isApiProxy": true,
+        "apiBaseUrl": "https://api.clickup.com/api/v2"
+      }
+    },
+    "n8n-nodes-base.dropbox": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Dropbox — no native b0t module. Use HTTP request to Dropbox API.",
+        "isApiProxy": true,
+        "apiBaseUrl": "https://api.dropboxapi.com/2"
+      }
+    },
+    "n8n-nodes-base.redis": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Redis key-value operations — use JavaScript with ioredis or HTTP to Redis REST API."
+      }
+    },
+    "n8n-nodes-base.ftp": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "FTP/SFTP — use HTTP or JavaScript with ssh2-sftp-client."
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatOpenAi": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "OpenAI LLM config sub-node.",
+        "isSubNode": true,
+        "provider": "openai",
+        "extractModel": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatGoogleGemini": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Google Gemini LLM config sub-node.",
+        "isSubNode": true,
+        "provider": "google",
+        "extractModel": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatOllama": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Ollama local LLM config sub-node.",
+        "isSubNode": true,
+        "provider": "ollama",
+        "extractModel": true,
+        "extractBaseUrl": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatGroq": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Groq LLM config sub-node. Fast inference.",
+        "isSubNode": true,
+        "provider": "groq",
+        "extractModel": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.chainLlm": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "Basic LLM chain — prompt → LLM → output. Extract prompt template.",
+        "extractPromptTemplate": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.chainRetrievalQa": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "RAG chain. Use generateText with context from vector store search.",
+        "isRAGChain": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.outputParserStructured": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Structured output parser. In b0t, use generateJSON instead.",
+        "isSubNode": true,
+        "useGenerateJSON": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.informationExtractor": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "Extract structured information from text. Use generateJSON with schema.",
+        "extractSchema": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.sentimentAnalysis": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "note": "Sentiment analysis. Use generateJSON with sentiment enum schema.",
+        "useEnumSchema": true,
+        "sentimentCategories": ["positive", "negative", "neutral"]
+      }
+    },
+    "@n8n/n8n-nodes-langchain.toolHttp": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "HTTP request tool for AI agent.",
+        "isSubNode": true,
+        "extractUrl": true,
+        "extractMethod": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.embeddingsOpenAi": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "OpenAI embeddings sub-node.",
+        "isSubNode": true,
+        "provider": "openai",
+        "extractModel": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.vectorStoreInMemory": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "In-memory vector store sub-node. In b0t, use built-in memory or Pinecone/Chroma.",
+        "isSubNode": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.vectorStorePinecone": {
+      "b0tModule": "ai.pinecone",
+      "category": "ai",
+      "operations": {
+        "insert": {
+          "b0tFunction": "upsert",
+          "description": "Insert via vectorStorePinecone"
+        },
+        "get": {
+          "b0tFunction": "query",
+          "description": "Get via vectorStorePinecone"
+        },
+        "clear": {
+          "b0tFunction": "deleteAll",
+          "description": "Clear via vectorStorePinecone"
+        }
+      },
+      "conversionConfig": {
+        "referenceOnly": true,
+        "note": "Pinecone vector store. Extract index name and namespace.",
+        "mapOperationToMethod": true,
+        "operations": {
+          "insert": "upsert",
+          "get": "query",
+          "clear": "deleteAll"
+        },
+        "availableFunctions": ["upsert", "query", "deleteAll", "fetch"]
+      }
+    },
+    "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Text splitter sub-node. Extract chunkSize and chunkOverlap.",
+        "isSubNode": true,
+        "extractChunkSize": true,
+        "extractChunkOverlap": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.documentDefaultDataLoader": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Document loader sub-node.",
+        "isSubNode": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Azure OpenAI LLM config sub-node.",
+        "isSubNode": true,
+        "provider": "azure-openai",
+        "extractModel": true,
+        "extractDeploymentName": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.memoryChatMessages": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Chat message memory sub-node. In b0t, agent memory is built-in.",
+        "isSubNode": true
+      }
+    },
+    "@n8n/n8n-nodes-langchain.outputParserAutofixing": {
+      "b0tModule": "SUB_NODE",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Auto-fixing output parser. In b0t, use generateJSON.",
+        "isSubNode": true,
+        "useGenerateJSON": true
+      }
+    },
+    "n8n-nodes-base.webhookTrigger": {
+      "b0tModule": "webhook",
+      "category": "trigger",
+      "triggerType": "webhook"
+    },
+    "n8n-nodes-base.openAi": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "operations": {
+        "generateText": {
+          "b0tFunction": "generateText",
+          "description": "Generate text with AI"
+        },
+        "generateJSON": {
+          "b0tFunction": "generateJSON",
+          "description": "Generate structured JSON with AI"
+        }
+      }
+    }
+  },
+  "make": {
+    "gateway:CustomWebHook": {
+      "b0tModule": "trigger.webhook",
+      "category": "trigger",
+      "triggerType": "webhook"
+    },
+    "gateway:WebhookRespond": {
+      "b0tModule": "trigger.webhook",
+      "category": "utility",
+      "conversionConfig": {
+        "note": "Webhook response — Odin handles this implicitly via webhookSync trigger; usually drop or convert to last-step return value."
+      }
+    },
+    "airtable:TriggerWatchRecords": {
+      "b0tModule": "data.airtable",
+      "category": "trigger",
+      "triggerType": "airtable",
+      "conversionConfig": {
+        "extractParameters": ["base", "table", "view", "formula", "maxRecords"],
+        "triggerFieldFrom": "parameters.config.triggerField"
+      }
+    },
+    "airtable:ActionSearchRecords": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "operations": {
+        "search": {
+          "b0tFunction": "findRecord",
+          "description": "Search records"
+        }
+      },
+      "conversionConfig": {
+        "defaultFunction": "findRecord"
+      }
+    },
+    "airtable:ActionCreateRecord": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "operations": {
+        "create": {
+          "b0tFunction": "createRecord",
+          "description": "Create a record"
+        }
+      },
+      "conversionConfig": {
+        "defaultFunction": "createRecord"
+      }
+    },
+    "airtable:ActionUpdateRecord": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "operations": {
+        "update": {
+          "b0tFunction": "updateRecord",
+          "description": "Update a record"
+        }
+      },
+      "conversionConfig": {
+        "defaultFunction": "updateRecord"
+      }
+    },
+    "airtable:ActionGetRecord": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "operations": {
+        "get": {
+          "b0tFunction": "findRecord",
+          "description": "Get a record by ID"
+        }
+      },
+      "conversionConfig": {
+        "defaultFunction": "findRecord"
+      }
+    },
+    "airtable:ActionListRecords": {
+      "b0tModule": "data.airtable",
+      "category": "data",
+      "conversionConfig": {
+        "defaultFunction": "selectRecords"
+      }
+    },
+    "gmail:sendEmail": {
+      "b0tModule": "communication.gmail",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendEmail"
+      }
+    },
+    "gmail:ActionSendEmail": {
+      "b0tModule": "communication.gmail",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendEmail"
+      }
+    },
+    "microsoft-email:createAndSendAMessage": {
+      "b0tModule": "communication.outlook",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendEmail"
+      }
+    },
+    "slack:sendMessage": {
+      "b0tModule": "communication.slack",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendMessage"
+      }
+    },
+    "slack:ActionSendMessage": {
+      "b0tModule": "communication.slack",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendMessage"
+      }
+    },
+    "google-docs:createADocumentFromTemplate": {
+      "b0tModule": "productivity.google-docs",
+      "category": "productivity",
+      "conversionConfig": {
+        "defaultFunction": "createFromTemplate"
+      }
+    },
+    "google-docs:addAnImageToADocument": {
+      "b0tModule": "productivity.google-docs",
+      "category": "productivity",
+      "conversionConfig": {
+        "defaultFunction": "addImage"
+      }
+    },
+    "google-drive:copyAFile": {
+      "b0tModule": "productivity.google-drive",
+      "category": "productivity",
+      "conversionConfig": {
+        "defaultFunction": "copyFile"
+      }
+    },
+    "google-drive:getAFile": {
+      "b0tModule": "productivity.google-drive",
+      "category": "productivity",
+      "conversionConfig": {
+        "defaultFunction": "getFile"
+      }
+    },
+    "google-sheets:addRow": {
+      "b0tModule": "data.google-sheets",
+      "category": "data",
+      "conversionConfig": {
+        "defaultFunction": "addRow"
+      }
+    },
+    "google-sheets:ActionAddRow": {
+      "b0tModule": "data.google-sheets",
+      "category": "data",
+      "conversionConfig": {
+        "defaultFunction": "addRow"
+      }
+    },
+    "google-sheets:getRange": {
+      "b0tModule": "data.google-sheets",
+      "category": "data",
+      "conversionConfig": {
+        "defaultFunction": "getRows"
+      }
+    },
+    "instagram-business:CreatePostPhoto": {
+      "b0tModule": "social.instagram",
+      "category": "social",
+      "conversionConfig": {
+        "defaultFunction": "createPost"
+      }
+    },
+    "canva:exportDesign": {
+      "b0tModule": "content.canva",
+      "category": "content",
+      "conversionConfig": {
+        "defaultFunction": "exportDesign"
+      }
+    },
+    "canva:makeApiCall": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "request",
+        "note": "Canva generic API call — fall back to http.request"
+      }
+    },
+    "cal-com:calSubscribe": {
+      "b0tModule": "trigger.webhook",
+      "category": "trigger",
+      "triggerType": "webhook",
+      "conversionConfig": {
+        "note": "Cal.com subscription is webhook-based — register webhook URL with Cal.com manually."
+      }
+    },
+    "openai:createCompletion": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "openai",
+        "defaultFunction": "generateText"
+      }
+    },
+    "openai:CreateChatCompletion": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "openai",
+        "defaultFunction": "generateText"
+      }
+    },
+    "anthropic:createMessage": {
+      "b0tModule": "ai.ai-sdk",
+      "category": "ai",
+      "conversionConfig": {
+        "provider": "anthropic",
+        "defaultFunction": "generateText"
+      }
+    },
+    "http:ActionSendData": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "request"
+      }
+    },
+    "http:ActionGetData": {
+      "b0tModule": "utilities.http",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "request"
+      }
+    },
+    "util:SetVariables": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute",
+        "note": "Make.com SetVariables → utilities.javascript.execute with return object."
+      }
+    },
+    "util:SetVariable": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute"
+      }
+    },
+    "util:FunctionSleep": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute",
+        "note": "Make.com sleep → utilities.javascript.execute with await new Promise(r=>setTimeout(r, ms))."
+      }
+    },
+    "builtin:BasicRouter": {
+      "b0tModule": "utilities.javascript",
+      "category": "control-flow",
+      "conversionConfig": {
+        "branching": true,
+        "askUser": true,
+        "note": "Make.com BasicRouter is multi-branch routing — Odin is sequential. Ask user how to handle (JS conditional, multiple workflows, or simplify).",
+        "defaultFunction": "execute"
+      }
+    },
+    "builtin:BasicFeeder": {
+      "b0tModule": "utilities.javascript",
+      "category": "control-flow",
+      "conversionConfig": {
+        "defaultFunction": "execute",
+        "note": "Make.com iterator — convert to forEach loop step."
+      }
+    },
+    "builtin:BasicAggregator": {
+      "b0tModule": "utilities.javascript",
+      "category": "control-flow",
+      "conversionConfig": {
+        "defaultFunction": "execute",
+        "note": "Make.com aggregator — Odin handles collection inside loop output."
+      }
+    },
+    "json:ParseJSON": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute"
+      }
+    },
+    "json:CreateJSON": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute"
+      }
+    },
+    "tools:Sleep": {
+      "b0tModule": "utilities.javascript",
+      "category": "utility",
+      "conversionConfig": {
+        "defaultFunction": "execute"
+      }
+    },
+    "telegram:sendMessage": {
+      "b0tModule": "communication.telegram",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendMessage"
+      }
+    },
+    "discord:sendMessage": {
+      "b0tModule": "communication.discord",
+      "category": "communication",
+      "conversionConfig": {
+        "defaultFunction": "sendMessage"
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Menu } from 'lucide-react';
@@ -9,11 +9,13 @@ import { ModelSelector } from './ModelSelector';
 import { logger } from '@/lib/logger';
 
 interface ContentBlock {
-  type: 'text' | 'tool_use';
+  type: 'text' | 'tool_use' | 'workflow_created';
   text?: string;
   id?: string;
   name?: string;
   input?: Record<string, unknown>;
+  workflowId?: string;
+  workflowName?: string;
 }
 
 interface Message {
@@ -33,7 +35,9 @@ export function ChatContainer({ isOpen, onClose }: ChatContainerProps) {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<Array<{ id: string; title: string; updatedAt: string }>>([]);
+  const [sessions, setSessions] = useState<Array<{ id: string; title: string; updatedAt: string }>>(
+    []
+  );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('sonnet');
@@ -84,17 +88,14 @@ export function ChatContainer({ isOpen, onClose }: ChatContainerProps) {
       const response = await fetch(`/api/agent-chat/sessions/${id}/messages`);
       if (response.ok) {
         const data = await response.json();
-        const loadedMessages: Message[] = data.messages.map((msg: {
-          id: string;
-          role: string;
-          content: string;
-          createdAt: string;
-        }) => ({
-          id: msg.id,
-          type: msg.role as 'user' | 'assistant',
-          content: msg.role === 'assistant' ? JSON.parse(msg.content) : msg.content,
-          timestamp: msg.createdAt,
-        }));
+        const loadedMessages: Message[] = data.messages.map(
+          (msg: { id: string; role: string; content: string; createdAt: string }) => ({
+            id: msg.id,
+            type: msg.role as 'user' | 'assistant',
+            content: msg.role === 'assistant' ? JSON.parse(msg.content) : msg.content,
+            timestamp: msg.createdAt,
+          })
+        );
         setMessages(loadedMessages);
       }
     } catch (error) {
@@ -198,11 +199,18 @@ export function ChatContainer({ isOpen, onClose }: ChatContainerProps) {
                   })
                 );
               } else if (data.type === 'error') {
-                logger.error({ error: data.error }, 'Stream error');
+                const streamError =
+                  typeof data.error === 'string' ? data.error : 'Unknown stream error';
+                logger.warn({ error: streamError }, 'Stream error');
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
-                      ? { ...msg, content: [{ type: 'text', text: `Error: ${data.error}` }] as ContentBlock[] }
+                      ? {
+                          ...msg,
+                          content: [
+                            { type: 'text', text: `Error: ${streamError}` },
+                          ] as ContentBlock[],
+                        }
                       : msg
                   )
                 );

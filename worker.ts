@@ -23,6 +23,7 @@
  */
 
 import { initializeWorkflowQueue } from './src/lib/workflows/workflow-queue';
+import { startAllWorkers } from './src/lib/queue';
 import { workflowScheduler } from './src/lib/workflows/workflow-scheduler';
 import { preloadAllModules } from './src/lib/workflows/module-preloader';
 import { preloadCredentialCache } from './src/lib/workflows/credential-cache';
@@ -35,7 +36,7 @@ const concurrency = parseInt(process.env.WORKFLOW_CONCURRENCY || '50', 10);
 const skipModulePreload = process.env.SKIP_MODULE_PRELOAD === 'true';
 
 console.log('╔════════════════════════════════════════╗');
-console.log('║   ODIN Workflow Worker                 ║');
+console.log('║   b0t Workflow Worker                  ║');
 console.log('╚════════════════════════════════════════╝');
 console.log('');
 console.log(`Worker: ${workerName}`);
@@ -86,6 +87,10 @@ async function startWorker() {
     }
 
     logger.info({ workerName }, 'Workflow queue worker initialized');
+
+    // Start all registered BullMQ workers (they are created with autorun: false)
+    await startAllWorkers();
+    logger.info({ workerName }, 'All BullMQ workers started processing');
 
     // Initialize workflow scheduler (handles cron-triggered workflows)
     await workflowScheduler.initialize();
@@ -183,16 +188,43 @@ async function startWorker() {
     process.on('uncaughtException', (error) => {
       logger.error({ workerName, error }, 'Uncaught exception in worker');
       console.error('❌ Uncaught exception:', error);
-      process.exit(1);
+
+      // Fire-and-forget: notify admin of worker crash
+      import('./src/lib/notifications')
+        .then(({ createSystemAlert }) => {
+          createSystemAlert(
+            'Worker crashed: uncaught exception',
+            error instanceof Error ? error.message : String(error),
+            { workerName, type: 'uncaughtException' }
+          ).catch((err) =>
+            logger.error({ error: err }, 'Failed to send worker crash notification')
+          );
+        })
+        .catch((err) => logger.error({ error: err }, 'Failed to import notifications module'));
+
+      // Delay exit slightly to allow notification to be sent
+      setTimeout(() => process.exit(1), 500);
     });
 
     process.on('unhandledRejection', (reason, promise) => {
-      logger.error(
-        { workerName, reason, promise },
-        'Unhandled promise rejection in worker'
-      );
+      logger.error({ workerName, reason, promise }, 'Unhandled promise rejection in worker');
       console.error('❌ Unhandled rejection:', reason);
-      process.exit(1);
+
+      // Fire-and-forget: notify admin of unhandled rejection
+      import('./src/lib/notifications')
+        .then(({ createSystemAlert }) => {
+          createSystemAlert(
+            'Worker error: unhandled rejection',
+            reason instanceof Error ? reason.message : String(reason),
+            { workerName, type: 'unhandledRejection' }
+          ).catch((err) =>
+            logger.error({ error: err }, 'Failed to send unhandled rejection notification')
+          );
+        })
+        .catch((err) => logger.error({ error: err }, 'Failed to import notifications module'));
+
+      // Delay exit slightly to allow notification to be sent
+      setTimeout(() => process.exit(1), 500);
     });
   } catch (error) {
     logger.error({ workerName, error }, 'Failed to start worker');

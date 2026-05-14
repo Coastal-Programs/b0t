@@ -40,6 +40,43 @@ Use AskUserQuestion tool to gather:
 - For social media: Need deduplication? (Yes/No)
 - For AI workflows: Which model? (GPT-4o-mini, Claude, etc.)
 
+## Step 1.5: Show Workflow Diagram
+
+After understanding the user's requirements, ALWAYS show a mermaid flowchart diagram BEFORE building. This helps the user visualize what their automation will do.
+
+**Use markdown mermaid code blocks:**
+
+```mermaid
+graph TD
+    trigger["emoji Trigger Description"]:::trigger
+    step1["emoji Step Description"]:::category
+    ...
+    output(["📤 Output"]):::output
+    
+    trigger --> step1
+    ...
+    
+    classDef trigger fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef ai fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    classDef communication fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef data fill:#22c55e,stroke:#16a34a,color:#fff
+    classDef utilities fill:#71717a,stroke:#52525b,color:#fff
+    classDef condition fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef output fill:#6b7280,stroke:#4b5563,color:#fff
+```
+
+**Category emojis for nodes:**
+- Trigger: varies by type (⏰📧🔗💬📋▶️)
+- AI steps: 🤖
+- Communication: 📧💬
+- Data: 📊📁
+- Social: 📱
+- Utilities/JS: 📝⚙️
+- Conditions: use diamond shape `{"condition text"}`
+
+**Ask the user "Does this look right?" before proceeding to build.**
+**After building, show the final diagram again.**
+
 ## Step 2: Load Context Files
 
 **CRITICAL: Use Read tool to load these reference files in order:**
@@ -164,6 +201,8 @@ Tell user:
 - Workflow name and ID
 - How to access it
 - How to test it (if webhook, provide curl command)
+
+After reporting success, show a final mermaid diagram of the completed workflow. This confirms to the user exactly what was built.
 
 ## Critical Rules
 

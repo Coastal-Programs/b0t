@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getAuthUserId } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 import { workflowsTable, chatConversationsTable } from '@/lib/schema';
 import { eq, and, isNull, sql } from 'drizzle-orm';
@@ -17,9 +17,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const userId = await getAuthUserId(request);
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const offset = (page - 1) * limit;
 
     // Build where clause
-    const whereConditions = [eq(workflowsTable.userId, session.user.id)];
+    const whereConditions = [eq(workflowsTable.userId, userId)];
 
     if (organizationId) {
       // Filter by specific organization
@@ -54,14 +54,15 @@ export async function GET(request: Request) {
         lastRun: workflowsTable.lastRun,
         lastRunStatus: workflowsTable.lastRunStatus,
         lastRunOutput: workflowsTable.lastRunOutput,
+        lastRunError: workflowsTable.lastRunError,
         runCount: workflowsTable.runCount,
-        conversationCount: sql<number>`COALESCE(COUNT(CASE WHEN ${chatConversationsTable.status} = 'active' THEN 1 END), 0)`.as('conversation_count'),
+        conversationCount:
+          sql<number>`COALESCE(COUNT(CASE WHEN ${chatConversationsTable.status} = 'active' THEN 1 END), 0)`.as(
+            'conversation_count'
+          ),
       })
       .from(workflowsTable)
-      .leftJoin(
-        chatConversationsTable,
-        eq(chatConversationsTable.workflowId, workflowsTable.id)
-      )
+      .leftJoin(chatConversationsTable, eq(chatConversationsTable.workflowId, workflowsTable.id))
       .where(and(...whereConditions))
       .groupBy(
         workflowsTable.id,
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
         workflowsTable.lastRun,
         workflowsTable.lastRunStatus,
         workflowsTable.lastRunOutput,
+        workflowsTable.lastRunError,
         workflowsTable.runCount
       )
       .orderBy(workflowsTable.createdAt)
@@ -91,11 +93,29 @@ export async function GET(request: Request) {
 
     // Parse config and trigger if they're strings
     const workflows = rawWorkflows.map((workflow) => {
+      let config: unknown = workflow.config;
+      let trigger: unknown = workflow.trigger;
+      let _parseError = false;
+      try {
+        config =
+          typeof workflow.config === 'string' ? JSON.parse(workflow.config) : workflow.config;
+      } catch {
+        config = {};
+        _parseError = true;
+      }
+      try {
+        trigger =
+          typeof workflow.trigger === 'string' ? JSON.parse(workflow.trigger) : workflow.trigger;
+      } catch {
+        trigger = null;
+        _parseError = true;
+      }
       return {
         ...workflow,
-        config: typeof workflow.config === 'string' ? JSON.parse(workflow.config) : workflow.config,
-        trigger: typeof workflow.trigger === 'string' ? JSON.parse(workflow.trigger) : workflow.trigger,
+        config,
+        trigger,
         conversationCount: workflow.conversationCount,
+        _parseError,
       };
     });
 
@@ -114,13 +134,10 @@ export async function GET(request: Request) {
     logger.error(
       {
         error: error instanceof Error ? error.message : String(error),
-        action: 'workflows_list_failed'
+        action: 'workflows_list_failed',
       },
       'Failed to list workflows'
     );
-    return NextResponse.json(
-      { error: 'Failed to list workflows' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to list workflows' }, { status: 500 });
   }
 }

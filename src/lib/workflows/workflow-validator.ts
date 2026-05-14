@@ -8,7 +8,18 @@
 import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import ajvKeywords from 'ajv-keywords';
-import { workflowSchema, chatInputTriggerSchema, cronTriggerSchema, chatTriggerSchema, airtableTriggerSchema } from './workflow-schema';
+import {
+  workflowSchema,
+  chatInputTriggerSchema,
+  cronTriggerSchema,
+  chatTriggerSchema,
+  airtableTriggerSchema,
+  gmailTriggerSchema,
+  outlookTriggerSchema,
+  webhookTriggerSchema,
+  telegramTriggerSchema,
+  discordTriggerSchema,
+} from './workflow-schema';
 import { getModuleRegistry } from './module-registry';
 import { logger } from '@/lib/logger';
 
@@ -17,8 +28,9 @@ const ajv = new Ajv({
   allErrors: true, // Return all errors, not just first
   verbose: true, // Include schema and data in errors
   strict: true, // Strict schema validation
+  allowUnionTypes: true, // Allow type: ['string', 'number'] in schemas
   validateFormats: true,
-  $data: true // Enable $data references
+  $data: true, // Enable $data references
 });
 
 // Add format validators (date-time, email, uri, etc.)
@@ -33,6 +45,11 @@ const validateChatInputTrigger = ajv.compile(chatInputTriggerSchema);
 const validateCronTrigger = ajv.compile(cronTriggerSchema);
 const validateChatTrigger = ajv.compile(chatTriggerSchema);
 const validateAirtableTrigger = ajv.compile(airtableTriggerSchema);
+const validateGmailTrigger = ajv.compile(gmailTriggerSchema);
+const validateOutlookTrigger = ajv.compile(outlookTriggerSchema);
+const validateWebhookTrigger = ajv.compile(webhookTriggerSchema);
+const validateTelegramTrigger = ajv.compile(telegramTriggerSchema);
+const validateDiscordTrigger = ajv.compile(discordTriggerSchema);
 
 export interface ValidationResult {
   valid: boolean;
@@ -103,7 +120,7 @@ function formatAjvErrors(errors: ErrorObject[] | null | undefined): ValidationEr
       message,
       keyword: error.keyword,
       params: error.params,
-      suggestion
+      suggestion,
     };
   });
 }
@@ -118,7 +135,7 @@ export function validateWorkflowStructure(workflow: unknown): ValidationResult {
     logger.debug({ errors: validateWorkflow.errors }, 'Workflow structure validation failed');
     return {
       valid: false,
-      errors: formatAjvErrors(validateWorkflow.errors)
+      errors: formatAjvErrors(validateWorkflow.errors),
     };
   }
 
@@ -128,7 +145,10 @@ export function validateWorkflowStructure(workflow: unknown): ValidationResult {
 /**
  * Validate trigger configuration
  */
-export function validateTrigger(trigger: { type: string; config: Record<string, unknown> }): ValidationResult {
+export function validateTrigger(trigger: {
+  type: string;
+  config: Record<string, unknown>;
+}): ValidationResult {
   let triggerValidator: ValidateFunction | null = null;
 
   switch (trigger.type) {
@@ -144,7 +164,22 @@ export function validateTrigger(trigger: { type: string; config: Record<string, 
     case 'airtable':
       triggerValidator = validateAirtableTrigger;
       break;
-    // manual, webhook, telegram, discord don't require specific config
+    case 'gmail':
+      triggerValidator = validateGmailTrigger;
+      break;
+    case 'outlook':
+      triggerValidator = validateOutlookTrigger;
+      break;
+    case 'webhook':
+      triggerValidator = validateWebhookTrigger;
+      break;
+    case 'telegram':
+      triggerValidator = validateTelegramTrigger;
+      break;
+    case 'discord':
+      triggerValidator = validateDiscordTrigger;
+      break;
+    // manual trigger doesn't require specific config
     default:
       return { valid: true, errors: [] };
   }
@@ -154,7 +189,7 @@ export function validateTrigger(trigger: { type: string; config: Record<string, 
   if (!valid) {
     return {
       valid: false,
-      errors: formatAjvErrors(triggerValidator.errors)
+      errors: formatAjvErrors(triggerValidator.errors),
     };
   }
 
@@ -164,7 +199,9 @@ export function validateTrigger(trigger: { type: string; config: Record<string, 
 /**
  * Validate module paths exist in registry
  */
-export function validateModulePaths(steps: Array<{ id: string; module: string }>): ValidationResult {
+export function validateModulePaths(
+  steps: Array<{ id: string; module: string }>
+): ValidationResult {
   const errors: ValidationError[] = [];
   const registry = getModuleRegistry();
 
@@ -185,19 +222,19 @@ export function validateModulePaths(steps: Array<{ id: string; module: string }>
       const parts = step.module.split('.');
       const [categoryName, moduleName] = parts;
 
-      const category = registry.find(c => c.name === categoryName);
+      const category = registry.find((c) => c.name === categoryName);
       let suggestion = 'Check module path format: category.module.function';
 
       if (!category) {
-        const availableCategories = registry.map(c => c.name).join(', ');
+        const availableCategories = registry.map((c) => c.name).join(', ');
         suggestion = `Category "${categoryName}" not found. Available: ${availableCategories}`;
       } else {
-        const foundModule = category.modules.find(m => m.name === moduleName);
+        const foundModule = category.modules.find((m) => m.name === moduleName);
         if (!foundModule) {
-          const availableModules = category.modules.map(m => m.name).join(', ');
+          const availableModules = category.modules.map((m) => m.name).join(', ');
           suggestion = `Module "${moduleName}" not found in category "${categoryName}". Available: ${availableModules}`;
         } else {
-          const availableFunctions = foundModule.functions.map(f => f.name).join(', ');
+          const availableFunctions = foundModule.functions.map((f) => f.name).join(', ');
           suggestion = `Function not found in ${categoryName}.${moduleName}. Available: ${availableFunctions}`;
         }
       }
@@ -206,23 +243,30 @@ export function validateModulePaths(steps: Array<{ id: string; module: string }>
         path: `/config/steps/${step.id}/module`,
         message: `Module path "${step.module}" not found in registry`,
         keyword: 'module-exists',
-        suggestion
+        suggestion,
       });
     }
   });
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
 /**
  * Validate variable references
  */
-export function validateVariableReferences(steps: Array<{ id: string; inputs: Record<string, unknown>; outputAs?: string }>): ValidationResult {
+export function validateVariableReferences(
+  steps: Array<{ id: string; inputs: Record<string, unknown>; outputAs?: string }>,
+  extraVars?: Set<string>
+): ValidationResult {
   const errors: ValidationError[] = [];
   const declaredVars = new Set<string>(['user', 'trigger', 'credential', 'workflowId']); // Built-in variables
+  // Add any extra variables (e.g., forEach itemAs/indexAs loop variables)
+  if (extraVars) {
+    for (const v of extraVars) declaredVars.add(v);
+  }
 
   steps.forEach((step, index) => {
     // Check variable references in inputs
@@ -236,20 +280,31 @@ export function validateVariableReferences(steps: Array<{ id: string; inputs: Re
           path: `/config/steps/${index}/inputs`,
           message: `Reference to undeclared variable: ${varName}`,
           keyword: 'variable-declared',
-          suggestion: `Declare "${varName}" in a previous step using "outputAs", or check for typos`
+          suggestion: `Declare "${varName}" in a previous step using "outputAs", or check for typos`,
         });
       }
     });
 
-    // Register this step's output variable
+    // Register this step's output variable (check for duplicates first)
     if (step.outputAs) {
+      if (
+        declaredVars.has(step.outputAs) &&
+        !['user', 'trigger', 'credential', 'workflowId'].includes(step.outputAs)
+      ) {
+        errors.push({
+          path: `/config/steps/${index}`,
+          message: `Duplicate outputAs name: "${step.outputAs}" already declared by a previous step`,
+          keyword: 'duplicate-output',
+          suggestion: `Use a unique name for this step's output`,
+        });
+      }
       declaredVars.add(step.outputAs);
     }
   });
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -267,42 +322,61 @@ export function validateOutputDisplay(
   const errors: ValidationError[] = [];
 
   // Check table display has columns
-  if (outputDisplay.type === 'table' && (!outputDisplay.columns || outputDisplay.columns.length === 0)) {
+  if (
+    outputDisplay.type === 'table' &&
+    (!outputDisplay.columns || outputDisplay.columns.length === 0)
+  ) {
     errors.push({
       path: '/config/outputDisplay/columns',
       message: 'Table display requires columns array',
       keyword: 'table-columns',
-      suggestion: 'Add columns array with at least one column definition'
+      suggestion: 'Add columns array with at least one column definition',
     });
   }
 
   // Warn about potential type mismatches
-  const singleValueModules = ['average', 'sum', 'count', 'min', 'max', 'hashSHA256', 'generateUUID', 'now', 'toISO'];
-  if (outputDisplay.type === 'table' && singleValueModules.some(mod => lastStep.module.includes(mod))) {
+  const singleValueModules = [
+    'average',
+    'sum',
+    'count',
+    'min',
+    'max',
+    'hashSHA256',
+    'generateUUID',
+    'now',
+    'toISO',
+  ];
+  if (
+    outputDisplay.type === 'table' &&
+    singleValueModules.some((mod) => lastStep.module.includes(mod))
+  ) {
     errors.push({
       path: '/config/outputDisplay/type',
       message: `Last step likely returns single value, but output display is "table" (expects array)`,
       keyword: 'output-type-mismatch',
-      suggestion: 'Change outputDisplay.type to "text" or "json", or ensure last step returns an array'
+      suggestion:
+        'Change outputDisplay.type to "text" or "json", or ensure last step returns an array',
     });
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
 /**
  * Validate AI SDK usage
  */
-function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record<string, unknown> }>): ValidationError[] {
+function validateAISDK(
+  steps: Array<{ id: string; module: string; inputs: Record<string, unknown> }>
+): ValidationError[] {
   const errors: ValidationError[] = [];
   const aiSDKModules = [
     'ai.ai-sdk.generateText',
     'ai.ai-sdk.generateJSON',
     'ai.ai-sdk.chat',
-    'ai.ai-sdk.streamText'
+    'ai.ai-sdk.streamText',
   ];
 
   steps.forEach((step, index) => {
@@ -317,7 +391,8 @@ function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record
         path: `/config/steps/${index}/inputs`,
         message: 'AI SDK functions require "options" wrapper',
         keyword: 'missing-options-wrapper',
-        suggestion: 'Wrap parameters in "options": { ... }. Example: "inputs": { "options": { "prompt": "...", "model": "gpt-4o-mini", "apiKey": "{{credential.openai_api_key}}" } }'
+        suggestion:
+          'Wrap parameters in "options": { ... }. Example: "inputs": { "options": { "prompt": "...", "model": "gpt-4o-mini", "apiKey": "{{credential.openai_api_key}}" } }',
       });
       return;
     }
@@ -328,7 +403,8 @@ function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record
         path: `/config/steps/${index}/inputs/options`,
         message: 'AI SDK requires explicit "apiKey" parameter',
         keyword: 'missing-apiKey',
-        suggestion: 'Add "apiKey": "{{credential.openai_api_key}}" or "{{credential.anthropic_api_key}}" inside options'
+        suggestion:
+          'Add "apiKey": "{{credential.openai_api_key}}" or "{{credential.anthropic_api_key}}" inside options',
       });
     }
 
@@ -338,7 +414,7 @@ function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record
         path: `/config/steps/${index}/inputs/options`,
         message: 'AI SDK requires "model" parameter',
         keyword: 'missing-model',
-        suggestion: 'Add "model": "gpt-4o-mini" or "claude-haiku-4-5-20251001" inside options'
+        suggestion: 'Add "model": "gpt-4o-mini" or "claude-haiku-4-5-20251001" inside options',
       });
     }
 
@@ -348,7 +424,7 @@ function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record
         path: `/config/steps/${index}/inputs/options`,
         message: 'AI SDK requires either "prompt" or "messages" parameter',
         keyword: 'missing-prompt',
-        suggestion: 'Add "prompt": "Your prompt here" or "messages": [...] inside options'
+        suggestion: 'Add "prompt": "Your prompt here" or "messages": [...] inside options',
       });
     }
   });
@@ -359,14 +435,16 @@ function validateAISDK(steps: Array<{ id: string; module: string; inputs: Record
 /**
  * Validate workflow storage usage
  */
-function validateWorkflowStorage(steps: Array<{ id: string; module: string; inputs: Record<string, unknown> }>): ValidationError[] {
+function validateWorkflowStorage(
+  steps: Array<{ id: string; module: string; inputs: Record<string, unknown> }>
+): ValidationError[] {
   const errors: ValidationError[] = [];
   const storageModules = [
     'data.drizzle-utils.insertRecord',
     'data.drizzle-utils.queryWhereIn',
     'data.drizzle-utils.queryRecords',
     'data.drizzle-utils.updateRecord',
-    'data.drizzle-utils.deleteRecord'
+    'data.drizzle-utils.deleteRecord',
   ];
 
   steps.forEach((step, index) => {
@@ -381,7 +459,8 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
         path: `/config/steps/${index}/inputs`,
         message: 'data.drizzle-utils functions require "params" wrapper',
         keyword: 'missing-params-wrapper',
-        suggestion: 'Wrap parameters in "params": { ... }. Example: "inputs": { "params": { "workflowId": "{{workflowId}}", "tableName": "...", ... } }'
+        suggestion:
+          'Wrap parameters in "params": { ... }. Example: "inputs": { "params": { "workflowId": "{{workflowId}}", "tableName": "...", ... } }',
       });
       // Skip further validation if no params wrapper
       return;
@@ -393,7 +472,8 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
         path: `/config/steps/${index}/inputs/params`,
         message: 'Workflow storage module used without workflowId parameter',
         keyword: 'missing-workflowId',
-        suggestion: 'Add "workflowId": "{{workflowId}}" inside params for automatic table namespacing and isolation. This prevents conflicts between workflows.'
+        suggestion:
+          'Add "workflowId": "{{workflowId}}" inside params for automatic table namespacing and isolation. This prevents conflicts between workflows.',
       });
     }
 
@@ -405,7 +485,7 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
           path: `/config/steps/${index}/inputs/params/workflowId`,
           message: 'workflowId should use variable reference {{workflowId}} not a hardcoded value',
           keyword: 'invalid-workflowId',
-          suggestion: 'Change to "workflowId": "{{workflowId}}" to use the current workflow\'s ID'
+          suggestion: 'Change to "workflowId": "{{workflowId}}" to use the current workflow\'s ID',
         });
       }
     }
@@ -416,7 +496,8 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
         path: `/config/steps/${index}/inputs/params`,
         message: 'tableName parameter is required for workflow storage',
         keyword: 'missing-tableName',
-        suggestion: 'Add "tableName": "your_table_name" inside params (e.g., "replied_tweets", "processed_items")'
+        suggestion:
+          'Add "tableName": "your_table_name" inside params (e.g., "replied_tweets", "processed_items")',
       });
     }
 
@@ -428,7 +509,7 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
           path: `/config/steps/${index}/inputs/params/expiresInDays`,
           message: 'expiresInDays must be a number between 1 and 365',
           keyword: 'invalid-expiresInDays',
-          suggestion: 'Common values: 7 (one week), 30 (one month), 90 (three months)'
+          suggestion: 'Common values: 7 (one week), 30 (one month), 90 (three months)',
         });
       }
     }
@@ -439,7 +520,7 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
         path: `/config/steps/${index}/inputs/params`,
         message: 'insertRecord requires "data" parameter with fields to insert',
         keyword: 'missing-data',
-        suggestion: 'Add "data": { "field1": "value1", "field2": "value2", ... } inside params'
+        suggestion: 'Add "data": { "field1": "value1", "field2": "value2", ... } inside params',
       });
     }
 
@@ -449,7 +530,7 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
           path: `/config/steps/${index}/inputs/params`,
           message: 'queryWhereIn requires "column" parameter',
           keyword: 'missing-column',
-          suggestion: 'Add "column": "field_name" (e.g., "tweet_id", "item_id") inside params'
+          suggestion: 'Add "column": "field_name" (e.g., "tweet_id", "item_id") inside params',
         });
       }
       if (!params.values) {
@@ -457,13 +538,177 @@ function validateWorkflowStorage(steps: Array<{ id: string; module: string; inpu
           path: `/config/steps/${index}/inputs/params`,
           message: 'queryWhereIn requires "values" parameter (array to check)',
           keyword: 'missing-values',
-          suggestion: 'Add "values": "{{arrayVariable}}" inside params'
+          suggestion: 'Add "values": "{{arrayVariable}}" inside params',
         });
       }
     }
   });
 
   return errors;
+}
+
+/**
+ * Check if a step is a control flow step (condition/forEach/while)
+ */
+function isControlFlowStepType(step: Record<string, unknown>): boolean {
+  return step.type === 'condition' || step.type === 'forEach' || step.type === 'while';
+}
+
+/**
+ * Recursively extract all action steps from a step tree (including nested control flow)
+ */
+function extractActionSteps(
+  steps: Array<Record<string, unknown>>,
+  errors: ValidationError[],
+  parentPath: string = '/config/steps',
+  loopVars?: Set<string>
+): Array<{ id: string; module: string; inputs: Record<string, unknown>; outputAs?: string }> {
+  const actionSteps: Array<{
+    id: string;
+    module: string;
+    inputs: Record<string, unknown>;
+    outputAs?: string;
+  }> = [];
+
+  steps.forEach((step, index) => {
+    const stepPath = `${parentPath}/${index}`;
+
+    if (isControlFlowStepType(step)) {
+      // Validate control flow step structure
+      if (step.type === 'condition') {
+        if (!step.condition || typeof step.condition !== 'string') {
+          errors.push({
+            path: stepPath,
+            message: `Condition step "${step.id}" missing required "condition" expression`,
+            keyword: 'control-flow-condition',
+            suggestion: 'Add "condition": "{{variable}} === \'value\'" to the condition step',
+          });
+        }
+        if (!step.then || !Array.isArray(step.then)) {
+          errors.push({
+            path: stepPath,
+            message: `Condition step "${step.id}" missing required "then" branch`,
+            keyword: 'control-flow-then',
+            suggestion: 'Add "then": [...steps] to the condition step',
+          });
+        } else {
+          actionSteps.push(
+            ...extractActionSteps(
+              step.then as Array<Record<string, unknown>>,
+              errors,
+              `${stepPath}/then`,
+              loopVars
+            )
+          );
+        }
+        if (step.else && Array.isArray(step.else)) {
+          actionSteps.push(
+            ...extractActionSteps(
+              step.else as Array<Record<string, unknown>>,
+              errors,
+              `${stepPath}/else`,
+              loopVars
+            )
+          );
+        }
+      } else if (step.type === 'forEach') {
+        if (!step.array || typeof step.array !== 'string') {
+          errors.push({
+            path: stepPath,
+            message: `ForEach step "${step.id}" missing required "array" reference`,
+            keyword: 'control-flow-array',
+            suggestion: 'Add "array": "{{variableName}}" to the forEach step',
+          });
+        }
+        if (!step.itemAs || typeof step.itemAs !== 'string') {
+          errors.push({
+            path: stepPath,
+            message: `ForEach step "${step.id}" missing required "itemAs" variable name`,
+            keyword: 'control-flow-itemAs',
+            suggestion: 'Add "itemAs": "item" to name the loop variable',
+          });
+        }
+        // Register forEach loop variables (itemAs, indexAs) so nested steps can reference them
+        if (loopVars) {
+          if (step.itemAs && typeof step.itemAs === 'string') loopVars.add(step.itemAs);
+          if (step.indexAs && typeof step.indexAs === 'string') loopVars.add(step.indexAs);
+        }
+        if (!step.steps || !Array.isArray(step.steps)) {
+          errors.push({
+            path: stepPath,
+            message: `ForEach step "${step.id}" missing required "steps" array`,
+            keyword: 'control-flow-steps',
+            suggestion: 'Add "steps": [...] with the steps to execute in each iteration',
+          });
+        } else {
+          actionSteps.push(
+            ...extractActionSteps(
+              step.steps as Array<Record<string, unknown>>,
+              errors,
+              `${stepPath}/steps`,
+              loopVars
+            )
+          );
+        }
+      } else if (step.type === 'while') {
+        if (!step.condition || typeof step.condition !== 'string') {
+          errors.push({
+            path: stepPath,
+            message: `While step "${step.id}" missing required "condition" expression`,
+            keyword: 'control-flow-condition',
+            suggestion: 'Add "condition": "{{variable}} === true" to the while step',
+          });
+        }
+        if (!step.steps || !Array.isArray(step.steps)) {
+          errors.push({
+            path: stepPath,
+            message: `While step "${step.id}" missing required "steps" array`,
+            keyword: 'control-flow-steps',
+            suggestion: 'Add "steps": [...] with the steps to execute in each iteration',
+          });
+        } else {
+          actionSteps.push(
+            ...extractActionSteps(
+              step.steps as Array<Record<string, unknown>>,
+              errors,
+              `${stepPath}/steps`,
+              loopVars
+            )
+          );
+        }
+      }
+    } else {
+      // Action step — must have module and inputs
+      if (!step.module) {
+        errors.push({
+          path: stepPath,
+          message: `Action step "${step.id}" missing required "module" field`,
+          keyword: 'missing-module',
+          suggestion: 'Add "module": "category.module.function" to the step',
+        });
+      }
+      if (!step.inputs || typeof step.inputs !== 'object') {
+        errors.push({
+          path: stepPath,
+          message: `Action step "${step.id}" missing required "inputs" field`,
+          keyword: 'missing-inputs',
+          suggestion: 'Add "inputs": { ... } to the step',
+        });
+      }
+      if (step.module && step.inputs) {
+        actionSteps.push(
+          step as unknown as {
+            id: string;
+            module: string;
+            inputs: Record<string, unknown>;
+            outputAs?: string;
+          }
+        );
+      }
+    }
+  });
+
+  return actionSteps;
 }
 
 /**
@@ -479,7 +724,7 @@ export function validateWorkflowComplete(workflow: unknown): ValidationResult {
   const w = workflow as {
     trigger?: { type: string; config: Record<string, unknown> };
     config: {
-      steps: Array<{ id: string; module: string; inputs: Record<string, unknown>; outputAs?: string }>;
+      steps: Array<Record<string, unknown>>;
       outputDisplay?: { type: string; columns?: Array<{ key: string; label: string }> };
     };
   };
@@ -492,30 +737,34 @@ export function validateWorkflowComplete(workflow: unknown): ValidationResult {
     allErrors.push(...triggerResult.errors);
   }
 
-  // Validate AI SDK usage
-  const aiSDKErrors = validateAISDK(w.config.steps);
+  // Extract action steps recursively (validates control flow structure along the way)
+  const loopVars = new Set<string>();
+  const actionSteps = extractActionSteps(w.config.steps, allErrors, '/config/steps', loopVars);
+
+  // Validate AI SDK usage (action steps only)
+  const aiSDKErrors = validateAISDK(actionSteps);
   allErrors.push(...aiSDKErrors);
 
-  // Validate workflow storage usage
-  const storageErrors = validateWorkflowStorage(w.config.steps);
+  // Validate workflow storage usage (action steps only)
+  const storageErrors = validateWorkflowStorage(actionSteps);
   allErrors.push(...storageErrors);
 
-  // Validate module paths
-  const moduleResult = validateModulePaths(w.config.steps);
+  // Validate module paths (action steps only)
+  const moduleResult = validateModulePaths(actionSteps);
   allErrors.push(...moduleResult.errors);
 
-  // Validate variable references
-  const varResult = validateVariableReferences(w.config.steps);
+  // Validate variable references (action steps only), passing forEach loop variables as extra known vars
+  const varResult = validateVariableReferences(actionSteps, loopVars);
   allErrors.push(...varResult.errors);
 
   // Validate output display
-  const lastStep = w.config.steps[w.config.steps.length - 1];
+  const lastStep = actionSteps[actionSteps.length - 1];
   const outputResult = validateOutputDisplay(w.config.outputDisplay, lastStep);
   allErrors.push(...outputResult.errors);
 
   return {
     valid: allErrors.length === 0,
-    errors: allErrors
+    errors: allErrors,
   };
 }
 

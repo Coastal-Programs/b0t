@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { workflowsTable } from '@/lib/schema';
+import { workflowsTable, workflowRunsTable } from '@/lib/schema';
 import { importWorkflow } from '@/lib/workflows/import-export';
 import { executeWorkflow } from '@/lib/workflows/executor';
 import { randomUUID } from 'crypto';
@@ -27,36 +27,38 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { workflowJson } = body;
+
+  if (!workflowJson) {
+    return NextResponse.json({ error: 'Missing required field: workflowJson' }, { status: 400 });
+  }
+
+  // Parse and validate workflow
+  let workflow;
   try {
-    const body = await request.json();
-    const { workflowJson } = body;
+    workflow = importWorkflow(workflowJson);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Invalid workflow format',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 400 }
+    );
+  }
 
-    if (!workflowJson) {
-      return NextResponse.json(
-        { error: 'Missing required field: workflowJson' },
-        { status: 400 }
-      );
-    }
+  // Create workflow in database (use test user ID '1')
+  // Admin workflows use null organizationId (not tied to any organization)
+  const workflowId = randomUUID();
+  let testWorkflowInserted = false;
 
-    // Parse and validate workflow
-    let workflow;
-    try {
-      workflow = importWorkflow(workflowJson);
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid workflow format',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        },
-        { status: 400 }
-      );
-    }
-
-    // Create workflow in database (use test user ID '1')
-    // Admin workflows use null organizationId (not tied to any organization)
-    const workflowId = randomUUID();
-
+  try {
     await db.insert(workflowsTable).values({
       id: workflowId,
       userId: '1', // Test user (admin)
@@ -64,12 +66,13 @@ export async function POST(request: NextRequest) {
       name: workflow.name,
       description: workflow.description,
       prompt: `Test workflow: ${workflow.name}`,
-       
+
       config: JSON.stringify(workflow.config) as any,
-       
+
       trigger: JSON.stringify({ type: 'manual', config: {} }) as any,
       status: 'draft',
     });
+    testWorkflowInserted = true;
 
     logger.info(
       {
@@ -90,7 +93,9 @@ export async function POST(request: NextRequest) {
       mockTriggerData[inputVar] = 'What is 2 + 2?';
     } else if (triggerType === 'chat-input') {
       // Chat-input trigger needs all field values
-      const triggerConfig = workflow.trigger?.config as { fields?: Array<{ key: string; label: string; type: string }> } | undefined;
+      const triggerConfig = workflow.trigger?.config as
+        | { fields?: Array<{ key: string; label: string; type: string }> }
+        | undefined;
       const fields = triggerConfig?.fields || [];
       for (const field of fields) {
         if (field.type === 'checkbox') {
@@ -105,13 +110,13 @@ export async function POST(request: NextRequest) {
       mockTriggerData = {
         body: { test: 'data' },
         headers: {},
-        query: {}
+        query: {},
       };
     } else if (triggerType === 'telegram' || triggerType === 'discord') {
       mockTriggerData = {
         message: 'Test message',
         chatId: '12345',
-        userId: '67890'
+        userId: '67890',
       };
     }
 
@@ -119,11 +124,6 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now();
     const result = await executeWorkflow(workflowId, '1', triggerType, mockTriggerData);
     const duration = Date.now() - startTime;
-
-    // Clean up - delete the test workflow
-    await db
-      .delete(workflowsTable)
-      .where(eq(workflowsTable.id, workflowId));
 
     logger.info(
       {
@@ -135,25 +135,39 @@ export async function POST(request: NextRequest) {
     );
 
     // Return execution result
-    return NextResponse.json({
-      id: workflowId,
-      name: workflow.name,
-      success: result.success,
-      output: result.output,
-      error: result.error,
-      errorStep: result.errorStep,
-      duration,
-      requiredCredentials: workflow.metadata?.requiresCredentials || [],
-    }, { status: 200 }); // Always 200, check success field
+    return NextResponse.json(
+      {
+        id: workflowId,
+        name: workflow.name,
+        success: result.success,
+        output: result.output,
+        error: result.error,
+        errorStep: result.errorStep,
+        duration,
+        requiredCredentials: workflow.metadata?.requiresCredentials || [],
+      },
+      { status: 200 }
+    ); // Always 200, check success field
   } catch (error) {
     logger.error({ error }, 'Failed to test workflow');
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to test workflow',
-        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
+  } finally {
+    // Always clean up test workflow and associated runs, even on error
+    if (testWorkflowInserted) {
+      await db
+        .delete(workflowRunsTable)
+        .where(eq(workflowRunsTable.workflowId, workflowId))
+        .catch(() => {});
+      await db
+        .delete(workflowsTable)
+        .where(eq(workflowsTable.id, workflowId))
+        .catch(() => {});
+    }
   }
 }

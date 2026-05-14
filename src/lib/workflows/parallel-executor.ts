@@ -133,6 +133,16 @@ export function buildDependencyGraph(
 
     // Filter out built-in variables and resolve step dependencies
     const stepDependencies = new Set<string>();
+
+    // Respect explicit dependsOn declarations (e.g. for JS code steps that use bare variables)
+    if (step.type === 'action' && step.dependsOn) {
+      for (const depId of step.dependsOn) {
+        if (stepIds.has(depId) && depId !== step.id) {
+          stepDependencies.add(depId);
+        }
+      }
+    }
+
     for (const varRef of variableRefs) {
       if (builtInVars.has(varRef)) continue;
 
@@ -181,9 +191,7 @@ export function groupIntoWaves(
       if (!deps) continue;
 
       // Check if all dependencies are completed
-      const allDepsCompleted = Array.from(deps.dependsOn).every((depId) =>
-        completed.has(depId)
-      );
+      const allDepsCompleted = Array.from(deps.dependsOn).every((depId) => completed.has(depId));
 
       if (allDepsCompleted) {
         currentWave.push(step);
@@ -228,10 +236,7 @@ export function groupIntoWaves(
 export async function executeStepsInParallel(
   steps: WorkflowStep[],
   context: ExecutionContext,
-  executeStepFn: (
-    step: WorkflowStep,
-    context: ExecutionContext
-  ) => Promise<unknown>
+  executeStepFn: (step: WorkflowStep, context: ExecutionContext) => Promise<unknown>
 ): Promise<unknown> {
   // Build dependency graph
   const graph = buildDependencyGraph(steps, context);
@@ -272,10 +277,7 @@ export async function executeStepsInParallel(
     if (wave.length === 1) {
       // Single step - execute directly
       const step = wave[0];
-      logger.info(
-        { waveNumber: waveIdx + 1, stepId: step.id },
-        'Executing single step in wave'
-      );
+      logger.info({ waveNumber: waveIdx + 1, stepId: step.id }, 'Executing single step in wave');
       lastOutput = await executeStepFn(step, context);
     } else {
       // Multiple steps - execute in parallel
@@ -290,22 +292,51 @@ export async function executeStepsInParallel(
 
       const startTime = Date.now();
 
+      // Snapshot context variables before parallel execution so each step
+      // reads from the same baseline and writes to its own isolated copy.
+      // This prevents interleaved async writes from corrupting shared state.
+      const baseVariables = { ...context.variables };
+
+      // Create an isolated context copy per step so concurrent writes
+      // to `context.variables` within executeStepFn don't interfere.
+      const stepContexts = wave.map(() => ({
+        ...context,
+        variables: { ...baseVariables },
+      }));
+
       // Execute all steps in wave with concurrency limit to prevent resource exhaustion
-      const results = wave.length > MAX_WAVE_CONCURRENCY
-        ? await executeWithConcurrency(
-            wave,
-            (step) => executeStepFn(step, context),
-            MAX_WAVE_CONCURRENCY
-          )
-        : await Promise.allSettled(
-            wave.map((step) => executeStepFn(step, context))
-          );
+      const results =
+        wave.length > MAX_WAVE_CONCURRENCY
+          ? await executeWithConcurrency(
+              wave,
+              (step) => {
+                const idx = wave.indexOf(step);
+                return executeStepFn(step, stepContexts[idx]);
+              },
+              MAX_WAVE_CONCURRENCY
+            )
+          : await Promise.allSettled(
+              wave.map((step, idx) => executeStepFn(step, stepContexts[idx]))
+            );
+
+      // Merge each step's variable writes back into the main context.
+      // Only new or changed keys (relative to the baseline) are merged,
+      // so parallel steps cannot overwrite each other's outputs.
+      for (const stepCtx of stepContexts) {
+        for (const [key, value] of Object.entries(stepCtx.variables)) {
+          if (baseVariables[key] !== value) {
+            context.variables[key] = value;
+          }
+        }
+      }
 
       const duration = Date.now() - startTime;
 
       // Check for failures
       const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-      const successes = results.filter((r): r is PromiseFulfilledResult<unknown> => r.status === 'fulfilled');
+      const successes = results.filter(
+        (r): r is PromiseFulfilledResult<unknown> => r.status === 'fulfilled'
+      );
 
       if (failures.length > 0) {
         logger.error(
@@ -313,7 +344,9 @@ export async function executeStepsInParallel(
             waveNumber: waveIdx + 1,
             failureCount: failures.length,
             totalSteps: wave.length,
-            errors: failures.map((f) => f.reason instanceof Error ? f.reason.message : String(f.reason)),
+            errors: failures.map((f) =>
+              f.reason instanceof Error ? f.reason.message : String(f.reason)
+            ),
           },
           'Partial wave failure - some steps failed'
         );
@@ -324,7 +357,9 @@ export async function executeStepsInParallel(
           const error = f.reason instanceof Error ? f.reason.message : String(f.reason);
           return `Step ${stepId}: ${error}`;
         });
-        throw new Error(`Wave ${waveIdx + 1} failed with ${failures.length} error(s):\n${errorMessages.join('\n')}`);
+        throw new Error(
+          `Wave ${waveIdx + 1} failed with ${failures.length} error(s):\n${errorMessages.join('\n')}`
+        );
       }
 
       logger.info(
@@ -363,8 +398,7 @@ export function analyzeParallelizationPotential(
   const waves = groupIntoWaves(steps, graph);
 
   const maxParallelism = Math.max(...waves.map((w) => w.length));
-  const averageParallelism =
-    waves.reduce((sum, w) => sum + w.length, 0) / waves.length;
+  const averageParallelism = waves.reduce((sum, w) => sum + w.length, 0) / waves.length;
 
   // Theoretical speedup: total steps / number of waves
   const theoreticalSpeedup = (steps.length / waves.length).toFixed(2);

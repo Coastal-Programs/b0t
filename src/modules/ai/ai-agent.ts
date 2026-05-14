@@ -4,7 +4,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createCircuitBreaker } from '@/lib/resilience';
 import { createRateLimiter, withRateLimit } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
-import { getAllAgentTools, getAgentToolsByCategory, getAgentTools } from './agent-tools-library';
+import { resolveAgentTools, type AgentToolOptions } from './agent-tool-resolver';
 
 /**
  * AI Agent Module - Autonomous Tool-Using AI
@@ -83,31 +83,9 @@ export interface AgentRunOptions {
   conversationHistory?: AIMessage[];
 
   /**
-   * Tool selection options
+   * Tool selection options (shared with streaming agent via AgentToolOptions)
    */
-  toolOptions?: {
-    /**
-     * Select tools by category: 'web', 'ai', 'communication', 'utilities', or 'all'
-     */
-    categories?: string[];
-    /**
-     * Select specific tools by name
-     */
-    tools?: string[];
-    /**
-     * Use all available tools (default if no options provided)
-     */
-    useAll?: boolean;
-    /**
-     * Enable MCP (Model Context Protocol) tools
-     */
-    useMCP?: boolean;
-    /**
-     * Specific MCP servers to use (if useMCP is true)
-     * Example: ['tavily-search', 'brave-search', 'fetch']
-     */
-    mcpServers?: string[];
-  };
+  toolOptions?: AgentToolOptions;
 
   /**
    * Custom tools to include (merged with auto-generated tools)
@@ -249,54 +227,10 @@ async function runAgentInternal(options: AgentRunOptions): Promise<AgentRunRespo
     'Starting AI agent run'
   );
 
-  // Load tools from curated library
-  let libraryTools: Record<string, Tool> = {};
+  // Resolve tools via shared resolver (same logic as streaming agent)
+  const { tools: allTools, counts: toolCounts } = await resolveAgentTools(toolOptions, customTools);
 
-  if (toolOptions?.tools && toolOptions.tools.length > 0) {
-    // Use specific tools
-    libraryTools = getAgentTools(toolOptions.tools);
-    logger.info({ toolNames: toolOptions.tools }, 'Using specific tools');
-  } else if (toolOptions?.categories && toolOptions.categories.length > 0) {
-    // Use tools by category
-    libraryTools = getAgentToolsByCategory(toolOptions.categories);
-    logger.info({ categories: toolOptions.categories }, 'Using tools by category');
-  } else {
-    // Use all tools (default)
-    libraryTools = getAllAgentTools();
-    logger.info('Using all available tools');
-  }
-
-  // Load MCP tools if enabled
-  let mcpTools: Record<string, Tool> = {};
-  if (toolOptions?.useMCP) {
-    try {
-      const { getMCPAgentTools } = await import('./agent-tools-library');
-      mcpTools = await getMCPAgentTools(toolOptions.mcpServers);
-      logger.info(
-        {
-          mcpToolCount: Object.keys(mcpTools).length,
-          mcpServers: toolOptions.mcpServers,
-        },
-        'Loaded MCP tools for agent'
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ error: errorMessage }, 'Failed to load MCP tools');
-    }
-  }
-
-  const allTools = { ...libraryTools, ...mcpTools, ...customTools };
-  const toolCount = Object.keys(allTools).length;
-
-  logger.info(
-    {
-      libraryToolCount: Object.keys(libraryTools).length,
-      mcpToolCount: Object.keys(mcpTools).length,
-      customToolCount: Object.keys(customTools).length,
-      totalToolCount: toolCount,
-    },
-    'Tools loaded for agent'
-  );
+  logger.info(toolCounts, 'Tools loaded for agent');
 
   // Build messages array
   const messages = [
@@ -326,6 +260,7 @@ async function runAgentInternal(options: AgentRunOptions): Promise<AgentRunRespo
     tools: allTools,
     temperature,
     stopWhen: stepCountIs(maxSteps),
+    // TODO: Rename to `telemetry` once AI SDK types export it as stable (runtime supports it, types still use experimental_telemetry)
     experimental_telemetry: {
       isEnabled: true,
       functionId: 'ai-agent',
@@ -339,8 +274,18 @@ async function runAgentInternal(options: AgentRunOptions): Promise<AgentRunRespo
 
           toolCalls.push({
             name: toolCall.toolName,
-            args: ('input' in toolCall ? toolCall.input : ('args' in toolCall ? (toolCall as unknown as { args: Record<string, unknown> }).args : {})) as Record<string, unknown>,
-            result: toolResult ? ('output' in toolResult ? toolResult.output : ('result' in toolResult ? (toolResult as unknown as { result: unknown }).result : undefined)) : undefined,
+            args: ('input' in toolCall
+              ? toolCall.input
+              : 'args' in toolCall
+                ? (toolCall as unknown as { args: Record<string, unknown> }).args
+                : {}) as Record<string, unknown>,
+            result: toolResult
+              ? 'output' in toolResult
+                ? toolResult.output
+                : 'result' in toolResult
+                  ? (toolResult as unknown as { result: unknown }).result
+                  : undefined
+              : undefined,
           });
 
           logger.info(
@@ -413,9 +358,7 @@ export async function runAgent(options: AgentRunOptions): Promise<AgentRunRespon
 /**
  * Convenience function: Run agent with web tools (search, fetch content)
  */
-export async function runWebAgent(
-  prompt: string
-): Promise<AgentRunResponse> {
+export async function runWebAgent(prompt: string): Promise<AgentRunResponse> {
   return runAgent({
     prompt,
     systemPrompt:
@@ -429,9 +372,7 @@ export async function runWebAgent(
 /**
  * Convenience function: Run agent with AI generation tools
  */
-export async function runCreativeAgent(
-  prompt: string
-): Promise<AgentRunResponse> {
+export async function runCreativeAgent(prompt: string): Promise<AgentRunResponse> {
   return runAgent({
     prompt,
     systemPrompt:
@@ -445,9 +386,7 @@ export async function runCreativeAgent(
 /**
  * Convenience function: Run agent with communication tools
  */
-export async function runCommunicationAgent(
-  prompt: string
-): Promise<AgentRunResponse> {
+export async function runCommunicationAgent(prompt: string): Promise<AgentRunResponse> {
   return runAgent({
     prompt,
     systemPrompt:
@@ -461,9 +400,7 @@ export async function runCommunicationAgent(
 /**
  * Convenience function: Run agent with all available tools
  */
-export async function runUniversalAgent(
-  prompt: string
-): Promise<AgentRunResponse> {
+export async function runUniversalAgent(prompt: string): Promise<AgentRunResponse> {
   return runAgent({
     prompt,
     systemPrompt:

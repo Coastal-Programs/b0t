@@ -35,7 +35,7 @@ export async function storeCredential(
       platform: input.platform,
       type: input.type,
       organizationId,
-      action: 'credential_created'
+      action: 'credential_created',
     },
     'Storing credential'
   );
@@ -53,10 +53,13 @@ export async function storeCredential(
   if (input.fields && Object.keys(input.fields).length > 0) {
     metadata = {
       ...metadata,
-      fields: Object.entries(input.fields).reduce((acc, [key, value]) => {
-        acc[key] = encrypt(value);
-        return acc;
-      }, {} as Record<string, string>)
+      fields: Object.entries(input.fields).reduce(
+        (acc, [key, value]) => {
+          acc[key] = encrypt(value);
+          return acc;
+        },
+        {} as Record<string, string>
+      ),
     };
   }
 
@@ -78,7 +81,7 @@ export async function storeCredential(
       userId,
       organizationId,
       action: 'credential_created',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Credential stored successfully'
   );
@@ -89,10 +92,7 @@ export async function storeCredential(
 /**
  * Get a credential for a user and platform
  */
-export async function getCredential(
-  userId: string,
-  platform: string
-): Promise<string | null> {
+export async function getCredential(userId: string, platform: string): Promise<string | null> {
   logger.info({ userId, platform }, 'Retrieving credential');
 
   const credentials = await db
@@ -125,7 +125,7 @@ export async function getCredential(
       platform,
       credentialId: credential.id,
       action: 'credential_accessed',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Credential retrieved'
   );
@@ -183,30 +183,48 @@ export async function listCredentials(
     .where(and(...whereConditions));
 
   // OAuth platforms that have status in accountsTable
-  const oauthPlatforms = ['gmail', 'google_calendar', 'google_sheets', 'google_docs', 'google_drive', 'outlook', 'microsoft_teams', 'microsoft_onedrive', 'youtube', 'twitter'];
-  const oauthAppPlatforms = ['outlook_oauth_app', 'google_oauth_app', 'youtube_oauth_app', 'twitter_oauth_app'];
+  const oauthPlatforms = [
+    'gmail',
+    'google_calendar',
+    'google_sheets',
+    'google_docs',
+    'google_drive',
+    'outlook',
+    'microsoft_teams',
+    'microsoft_onedrive',
+    'youtube',
+    'twitter',
+    'calcom',
+    'slack',
+    'discord',
+    'airtable',
+    'notion',
+    'gohighlevel',
+    'hubspot',
+    'salesforce',
+    'github_oauth_service',
+  ];
+  const oauthAppPlatforms = [
+    'outlook_oauth_app',
+    'google_oauth_app',
+    'youtube_oauth_app',
+    'twitter_oauth_app',
+  ];
 
-  // Map platform to provider for accountsTable lookup
-  const platformToProvider: Record<string, string> = {
-    'gmail': 'google',
-    'google_calendar': 'google',
-    'google_sheets': 'google',
-    'google_docs': 'google',
-    'google_drive': 'google',
-    'outlook': 'outlook',
-    'microsoft_teams': 'outlook',
-    'microsoft_onedrive': 'outlook',
-    'youtube': 'youtube',
-    'twitter': 'twitter',
-  };
+  const platformToProvider = platformToProviderMap;
 
   // Enrich credentials with OAuth status
   const enrichedCredentials = await Promise.all(
     credentials.map(async (cred) => {
       // Parse metadata if it's a string (PostgreSQL TEXT field)
-      const parsedMetadata = cred.metadata && typeof cred.metadata === 'string'
-        ? JSON.parse(cred.metadata)
-        : cred.metadata;
+      let parsedMetadata: Record<string, unknown> | undefined = cred.metadata ?? undefined;
+      if (cred.metadata && typeof cred.metadata === 'string') {
+        try {
+          parsedMetadata = JSON.parse(cred.metadata);
+        } catch {
+          parsedMetadata = {};
+        }
+      }
 
       // Check if this is an OAuth user credential
       if (oauthPlatforms.includes(cred.platform)) {
@@ -221,12 +239,7 @@ export async function listCredentials(
               expiresAt: accountsTable.expires_at,
             })
             .from(accountsTable)
-            .where(
-              and(
-                eq(accountsTable.userId, userId),
-                eq(accountsTable.provider, provider)
-              )
-            )
+            .where(and(eq(accountsTable.userId, userId), eq(accountsTable.provider, provider)))
             .limit(1);
 
           if (accounts.length > 0) {
@@ -260,12 +273,7 @@ export async function listCredentials(
               expiresAt: accountsTable.expires_at,
             })
             .from(accountsTable)
-            .where(
-              and(
-                eq(accountsTable.userId, userId),
-                eq(accountsTable.provider, basePlatform)
-              )
-            )
+            .where(and(eq(accountsTable.userId, userId), eq(accountsTable.provider, basePlatform)))
             .limit(1);
 
           if (accounts.length > 0) {
@@ -296,8 +304,32 @@ export async function listCredentials(
   return enrichedCredentials;
 }
 
+// Map credential platform to accounts table provider (for OAuth cleanup)
+const platformToProviderMap: Record<string, string> = {
+  gmail: 'google',
+  google_calendar: 'google',
+  google_sheets: 'google',
+  google_docs: 'google',
+  google_drive: 'google',
+  outlook: 'outlook',
+  microsoft_teams: 'outlook',
+  microsoft_onedrive: 'outlook',
+  youtube: 'google',
+  twitter: 'twitter',
+  calcom: 'calcom',
+  slack: 'slack',
+  discord: 'discord',
+  airtable: 'airtable',
+  notion: 'notion',
+  gohighlevel: 'gohighlevel',
+  hubspot: 'hubspot',
+  salesforce: 'salesforce',
+  github_oauth_service: 'github',
+};
+
 /**
- * Delete a credential
+ * Delete a credential and clean up associated OAuth account entries.
+ * Prevents stale accounts table entries from triggering failed token refreshes.
  */
 export async function deleteCredential(userId: string, credentialId: string): Promise<void> {
   logger.info(
@@ -305,29 +337,79 @@ export async function deleteCredential(userId: string, credentialId: string): Pr
       userId,
       credentialId,
       action: 'credential_delete_attempt',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Deleting credential'
   );
 
-  await db
-    .delete(userCredentialsTable)
-    .where(
-      and(
-        eq(userCredentialsTable.id, credentialId),
-        eq(userCredentialsTable.userId, userId)
+  await db.transaction(async (tx) => {
+    // Look up the credential to get its platform before deleting
+    const credential = await tx
+      .select({ platform: userCredentialsTable.platform, type: userCredentialsTable.type })
+      .from(userCredentialsTable)
+      .where(
+        and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId))
       )
-    );
+      .limit(1);
 
-  logger.info(
-    {
-      userId,
-      credentialId,
-      action: 'credential_deleted',
-      timestamp: new Date().toISOString()
-    },
-    'Credential deleted'
-  );
+    if (credential.length === 0) {
+      logger.warn(
+        { userId, credentialId, action: 'credential_not_found' },
+        'Credential not found for deletion'
+      );
+      return;
+    }
+
+    // Delete the credential from user_credentials
+    await tx
+      .delete(userCredentialsTable)
+      .where(
+        and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId))
+      );
+
+    // If this was an OAuth credential, also clean up the accounts table entry
+    if (credential[0].type === 'oauth') {
+      const provider = platformToProviderMap[credential[0].platform] || credential[0].platform;
+
+      // Check if any remaining OAuth credentials still use this same provider
+      // (e.g., gmail + google_calendar both map to 'google' — don't delete if another remains)
+      const remainingForProvider = await tx
+        .select({ platform: userCredentialsTable.platform })
+        .from(userCredentialsTable)
+        .where(
+          and(eq(userCredentialsTable.userId, userId), eq(userCredentialsTable.type, 'oauth'))
+        );
+
+      const stillUsed = remainingForProvider.some(
+        (c) => (platformToProviderMap[c.platform] || c.platform) === provider
+      );
+
+      if (!stillUsed) {
+        const deleted = await tx
+          .delete(accountsTable)
+          .where(and(eq(accountsTable.userId, userId), eq(accountsTable.provider, provider)))
+          .returning({ id: accountsTable.id });
+
+        if (deleted.length > 0) {
+          logger.info(
+            { userId, provider, deletedAccounts: deleted.length },
+            'Cleaned up OAuth accounts table entries for deleted credential'
+          );
+        }
+      }
+    }
+
+    logger.info(
+      {
+        userId,
+        credentialId,
+        platform: credential[0].platform,
+        action: 'credential_deleted',
+        timestamp: new Date().toISOString(),
+      },
+      'Credential deleted'
+    );
+  });
 }
 
 /**
@@ -343,7 +425,7 @@ export async function updateCredential(
       userId,
       credentialId,
       action: 'credential_update_attempt',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Updating credential'
   );
@@ -353,19 +435,14 @@ export async function updateCredential(
   await db
     .update(userCredentialsTable)
     .set({ encryptedValue })
-    .where(
-      and(
-        eq(userCredentialsTable.id, credentialId),
-        eq(userCredentialsTable.userId, userId)
-      )
-    );
+    .where(and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId)));
 
   logger.info(
     {
       userId,
       credentialId,
       action: 'credential_updated',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Credential updated'
   );
@@ -384,7 +461,7 @@ export async function updateCredentialName(
       userId,
       credentialId,
       action: 'credential_name_update_attempt',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Updating credential name'
   );
@@ -392,19 +469,14 @@ export async function updateCredentialName(
   await db
     .update(userCredentialsTable)
     .set({ name: newName })
-    .where(
-      and(
-        eq(userCredentialsTable.id, credentialId),
-        eq(userCredentialsTable.userId, userId)
-      )
-    );
+    .where(and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId)));
 
   logger.info(
     {
       userId,
       credentialId,
       action: 'credential_name_updated',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Credential name updated'
   );
@@ -423,7 +495,7 @@ export async function updateMultiFieldCredential(
       userId,
       credentialId,
       action: 'multi_field_credential_update_attempt',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Updating multi-field credential'
   );
@@ -432,12 +504,7 @@ export async function updateMultiFieldCredential(
   const [existingCred] = await db
     .select()
     .from(userCredentialsTable)
-    .where(
-      and(
-        eq(userCredentialsTable.id, credentialId),
-        eq(userCredentialsTable.userId, userId)
-      )
-    )
+    .where(and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId)))
     .limit(1);
 
   if (!existingCred) {
@@ -445,9 +512,16 @@ export async function updateMultiFieldCredential(
   }
 
   // Parse existing metadata
-  const metadata = typeof existingCred.metadata === 'string'
-    ? JSON.parse(existingCred.metadata)
-    : existingCred.metadata || {};
+  let metadata: Record<string, unknown> = {};
+  if (typeof existingCred.metadata === 'string') {
+    try {
+      metadata = existingCred.metadata ? JSON.parse(existingCred.metadata) : {};
+    } catch {
+      metadata = {};
+    }
+  } else {
+    metadata = (existingCred.metadata as Record<string, unknown>) || {};
+  }
 
   // Encrypt new fields
   const encryptedFields: Record<string, string> = {};
@@ -458,25 +532,20 @@ export async function updateMultiFieldCredential(
   // Update metadata with new encrypted fields
   const updatedMetadata = {
     ...metadata,
-    fields: encryptedFields
+    fields: encryptedFields,
   };
 
   await db
     .update(userCredentialsTable)
     .set({ metadata: updatedMetadata as Record<string, unknown> })
-    .where(
-      and(
-        eq(userCredentialsTable.id, credentialId),
-        eq(userCredentialsTable.userId, userId)
-      )
-    );
+    .where(and(eq(userCredentialsTable.id, credentialId), eq(userCredentialsTable.userId, userId)));
 
   logger.info(
     {
       userId,
       credentialId,
       action: 'multi_field_credential_updated',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     },
     'Multi-field credential updated'
   );
@@ -496,7 +565,7 @@ export async function getCredentialFields(
   // Build where clause
   const whereConditions = [
     eq(userCredentialsTable.userId, userId),
-    eq(userCredentialsTable.platform, platform.toLowerCase())
+    eq(userCredentialsTable.platform, platform.toLowerCase()),
   ];
 
   if (organizationId) {
@@ -523,9 +592,8 @@ export async function getCredentialFields(
   // The lastUsed field is still available for manual tracking if needed
 
   // Parse metadata if it's a string (PostgreSQL JSONB can return as string)
-  const metadata = typeof credential.metadata === 'string'
-    ? JSON.parse(credential.metadata)
-    : credential.metadata;
+  const metadata =
+    typeof credential.metadata === 'string' ? JSON.parse(credential.metadata) : credential.metadata;
 
   // Check if multi-field credential
   if (metadata && typeof metadata === 'object' && 'fields' in metadata) {
@@ -536,7 +604,10 @@ export async function getCredentialFields(
       decryptedFields[key] = decrypt(encryptedValue);
     }
 
-    logger.info({ userId, platform, fieldCount: Object.keys(decryptedFields).length }, 'Multi-field credential retrieved');
+    logger.info(
+      { userId, platform, fieldCount: Object.keys(decryptedFields).length },
+      'Multi-field credential retrieved'
+    );
     return decryptedFields;
   }
 
@@ -561,7 +632,7 @@ export async function hasCredential(
 ): Promise<boolean> {
   const whereConditions = [
     eq(userCredentialsTable.userId, userId),
-    eq(userCredentialsTable.platform, platform.toLowerCase())
+    eq(userCredentialsTable.platform, platform.toLowerCase()),
   ];
 
   if (organizationId) {

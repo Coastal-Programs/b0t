@@ -1,19 +1,17 @@
 import { db } from '@/lib/db';
-import {
-  workflowsTable,
-  workflowRunsTable,
-  organizationsTable,
-  accountsTable,
-  userCredentialsTable
-} from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { workflowsTable, workflowRunsTable } from '@/lib/schema';
+import { eq, sql, and, or, isNull, lte } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { randomUUID } from 'crypto';
 import { executeStep, normalizeStep, type WorkflowStep } from './control-flow';
+import { buildDependencyGraph, groupIntoWaves } from './parallel-executor';
 import {
-  buildDependencyGraph,
-  groupIntoWaves,
-} from './parallel-executor';
+  loadUserCredentials,
+  executeModuleFunction,
+  resolveVariables,
+  resolveValue,
+  type ExecutionContext,
+} from './executor';
 
 /**
  * Progress Event Types
@@ -22,7 +20,13 @@ import {
 export type ProgressEvent =
   | { type: 'workflow_started'; workflowId: string; runId: string; totalSteps: number }
   | { type: 'step_started'; stepId: string; stepIndex: number; totalSteps: number; module: string }
-  | { type: 'step_completed'; stepId: string; stepIndex: number; duration: number; output?: unknown }
+  | {
+      type: 'step_completed';
+      stepId: string;
+      stepIndex: number;
+      duration: number;
+      output?: unknown;
+    }
   | { type: 'step_failed'; stepId: string; stepIndex: number; error: string }
   | { type: 'workflow_completed'; runId: string; duration: number; output?: unknown }
   | { type: 'workflow_failed'; runId: string; error: string; errorStep?: string };
@@ -32,6 +36,9 @@ export type ProgressCallback = (event: ProgressEvent) => void;
 /**
  * Execute a workflow with real-time progress streaming
  * Same as executeWorkflow but emits progress events via callback
+ *
+ * Uses shared credential loading and module execution from executor.ts
+ * to ensure consistent behavior between CLI and dashboard execution.
  */
 export async function executeWorkflowWithProgress(
   workflowId: string,
@@ -40,7 +47,10 @@ export async function executeWorkflowWithProgress(
   triggerData?: Record<string, unknown>,
   onProgress?: ProgressCallback
 ): Promise<{ success: boolean; output?: unknown; error?: string; errorStep?: string }> {
-  logger.info({ workflowId, userId, triggerType }, 'Starting workflow execution with progress streaming');
+  logger.info(
+    { workflowId, userId, triggerType },
+    'Starting workflow execution with progress streaming'
+  );
 
   const runId = randomUUID();
   const startedAt = new Date();
@@ -58,16 +68,9 @@ export async function executeWorkflowWithProgress(
     }
     const workflow = workflows[0];
 
-    // Check organization status
+    // Check organization status using denormalized field (avoids extra DB query)
     if (workflow.organizationId) {
-      const orgs = await db
-        .select()
-        .from(organizationsTable)
-        .where(eq(organizationsTable.id, workflow.organizationId))
-        .limit(1);
-      const organization = orgs[0];
-
-      if (organization && organization.status === 'inactive') {
+      if (workflow.organizationStatus === 'inactive') {
         throw new Error('Cannot execute workflow: client organization is inactive');
       }
     }
@@ -85,17 +88,34 @@ export async function executeWorkflowWithProgress(
     });
 
     // Parse config
-    const config = (typeof workflow.config === 'string'
-      ? JSON.parse(workflow.config)
-      : workflow.config) as {
-      steps: Array<{
-        id: string;
-        module: string;
-        inputs: Record<string, unknown>;
-        outputAs?: string;
-      }>;
-      returnValue?: string;
-    };
+    let config;
+    try {
+      config = (
+        typeof workflow.config === 'string' ? JSON.parse(workflow.config) : workflow.config
+      ) as {
+        steps: Array<{
+          id: string;
+          module: string;
+          inputs: Record<string, unknown>;
+          outputAs?: string;
+        }>;
+        returnValue?: string;
+      };
+    } catch (parseError) {
+      logger.error({ workflowId, parseError }, 'Failed to parse workflow config');
+      await db
+        .update(workflowRunsTable)
+        .set({
+          status: 'failed',
+          error: `Invalid workflow configuration: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+          completedAt: new Date(),
+        })
+        .where(eq(workflowRunsTable.id, runId));
+      return {
+        success: false,
+        error: `Invalid workflow configuration: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+      };
+    }
 
     logger.info({ workflowId, stepCount: config.steps.length }, 'Executing workflow steps');
 
@@ -107,24 +127,26 @@ export async function executeWorkflowWithProgress(
       totalSteps: config.steps.length,
     });
 
-    // Load user credentials (pass organizationId for organization-scoped OAuth app credentials)
+    // Load user credentials using shared function from executor.ts
+    // This properly handles: org filtering, multi-field creds, Redis caching, platform aliases
     const userCredentials = await loadUserCredentials(userId, workflow.organizationId || undefined);
 
-    // Initialize execution context
-    const context = {
+    // Initialize execution context (matches executor.ts structure)
+    const context: ExecutionContext = {
       variables: {
+        workflowId,
         user: {
           id: userId,
           ...userCredentials,
         },
-        credential: userCredentials, // Add credential namespace for {{credential.platform}} syntax
+        credential: userCredentials,
         trigger: triggerData || {},
         ...userCredentials,
       },
       workflowId,
       runId,
       userId,
-      config, // Include config for UI-set overrides (system prompts, etc.)
+      config,
     };
 
     let lastOutput: unknown = null;
@@ -149,6 +171,10 @@ export async function executeWorkflowWithProgress(
       'Grouped steps into execution waves for parallel execution'
     );
 
+    // Wrapper that passes context to executeModuleFunction for credential auto-injection
+    const executeModuleWithContext = (modulePath: string, inputs: Record<string, unknown>) =>
+      executeModuleFunction(modulePath, inputs, context);
+
     // Execute each wave sequentially, steps within wave in parallel
     for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
       const wave = waves[waveIdx];
@@ -159,7 +185,10 @@ export async function executeWorkflowWithProgress(
         const stepIndex = normalizedSteps.indexOf(step);
         const stepStartTime = Date.now();
 
-        logger.info({ workflowId, runId, stepId: step.id, stepIndex }, 'Executing single step in wave');
+        logger.info(
+          { workflowId, runId, stepId: step.id, stepIndex },
+          'Executing single step in wave'
+        );
 
         // Emit step started event
         const modulePath = 'module' in step ? (step.module as string) : 'unknown';
@@ -172,12 +201,7 @@ export async function executeWorkflowWithProgress(
         });
 
         try {
-          lastOutput = await executeStep(
-            step,
-            context,
-            executeModuleFunction,
-            resolveVariables
-          );
+          lastOutput = await executeStep(step, context, executeModuleWithContext, resolveVariables);
 
           const stepDuration = Date.now() - stepStartTime;
 
@@ -200,26 +224,33 @@ export async function executeWorkflowWithProgress(
 
           // Update workflow run with error
           const completedAt = new Date();
-          await db
-            .update(workflowRunsTable)
-            .set({
-              status: 'error',
-              completedAt,
-              duration: completedAt.getTime() - startedAt.getTime(),
-              error: error instanceof Error ? error.message : 'Unknown error',
-              errorStep: step.id,
-            })
-            .where(eq(workflowRunsTable.id, runId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(workflowRunsTable)
+              .set({
+                status: 'error',
+                completedAt,
+                duration: completedAt.getTime() - startedAt.getTime(),
+                error: error instanceof Error ? error.message : 'Unknown error',
+                errorStep: step.id,
+              })
+              .where(eq(workflowRunsTable.id, runId));
 
-          await db
-            .update(workflowsTable)
-            .set({
-              lastRun: completedAt,
-              lastRunStatus: 'error',
-              lastRunError: error instanceof Error ? error.message : 'Unknown error',
-              runCount: sql`${workflowsTable.runCount} + 1`,
-            })
-            .where(eq(workflowsTable.id, workflowId));
+            await tx
+              .update(workflowsTable)
+              .set({
+                lastRun: completedAt,
+                lastRunStatus: 'error',
+                lastRunError: error instanceof Error ? error.message : 'Unknown error',
+                runCount: sql`${workflowsTable.runCount} + 1`,
+              })
+              .where(
+                and(
+                  eq(workflowsTable.id, workflowId),
+                  or(isNull(workflowsTable.lastRun), lte(workflowsTable.lastRun, startedAt))
+                )
+              );
+          });
 
           onProgress?.({
             type: 'workflow_failed',
@@ -268,7 +299,7 @@ export async function executeWorkflowWithProgress(
                 const output = await executeStep(
                   step,
                   context,
-                  executeModuleFunction,
+                  executeModuleWithContext,
                   resolveVariables
                 );
                 return { success: true, stepId: step.id, output };
@@ -282,63 +313,82 @@ export async function executeWorkflowWithProgress(
             })
           );
 
-          // Check for failures
-          const failed = outputs.find((o) => !o.success);
-          if (failed) {
-            const step = wave.find((s) => s.id === failed.stepId)!;
-            const stepIndex = normalizedSteps.indexOf(step);
+          // Check for failures — collect ALL failures, not just the first
+          const allFailed = outputs.filter((o) => !o.success);
+          if (allFailed.length > 0) {
+            // Emit step_failed for every failed step
+            for (const failed of allFailed) {
+              const step = wave.find((s) => s.id === failed.stepId)!;
+              const stepIndex = normalizedSteps.indexOf(step);
 
-            logger.error({ workflowId, runId, stepId: failed.stepId }, 'Parallel step execution failed');
+              logger.error(
+                { workflowId, runId, stepId: failed.stepId, error: failed.error },
+                'Parallel step execution failed'
+              );
 
-            onProgress?.({
-              type: 'step_failed',
-              stepId: failed.stepId,
-              stepIndex,
-              error: failed.error || 'Unknown error',
-            });
+              onProgress?.({
+                type: 'step_failed',
+                stepId: failed.stepId,
+                stepIndex,
+                error: failed.error || 'Unknown error',
+              });
+            }
+
+            // Build combined error message from all failures
+            const combinedError =
+              allFailed.length === 1
+                ? allFailed[0].error || 'Unknown error'
+                : `${allFailed.length} steps failed: ${allFailed.map((f) => `${f.stepId}: ${f.error || 'Unknown error'}`).join('; ')}`;
+            const firstFailedStepId = allFailed[0].stepId;
 
             // Update workflow run with error
             const completedAt = new Date();
-            await db
-              .update(workflowRunsTable)
-              .set({
-                status: 'error',
-                completedAt,
-                duration: completedAt.getTime() - startedAt.getTime(),
-                error: failed.error || 'Unknown error',
-                errorStep: failed.stepId,
-              })
-              .where(eq(workflowRunsTable.id, runId));
+            await db.transaction(async (tx) => {
+              await tx
+                .update(workflowRunsTable)
+                .set({
+                  status: 'error',
+                  completedAt,
+                  duration: completedAt.getTime() - startedAt.getTime(),
+                  error: combinedError,
+                  errorStep: firstFailedStepId,
+                })
+                .where(eq(workflowRunsTable.id, runId));
 
-            await db
-              .update(workflowsTable)
-              .set({
-                lastRun: completedAt,
-                lastRunStatus: 'error',
-                lastRunError: failed.error || 'Unknown error',
-                runCount: sql`${workflowsTable.runCount} + 1`,
-              })
-              .where(eq(workflowsTable.id, workflowId));
+              await tx
+                .update(workflowsTable)
+                .set({
+                  lastRun: completedAt,
+                  lastRunStatus: 'error',
+                  lastRunError: combinedError,
+                  runCount: sql`${workflowsTable.runCount} + 1`,
+                })
+                .where(
+                  and(
+                    eq(workflowsTable.id, workflowId),
+                    or(isNull(workflowsTable.lastRun), lte(workflowsTable.lastRun, startedAt))
+                  )
+                );
+            });
 
             onProgress?.({
               type: 'workflow_failed',
               runId,
-              error: failed.error || 'Unknown error',
-              errorStep: failed.stepId,
+              error: combinedError,
+              errorStep: firstFailedStepId,
             });
 
             return {
               success: false,
-              error: failed.error || 'Unknown error',
-              errorStep: failed.stepId,
+              error: combinedError,
+              errorStep: firstFailedStepId,
             };
           }
 
           // All succeeded - emit completed events
           for (const result of outputs) {
-            const step = wave.find((s) => s.id === result.stepId)!;
-            const stepIndex = normalizedSteps.indexOf(step);
             const stepStartTime = stepStartTimes.get(result.stepId) || Date.now();
+            const stepIndex = normalizedSteps.indexOf(wave.find((s) => s.id === result.stepId)!);
             const stepDuration = Date.now() - stepStartTime;
 
             onProgress?.({
@@ -355,25 +405,32 @@ export async function executeWorkflowWithProgress(
           logger.error({ error, workflowId, runId }, 'Parallel wave execution failed');
 
           const completedAt = new Date();
-          await db
-            .update(workflowRunsTable)
-            .set({
-              status: 'error',
-              completedAt,
-              duration: completedAt.getTime() - startedAt.getTime(),
-              error: error instanceof Error ? error.message : 'Unknown error',
-            })
-            .where(eq(workflowRunsTable.id, runId));
+          await db.transaction(async (tx) => {
+            await tx
+              .update(workflowRunsTable)
+              .set({
+                status: 'error',
+                completedAt,
+                duration: completedAt.getTime() - startedAt.getTime(),
+                error: error instanceof Error ? error.message : 'Unknown error',
+              })
+              .where(eq(workflowRunsTable.id, runId));
 
-          await db
-            .update(workflowsTable)
-            .set({
-              lastRun: completedAt,
-              lastRunStatus: 'error',
-              lastRunError: error instanceof Error ? error.message : 'Unknown error',
-              runCount: sql`${workflowsTable.runCount} + 1`,
-            })
-            .where(eq(workflowsTable.id, workflowId));
+            await tx
+              .update(workflowsTable)
+              .set({
+                lastRun: completedAt,
+                lastRunStatus: 'error',
+                lastRunError: error instanceof Error ? error.message : 'Unknown error',
+                runCount: sql`${workflowsTable.runCount} + 1`,
+              })
+              .where(
+                and(
+                  eq(workflowsTable.id, workflowId),
+                  or(isNull(workflowsTable.lastRun), lte(workflowsTable.lastRun, startedAt))
+                )
+              );
+          });
 
           onProgress?.({
             type: 'workflow_failed',
@@ -393,54 +450,69 @@ export async function executeWorkflowWithProgress(
     const completedAt = new Date();
     const totalDuration = completedAt.getTime() - startedAt.getTime();
 
-    // Calculate final output BEFORE saving to database
-    // Return final output - use returnValue if specified, otherwise auto-detect
+    // Calculate final output using shared resolveValue from executor.ts
     let finalOutput: unknown = context.variables;
     if (config.returnValue) {
       finalOutput = resolveValue(config.returnValue, context.variables);
     } else {
       // Auto-detect: Filter out internal variables and return only step outputs
-      // Internal variables: user, trigger, credentials (youtube_apikey, openai, etc.)
-      const internalKeys = ['user', 'trigger'];
+      const internalKeys = ['user', 'trigger', 'credential', 'credentials'];
       const filteredVars: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(context.variables as Record<string, unknown>)) {
-        // Skip internal variables
         if (internalKeys.includes(key)) continue;
-        // Skip credential variables (they're from user credentials table)
-        if (key.includes('_apikey') || key.includes('_api_key')) continue;
-        // Skip if it's a known credential platform
-        if (['openai', 'anthropic', 'youtube', 'slack', 'twitter', 'github', 'reddit'].includes(key)) continue;
+        if (key.includes('_apikey') || key.includes('_api_key') || key.includes('_oauth')) continue;
+        if (key.includes('token') || key.includes('secret') || key.includes('password')) continue;
+        if (
+          [
+            'openai',
+            'anthropic',
+            'youtube',
+            'slack',
+            'twitter',
+            'github',
+            'reddit',
+            'openrouter',
+            'rapidapi',
+          ].includes(key)
+        )
+          continue;
 
         filteredVars[key] = value;
       }
 
-      // If we have filtered variables, use them; otherwise return all (backward compat)
       if (Object.keys(filteredVars).length > 0) {
         finalOutput = filteredVars;
       }
     }
 
     // Save filtered output to database
-    await db
-      .update(workflowRunsTable)
-      .set({
-        status: 'success',
-        completedAt,
-        duration: totalDuration,
-        output: finalOutput ? JSON.stringify(finalOutput) : null,
-      })
-      .where(eq(workflowRunsTable.id, runId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(workflowRunsTable)
+        .set({
+          status: 'success',
+          completedAt,
+          duration: totalDuration,
+          output: finalOutput ? JSON.stringify(finalOutput) : null,
+        })
+        .where(eq(workflowRunsTable.id, runId));
 
-    await db
-      .update(workflowsTable)
-      .set({
-        lastRun: completedAt,
-        lastRunStatus: 'success',
-        lastRunError: null,
-        runCount: sql`${workflowsTable.runCount} + 1`,
-      })
-      .where(eq(workflowsTable.id, workflowId));
+      await tx
+        .update(workflowsTable)
+        .set({
+          lastRun: completedAt,
+          lastRunStatus: 'success',
+          lastRunError: null,
+          runCount: sql`${workflowsTable.runCount} + 1`,
+        })
+        .where(
+          and(
+            eq(workflowsTable.id, workflowId),
+            or(isNull(workflowsTable.lastRun), lte(workflowsTable.lastRun, startedAt))
+          )
+        );
+    });
 
     logger.info({ workflowId, runId, duration: totalDuration }, 'Workflow execution completed');
 
@@ -455,18 +527,35 @@ export async function executeWorkflowWithProgress(
   } catch (error) {
     logger.error({ error, workflowId, userId }, 'Workflow execution failed');
 
-    // Update workflow run with error if it exists
+    // Update workflow run and workflow status on failure
     try {
       const completedAt = new Date();
-      await db
-        .update(workflowRunsTable)
-        .set({
-          status: 'error',
-          completedAt,
-          duration: completedAt.getTime() - startedAt.getTime(),
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-        .where(eq(workflowRunsTable.id, runId));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(workflowRunsTable)
+          .set({
+            status: 'error',
+            completedAt,
+            duration: completedAt.getTime() - startedAt.getTime(),
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
+          .where(eq(workflowRunsTable.id, runId));
+
+        await tx
+          .update(workflowsTable)
+          .set({
+            lastRun: completedAt,
+            lastRunStatus: 'failed',
+            lastRunError: error instanceof Error ? error.message : 'Unknown error',
+            runCount: sql`${workflowsTable.runCount} + 1`,
+          })
+          .where(
+            and(
+              eq(workflowsTable.id, workflowId),
+              or(isNull(workflowsTable.lastRun), lte(workflowsTable.lastRun, startedAt))
+            )
+          );
+      });
     } catch (updateError) {
       logger.error({ updateError }, 'Failed to update workflow run status');
     }
@@ -482,389 +571,5 @@ export async function executeWorkflowWithProgress(
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
-  }
-}
-
-// Helper functions (copied from executor.ts to avoid circular dependency)
-
-function resolveVariables(
-  inputs: Record<string, unknown>,
-  variables: Record<string, unknown>
-): Record<string, unknown> {
-  const resolved: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(inputs)) {
-    resolved[key] = resolveValue(value, variables);
-  }
-
-  return resolved;
-}
-
-function resolveValue(value: unknown, variables: Record<string, unknown>): unknown {
-  if (typeof value === 'string') {
-    const match = value.match(/^{{(.+)}}$/);
-    if (match) {
-      const path = match[1];
-      return getNestedValue(variables, path);
-    }
-
-    return value.replace(/{{(.+?)}}/g, (_, path) => {
-      const resolved = getNestedValue(variables, path);
-      return String(resolved ?? '');
-    });
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => resolveValue(item, variables));
-  }
-
-  if (value && typeof value === 'object') {
-    const resolved: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      resolved[k] = resolveValue(v, variables);
-    }
-    return resolved;
-  }
-
-  return value;
-}
-
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split(/\.|\[|\]/).filter(Boolean);
-  let current: unknown = obj;
-
-  for (const key of keys) {
-    if (current && typeof current === 'object') {
-      current = (current as Record<string, unknown>)[key];
-    } else {
-      return undefined;
-    }
-  }
-
-  return current;
-}
-
-const CATEGORY_FOLDER_MAP: Record<string, string> = {
-  'communication': 'communication',
-  'social': 'social',
-  'social media': 'social',
-  'ai': 'ai',
-  'data': 'data',
-  'utilities': 'utilities',
-  'payments': 'payments',
-  'productivity': 'productivity',
-  'business': 'business',
-  'content': 'content',
-  'dataprocessing': 'dataprocessing',
-  'data processing': 'dataprocessing',
-  'devtools': 'devtools',
-  'developer tools': 'devtools',
-  'dev tools': 'devtools',
-  'e-commerce': 'ecommerce',
-  'ecommerce': 'ecommerce',
-  'lead generation': 'leads',
-  'leads': 'leads',
-  'video automation': 'video',
-  'video': 'video',
-  'external apis': 'external-apis',
-  'external-apis': 'external-apis',
-};
-
-async function executeModuleFunction(
-  modulePath: string,
-  inputs: Record<string, unknown>
-): Promise<unknown> {
-  logger.info({ modulePath, inputs }, 'Executing module function');
-
-  const parts = modulePath.split('.');
-
-  let categoryName: string | undefined;
-  let moduleName: string | undefined;
-  let functionName: string | undefined;
-
-  if (parts.length >= 3) {
-    if (parts.length >= 4) {
-      const twoWordCategory = `${parts[0]} ${parts[1]}`.toLowerCase();
-      if (CATEGORY_FOLDER_MAP[twoWordCategory]) {
-        categoryName = CATEGORY_FOLDER_MAP[twoWordCategory];
-        moduleName = parts[2];
-        functionName = parts[3];
-      }
-    }
-
-    if (!categoryName) {
-      const oneWordCategory = parts[0].toLowerCase();
-      if (CATEGORY_FOLDER_MAP[oneWordCategory]) {
-        categoryName = CATEGORY_FOLDER_MAP[oneWordCategory];
-        moduleName = parts[1];
-        functionName = parts[2];
-      }
-    }
-  }
-
-  if (!categoryName || !moduleName || !functionName) {
-    throw new Error(`Invalid module path: ${modulePath}. Expected format: category.module.function`);
-  }
-
-  try {
-    const moduleFile = await import(`@/modules/${categoryName}/${moduleName}`);
-
-    if (!moduleFile[functionName]) {
-      throw new Error(`Function ${functionName} not found in module ${categoryName}/${moduleName}`);
-    }
-
-    const func = moduleFile[functionName];
-
-    if (modulePath.includes('youtube') || modulePath.includes('searchVideos')) {
-      logger.info({
-        modulePath,
-        functionName,
-        inputKeys: Object.keys(inputs),
-        hasApiKey: 'apiKey' in inputs,
-        apiKeyValue: inputs.apiKey ? `${String(inputs.apiKey).substring(0, 10)}...` : 'MISSING'
-      }, 'Executing YouTube function with inputs');
-    }
-
-    const func_str = func.toString();
-    const paramMatch = func_str.match(/\(([^)]*)\)/);
-    const params = paramMatch?.[1]?.trim() || '';
-
-    const hasObjectParam = params.startsWith('{') || (params.includes(':') && !params.includes(','));
-
-    const inputKeys = Object.keys(inputs);
-
-    if (inputKeys.length === 0) {
-      return await func();
-    } else if (inputKeys.length === 1 && !hasObjectParam) {
-      return await func(Object.values(inputs)[0]);
-    } else if (hasObjectParam) {
-      return await func(inputs);
-    } else {
-      const paramNames = params
-        .split(',')
-        .map((p: string) => {
-          return p.split(':')[0].split('=')[0].trim().replace(/[{}]/g, '');
-        })
-        .filter(Boolean);
-
-      logger.debug({
-        functionParams: paramNames,
-        inputKeys: Object.keys(inputs),
-        msg: 'Parameter mapping analysis'
-      });
-
-      const paramAliases: Record<string, string[]> = {
-        'days': ['amount', 'value', 'number'],
-        'hours': ['amount', 'value', 'number'],
-        'minutes': ['amount', 'value', 'number'],
-        'limit': ['maxResults', 'max', 'count'],
-        'query': ['search', 'q', 'term'],
-        'text': ['message', 'content', 'body'],
-      };
-
-      const orderedValues: unknown[] = [];
-      const mappingLog: string[] = [];
-      let hasAllParams = true;
-
-      for (const paramName of paramNames) {
-        let value: unknown = undefined;
-        let matchedKey: string | undefined;
-
-        if (paramName in inputs) {
-          value = inputs[paramName];
-          matchedKey = paramName;
-        } else {
-          const aliases = paramAliases[paramName] || [];
-          for (const alias of aliases) {
-            if (alias in inputs) {
-              value = inputs[alias];
-              matchedKey = alias;
-              break;
-            }
-          }
-        }
-
-        if (matchedKey !== undefined) {
-          orderedValues.push(value);
-          mappingLog.push(`${paramName}=${JSON.stringify(value)} (from ${matchedKey})`);
-        } else {
-          hasAllParams = false;
-          break;
-        }
-      }
-
-      if (hasAllParams && orderedValues.length === paramNames.length) {
-        logger.debug({
-          msg: 'Mapped parameters to function signature order (with aliases)',
-          mapping: mappingLog
-        });
-        return await func(...orderedValues);
-      }
-
-      // Allow partial parameter matching for optional parameters
-      if (orderedValues.length > 0 && orderedValues.length <= paramNames.length) {
-        logger.debug({
-          msg: 'Calling function with partial parameters (remaining are optional)',
-          providedParams: orderedValues.length,
-          totalParams: paramNames.length,
-          mapping: mappingLog
-        });
-        return await func(...orderedValues);
-      }
-
-      if (inputKeys.length === paramNames.length) {
-        const positionalValues = Object.values(inputs);
-        logger.warn({
-          msg: 'Using positional parameter matching (input names do not match function signature)',
-          expectedParams: paramNames,
-          providedInputs: Object.keys(inputs),
-          modulePath
-        });
-        return await func(...positionalValues);
-      }
-
-      // Allow positional matching even if fewer inputs than params (for optional parameters)
-      if (inputKeys.length > 0 && inputKeys.length <= paramNames.length) {
-        const positionalValues = Object.values(inputs);
-        logger.warn({
-          msg: 'Using positional parameter matching with partial parameters',
-          expectedParams: paramNames,
-          providedInputs: Object.keys(inputs),
-          modulePath
-        });
-        return await func(...positionalValues);
-      }
-
-      const errorMsg = `Parameter mismatch for ${modulePath}: Function expects [${paramNames.join(', ')}] but workflow provided [${Object.keys(inputs).join(', ')}]`;
-      logger.error({
-        modulePath,
-        expectedParams: paramNames,
-        providedInputs: Object.keys(inputs),
-        msg: errorMsg
-      });
-      throw new Error(errorMsg);
-    }
-  } catch (error) {
-    logger.error({
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        cause: error.cause
-      } : error,
-      modulePath,
-      inputs,
-      msg: 'Module function execution failed'
-    });
-    throw new Error(
-      `Failed to execute ${modulePath}: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-}
-
-async function loadUserCredentials(userId: string, organizationId?: string): Promise<Record<string, string>> {
-  try {
-    const credentialMap: Record<string, string> = {};
-
-    // Load OAuth tokens with automatic token refresh for expired tokens
-    const { getValidOAuthToken, supportsTokenRefresh } = await import('@/lib/oauth-token-manager');
-
-    const accounts = await db
-      .select()
-      .from(accountsTable)
-      .where(eq(accountsTable.userId, userId));
-
-    for (const account of accounts) {
-      if (account.access_token) {
-        try {
-          // Check if this provider supports automatic token refresh
-          if (supportsTokenRefresh(account.provider)) {
-            // Get valid token (auto-refreshes if expired)
-            const validToken = await getValidOAuthToken(userId, account.provider, organizationId);
-            credentialMap[account.provider] = validToken;
-            logger.info({ provider: account.provider, organizationId }, 'Loaded OAuth token with auto-refresh support');
-          } else {
-            // Fallback to direct decryption for unsupported providers
-            const { decrypt } = await import('@/lib/encryption');
-            const decryptedToken = await decrypt(account.access_token);
-            credentialMap[account.provider] = decryptedToken;
-            logger.debug({ provider: account.provider }, 'Loaded OAuth token (no auto-refresh support)');
-          }
-        } catch (error) {
-          logger.error({
-            error,
-            provider: account.provider,
-            userId,
-            organizationId
-          }, 'Failed to load OAuth token');
-          // Don't throw - allow workflow to continue with other credentials
-        }
-      }
-    }
-
-    const credentials = await db
-      .select()
-      .from(userCredentialsTable)
-      .where(eq(userCredentialsTable.userId, userId));
-
-    for (const cred of credentials) {
-      if (cred.encryptedValue) {
-        const { decrypt } = await import('@/lib/encryption');
-        const decryptedValue = await decrypt(cred.encryptedValue);
-        credentialMap[cred.platform] = decryptedValue;
-      }
-    }
-
-    const platformAliases: Record<string, string[]> = {
-      'youtube': ['youtube_apikey', 'youtube_api_key', 'youtube'],
-      'twitter': ['twitter_oauth2', 'twitter_oauth', 'twitter'],
-      'twitter-oauth': ['twitter_oauth2', 'twitter_oauth', 'twitter'], // Module name: social.twitter-oauth
-      'github': ['github_oauth', 'github'],
-      'google-sheets': ['googlesheets', 'googlesheets_oauth'],
-      'googlesheets': ['googlesheets', 'googlesheets_oauth'],
-      'google-calendar': ['googlecalendar', 'googlecalendar_serviceaccount'],
-      'googlecalendar': ['googlecalendar', 'googlecalendar_serviceaccount'],
-      'notion': ['notion_oauth', 'notion'],
-      'airtable': ['airtable_oauth', 'airtable'],
-      'hubspot': ['hubspot_oauth', 'hubspot'],
-      'salesforce': ['salesforce_jwt', 'salesforce'],
-      'slack': ['slack_oauth', 'slack'],
-      'discord': ['discord_oauth', 'discord'],
-      'stripe': ['stripe_connect', 'stripe'],
-      'rapidapi': ['rapidapi_api_key', 'rapidapi'],
-      'openai': ['openai_api_key', 'openai'],
-      'anthropic': ['anthropic_api_key', 'anthropic'],
-    };
-
-    for (const [platformName, credentialIds] of Object.entries(platformAliases)) {
-      const existingCred = credentialIds.find(id => credentialMap[id]);
-
-      if (existingCred) {
-        for (const aliasName of [platformName, ...credentialIds]) {
-          if (!credentialMap[aliasName]) {
-            credentialMap[aliasName] = credentialMap[existingCred];
-          }
-        }
-      }
-    }
-
-    logger.info(
-      {
-        userId,
-        credentialCount: Object.keys(credentialMap).length,
-        platforms: Object.keys(credentialMap),
-        credentialDetails: Object.keys(credentialMap).map(key => ({
-          platform: key,
-          hasValue: !!credentialMap[key],
-          valueLength: credentialMap[key]?.length || 0
-        }))
-      },
-      'User credentials loaded (OAuth + API keys + aliases)'
-    );
-
-    return credentialMap;
-  } catch (error) {
-    logger.error({ error, userId }, 'Failed to load user credentials');
-    return {};
   }
 }

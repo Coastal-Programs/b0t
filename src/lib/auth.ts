@@ -137,7 +137,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const { usersTable } = await import('./schema');
             const { eq } = await import('drizzle-orm');
 
-             
             const [user] = await (db as any)
               .select()
               .from(usersTable)
@@ -207,20 +206,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         if (email === adminEmail) {
-          // Check if admin password is hashed (starts with $2a$, $2b$, or $2y$ for bcrypt)
-          const isPasswordValid = adminPassword.startsWith('$2')
-            ? await bcrypt.compare(credentials.password as string, adminPassword)
-            : credentials.password === adminPassword;
+          // Require bcrypt-hashed admin password
+          if (!adminPassword.startsWith('$2')) {
+            logger.error(
+              { email: adminEmail },
+              'ADMIN_PASSWORD must be a bcrypt hash (starting with $2a$, $2b$, or $2y$). Generate with: npx bcrypt-cli hash "your-password"'
+            );
+            throw new Error(
+              'Admin password must be bcrypt-hashed. Plaintext passwords are not allowed.'
+            );
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            adminPassword
+          );
 
           if (isPasswordValid) {
-            // Warn if using plaintext password
-            if (!adminPassword.startsWith('$2')) {
-              logger.warn(
-                { email: adminEmail },
-                'Admin using plaintext password - please hash with bcrypt and update ADMIN_PASSWORD env var'
-              );
-            }
-
             logger.info(
               {
                 userId: '1',
@@ -359,17 +361,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // If remember me is unchecked, expire after 24 hours instead of default 30 days
         if (!user.rememberMe) {
           const now = Math.floor(Date.now() / 1000);
-          token.exp = now + (24 * 60 * 60); // 24 hours from now
+          token.exp = now + 24 * 60 * 60; // 24 hours from now
         }
       }
 
       // Recompute isPlatformAdmin on every JWT refresh so changes to ADMIN_EMAIL take effect
-      token.isPlatformAdmin = !!(process.env.ADMIN_EMAIL && token.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+      token.isPlatformAdmin = !!(
+        process.env.ADMIN_EMAIL &&
+        token.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase()
+      );
 
       // Load organization context if not already present
       // or if session is being updated
       // Skip in Edge Runtime
-      if (token.id && (!token.organizationId || trigger === 'update') && process.env.NEXT_RUNTIME !== 'edge') {
+      if (
+        token.id &&
+        (!token.organizationId || trigger === 'update') &&
+        process.env.NEXT_RUNTIME !== 'edge'
+      ) {
         try {
           const orgFns = await getOrganizationFunctions();
           if (!orgFns) {
@@ -595,7 +604,10 @@ export async function hasRole(role: OrganizationRole): Promise<boolean> {
   }
 
   // Admin has admin, member, and viewer permissions
-  if (session.user.role === 'admin' && (role === 'admin' || role === 'member' || role === 'viewer')) {
+  if (
+    session.user.role === 'admin' &&
+    (role === 'admin' || role === 'member' || role === 'viewer')
+  ) {
     return true;
   }
 

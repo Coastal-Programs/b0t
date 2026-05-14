@@ -31,7 +31,9 @@ interface OpenAPISpec {
 /**
  * Parse function signature to extract parameters
  */
-function parseSignature(signature: string): Array<{ name: string; required: boolean; type: string }> {
+function parseSignature(
+  signature: string
+): Array<{ name: string; required: boolean; type: string }> {
   const params: Array<{ name: string; required: boolean; type: string }> = [];
 
   // Extract parameter section: functionName(params...) => params...
@@ -45,8 +47,8 @@ function parseSignature(signature: string): Array<{ name: string; required: bool
   if (paramStr.startsWith('{')) {
     const paramMatch = paramStr.match(/\{\s*([^}]+)\s*\}/);
     if (paramMatch) {
-      const paramList = paramMatch[1].split(',').map(p => p.trim());
-      paramList.forEach(param => {
+      const paramList = paramMatch[1].split(',').map((p) => p.trim());
+      paramList.forEach((param) => {
         const required = !param.endsWith('?');
         const name = param.replace('?', '').trim();
         params.push({ name, required, type: 'string' });
@@ -54,8 +56,8 @@ function parseSignature(signature: string): Array<{ name: string; required: bool
     }
   } else {
     // Handle regular parameters: param1, param2?, param3
-    const paramList = paramStr.split(',').map(p => p.trim());
-    paramList.forEach(param => {
+    const paramList = paramStr.split(',').map((p) => p.trim());
+    paramList.forEach((param) => {
       const required = !param.includes('?');
       const name = param.split(/[?:]/)[0].trim();
       params.push({ name, required, type: 'any' });
@@ -74,15 +76,16 @@ function generateOpenAPISpec(): OpenAPISpec {
   const spec: OpenAPISpec = {
     openapi: '3.0.0',
     info: {
-      title: 'Odin Workflow Modules API',
-      description: 'API specification for all workflow automation modules in Odin platform. Use these modules to build workflows.',
-      version: '1.0.0'
+      title: 'b0t Workflow Modules API',
+      description:
+        'API specification for all workflow automation modules in b0t platform. Use these modules to build workflows.',
+      version: '1.0.0',
     },
     servers: [
       {
         url: 'http://localhost:3123',
-        description: 'Local development server'
-      }
+        description: 'Local development server',
+      },
     ],
     paths: {},
     components: {
@@ -93,24 +96,24 @@ function generateOpenAPISpec(): OpenAPISpec {
           properties: {
             id: {
               type: 'string',
-              description: 'Unique step identifier'
+              description: 'Unique step identifier',
             },
             module: {
               type: 'string',
-              description: 'Module path: category.module.function'
+              description: 'Module path: category.module.function',
             },
             inputs: {
               type: 'object',
-              description: 'Step input parameters'
+              description: 'Step input parameters',
             },
             outputAs: {
               type: 'string',
-              description: 'Variable name to store step output'
-            }
-          }
-        }
-      }
-    }
+              description: 'Variable name to store step output',
+            },
+          },
+        },
+      },
+    },
   };
 
   // Generate paths for each module function
@@ -130,7 +133,7 @@ function generateOpenAPISpec(): OpenAPISpec {
         params.forEach((param) => {
           properties[param.name] = {
             type: param.type === 'any' ? 'string' : param.type,
-            description: `Parameter: ${param.name}`
+            description: `Parameter: ${param.name}`,
           };
           if (param.required) {
             required.push(param.name);
@@ -151,10 +154,10 @@ function generateOpenAPISpec(): OpenAPISpec {
                   schema: {
                     type: 'object',
                     properties,
-                    required: required.length > 0 ? required : undefined
-                  }
-                }
-              }
+                    required: required.length > 0 ? required : undefined,
+                  },
+                },
+              },
             },
             responses: {
               '200': {
@@ -165,20 +168,20 @@ function generateOpenAPISpec(): OpenAPISpec {
                       type: 'object',
                       properties: {
                         success: { type: 'boolean' },
-                        output: { type: 'object' }
-                      }
-                    }
-                  }
-                }
+                        output: { type: 'object' },
+                      },
+                    },
+                  },
+                },
               },
               '400': {
-                description: 'Invalid input parameters'
+                description: 'Invalid input parameters',
               },
               '500': {
-                description: 'Execution error'
-              }
-            }
-          }
+                description: 'Execution error',
+              },
+            },
+          },
         };
 
         // Add schema definition for this function
@@ -186,7 +189,7 @@ function generateOpenAPISpec(): OpenAPISpec {
           type: 'object',
           description: `${fn.description}\n\nSignature: ${fn.signature}`,
           properties,
-          required: required.length > 0 ? required : undefined
+          required: required.length > 0 ? required : undefined,
         };
       });
     });

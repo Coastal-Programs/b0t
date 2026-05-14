@@ -15,10 +15,16 @@
  *   npm run workflow:fix --in-place <plan-file.yaml>  # Overwrites original
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync } from 'fs';
 import { resolve } from 'path';
 import YAML from 'yaml';
 import { getModuleRegistry } from '../src/lib/workflows/module-registry';
+import {
+  MODULE_ALIASES,
+  AI_PROVIDER_CREDENTIALS,
+  REST_PARAM_ALTERNATIVES,
+  REST_PARAM_WARNING_MODULES,
+} from './shared/workflow-constants';
 
 interface WorkflowPlan {
   name: string;
@@ -40,6 +46,7 @@ interface StepPlan {
   name?: string;
   inputs?: Record<string, unknown>;
   outputAs?: string;
+  type?: 'action' | 'condition' | 'forEach' | 'while';
 }
 
 interface ModuleInfo {
@@ -61,82 +68,57 @@ interface FixResult {
   warnings: string[];
 }
 
-/**
- * Module aliases (from build-workflow-from-plan.ts)
- */
-const MODULE_ALIASES: Record<string, string> = {
-  'utilities.datetime.format': 'utilities.datetime.formatDate',
-  'utilities.datetime.diffDays': 'utilities.datetime.getDaysDifference',
-  'utilities.datetime.diffHours': 'utilities.datetime.getHoursDifference',
-  'utilities.datetime.diffMinutes': 'utilities.datetime.getMinutesDifference',
-  'utilities.datetime.startOfDay': 'utilities.datetime.getStartOfDay',
-  'utilities.datetime.endOfDay': 'utilities.datetime.getEndOfDay',
-  'utilities.datetime.startOfWeek': 'utilities.datetime.getStartOfWeek',
-  'utilities.datetime.endOfWeek': 'utilities.datetime.getEndOfWeek',
-  'utilities.datetime.startOfMonth': 'utilities.datetime.getStartOfMonth',
-  'utilities.datetime.endOfMonth': 'utilities.datetime.getEndOfMonth',
-  'utilities.string-utils.camelCase': 'utilities.string-utils.toCamelCase',
-  'utilities.string-utils.pascalCase': 'utilities.string-utils.toPascalCase',
-  'utilities.string-utils.snakeCase': 'utilities.string-utils.toSnakeCase',
-  'utilities.string-utils.kebabCase': 'utilities.string-utils.toKebabCase',
-  'utilities.string-utils.slug': 'utilities.string-utils.toSlug',
-  'utilities.batching.chunk': 'utilities.array-utils.chunk',
-  'utilities.json-transform.stringify': 'utilities.json-transform.stringifyJson',
-  'utilities.json-transform.parse': 'utilities.json-transform.parseJson',
-  'utilities.json-transform.merge': 'utilities.json-transform.deepMerge',
-  'utilities.aggregation.stdDev': 'utilities.aggregation.stdDeviation',
-};
+// MODULE_ALIASES, AI_PROVIDER_CREDENTIALS, REST_PARAM_ALTERNATIVES,
+// REST_PARAM_WARNING_MODULES imported from ./shared/workflow-constants
 
 /**
  * Common parameter name variations for auto-mapping
  */
 const COMMON_VARIATIONS: Record<string, string[]> = {
   // Data/Object variations
-  'data': ['obj', 'object', 'value', 'input'],
-  'obj': ['object', 'data'],
-  'object': ['obj', 'data'],
+  data: ['obj', 'object', 'value', 'input'],
+  obj: ['object', 'data'],
+  object: ['obj', 'data'],
 
   // String variations
-  'text': ['str', 'string', 'content'],
-  'str': ['string', 'text'],
-  'string': ['str', 'text'],
+  text: ['str', 'string', 'content'],
+  str: ['string', 'text'],
+  string: ['str', 'text'],
 
   // Number variations
-  'value': ['num', 'number', 'val'],
-  'num': ['number', 'value'],
-  'number': ['num', 'value'],
+  value: ['num', 'number', 'val'],
+  num: ['number', 'value'],
+  number: ['num', 'value'],
 
   // Array variations
-  'array': ['arr', 'items', 'list'],
-  'arr': ['array', 'items'],
-  'items': ['array', 'arr'],
+  array: ['arr', 'items', 'list'],
+  arr: ['array', 'items'],
+  items: ['array', 'arr'],
 
   // Count/Size variations
-  'count': ['n', 'num', 'size', 'length', 'limit'],
-  'maxLength': ['length', 'max', 'limit'],
+  count: ['n', 'num', 'size', 'length', 'limit'],
+  maxLength: ['length', 'max', 'limit'],
 
   // JSON variations
-  'jsonString': ['str', 'string', 'json'],
+  jsonString: ['str', 'string', 'json'],
 
   // Boolean variations
-  'condition': ['cond', 'test', 'predicate'],
-  'trueVal': ['trueValue', 'ifTrue'],
-  'falseVal': ['falseValue', 'ifFalse'],
+  condition: ['cond', 'test', 'predicate'],
+  trueVal: ['trueValue', 'ifTrue'],
+  falseVal: ['falseValue', 'ifFalse'],
 
   // Key/Field variations
-  'key': ['field', 'prop', 'property'],
-  'keys': ['fields', 'props', 'properties'],
+  key: ['field', 'prop', 'property'],
+  keys: ['fields', 'props', 'properties'],
 
   // Percent variations
-  'percent': ['percentile', 'p'],
+  percent: ['percentile', 'p'],
 };
 
 /**
  * Generate parameter mappings dynamically for a module
  */
-function generateParameterMappings(
-  expectedParams: string[]
-): Record<string, string> {
+function generateParameterMappings(expectedParams: string[]): Record<string, string> {
   const mappings: Record<string, string> = {};
 
   for (const actualParam of expectedParams) {
@@ -159,28 +141,6 @@ function generateParameterMappings(
 const MANUAL_PARAMETER_MAPPINGS: Record<string, Record<string, string>> = {
   // Currently empty - auto-discovery handles everything!
   // Add manual overrides here only if absolutely necessary
-};
-
-/**
- * Rest parameter alternatives - suggest array-based versions
- */
-const REST_PARAM_ALTERNATIVES: Record<string, string> = {
-  'utilities.json-transform.deepMerge': 'utilities.javascript.execute (with spread syntax)',
-  'utilities.math.max': 'utilities.array-utils.max',
-  'utilities.math.min': 'utilities.array-utils.min',
-  'utilities.array-utils.intersection': 'utilities.javascript.execute (with spread syntax)',
-  'utilities.array-utils.union': 'utilities.javascript.execute (with spread syntax)',
-  'utilities.control-flow.coalesce': 'utilities.javascript.execute (with ?? operator)',
-};
-
-/**
- * AI SDK credential mapping
- */
-const AI_PROVIDER_CREDENTIALS: Record<string, string> = {
-  'openai': 'openai_api_key',
-  'anthropic': 'anthropic_api_key',
-  'google': 'google_api_key',
-  'groq': 'groq_api_key',
 };
 
 /**
@@ -221,8 +181,14 @@ function parseModuleSignature(signature: string): ModuleInfo {
   const paramsString = match[1];
 
   // Check for wrapper patterns
-  const usesOptions = paramsString === 'options' || paramsString.startsWith('options:') || paramsString.startsWith('options?');
-  const usesParams = paramsString === 'params' || paramsString.startsWith('params:') || paramsString.startsWith('params?');
+  const usesOptions =
+    paramsString === 'options' ||
+    paramsString.startsWith('options:') ||
+    paramsString.startsWith('options?');
+  const usesParams =
+    paramsString === 'params' ||
+    paramsString.startsWith('params:') ||
+    paramsString.startsWith('params?');
 
   const usesWrapper = usesOptions ? 'options' : usesParams ? 'params' : null;
 
@@ -230,7 +196,10 @@ function parseModuleSignature(signature: string): ModuleInfo {
   const parameters: ParameterInfo[] = [];
   let usesRestParams = false;
 
-  const paramParts = paramsString.split(',').map(p => p.trim()).filter(p => p);
+  const paramParts = paramsString
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p);
 
   for (const part of paramParts) {
     const isRest = part.startsWith('...');
@@ -280,12 +249,12 @@ function autoFixStep(step: StepPlan): FixResult {
 
   const parsedModule = parseModuleSignature(moduleInfo.signature);
 
-  // 3. Handle rest parameters
-  if (parsedModule.usesRestParams) {
+  // 3. Handle rest parameters and known rest-param modules (e.g. deepMerge)
+  if (parsedModule.usesRestParams || REST_PARAM_WARNING_MODULES.has(step.module)) {
     const alternative = REST_PARAM_ALTERNATIVES[step.module];
     if (alternative) {
       warnings.push(
-        `Module "${step.module}" uses rest parameters (...args) which aren't fully supported`,
+        `Module "${step.module}" uses rest parameters (...args) which aren't supported in workflows`,
         `  Suggested alternative: ${alternative}`,
         `  Or use utilities.javascript.execute with spread syntax`
       );
@@ -319,8 +288,8 @@ function autoFixStep(step: StepPlan): FixResult {
 
   // 5. Fix parameter names
   const inputs = step.inputs || {};
-  const expectedParams = parsedModule.parameters.map(p => p.name);
-  const requiredParams = parsedModule.parameters.filter(p => p.required).map(p => p.name);
+  const expectedParams = parsedModule.parameters.map((p) => p.name);
+  const requiredParams = parsedModule.parameters.filter((p) => p.required).map((p) => p.name);
 
   // Generate parameter mappings dynamically based on expected parameters
   const autoMappings = generateParameterMappings(expectedParams);
@@ -359,7 +328,9 @@ function autoFixStep(step: StepPlan): FixResult {
         }
       } else {
         // Remove invalid parameter instead of keeping it
-        warnings.push(`Removed unknown parameter: "${providedName}" - Expected: [${expectedParams.join(', ')}]`);
+        warnings.push(
+          `Removed unknown parameter: "${providedName}" - Expected: [${expectedParams.join(', ')}]`
+        );
         fixed = true;
         // Don't add to fixedInputs - this removes the invalid parameter
       }
@@ -372,7 +343,7 @@ function autoFixStep(step: StepPlan): FixResult {
 
   // 6. Add missing required parameters with placeholders
   const currentParams = Object.keys(fixedInputs);
-  const missingRequired = requiredParams.filter(p => !currentParams.includes(p));
+  const missingRequired = requiredParams.filter((p) => !currentParams.includes(p));
 
   if (missingRequired.length > 0) {
     for (const param of missingRequired) {
@@ -380,7 +351,9 @@ function autoFixStep(step: StepPlan): FixResult {
       changes.push(`Added missing required parameter: "${param}" (placeholder added)`);
       fixed = true;
     }
-    warnings.push(`Missing required parameters filled with placeholders - replace {{FIXME_*}} values`);
+    warnings.push(
+      `Missing required parameters filled with placeholders - replace {{FIXME_*}} values`
+    );
   }
 
   step.inputs = fixedInputs;
@@ -445,8 +418,13 @@ function findClosestMatch(target: string, options: string[]): string | null {
 async function autoFixWorkflowPlan(planFile: string, inPlace: boolean): Promise<void> {
   console.log(`\n🔧 Auto-fixing workflow plan: ${planFile}\n`);
 
-  // Read and parse plan
+  // Create backup before modifying
   const planPath = resolve(process.cwd(), planFile);
+  const backupPath = planPath + '.bak';
+  copyFileSync(planPath, backupPath);
+  console.log(`💾 Backup created: ${backupPath}\n`);
+
+  // Read and parse plan
   const planContent = readFileSync(planPath, 'utf-8');
   const isYaml = planPath.endsWith('.yaml') || planPath.endsWith('.yml');
 
@@ -467,13 +445,26 @@ async function autoFixWorkflowPlan(planFile: string, inPlace: boolean): Promise<
 
   for (let i = 0; i < plan.steps.length; i++) {
     const step = plan.steps[i];
-    console.log(`🔍 Step ${i + 1} ("${step.id}"): ${step.module}`);
+    console.log(`🔍 Step ${i + 1} ("${step.id}"): ${step.module || step.type || 'unknown'}`);
+
+    // Skip control-flow steps (forEach, while, condition) - they don't have modules
+    if (step.type === 'forEach' || step.type === 'while' || step.type === 'condition') {
+      console.log(`   ✓ Control-flow step (${step.type}) - skipping auto-fix`);
+      console.log();
+      continue;
+    }
+
+    if (!step.module) {
+      console.log(`   ⚠️  No module defined - skipping`);
+      console.log();
+      continue;
+    }
 
     const result = autoFixStep(step);
 
     if (result.changes.length > 0) {
       console.log(`   ✅ Fixed:`);
-      result.changes.forEach(change => console.log(`      - ${change}`));
+      result.changes.forEach((change) => console.log(`      - ${change}`));
       totalChanges += result.changes.length;
     } else {
       console.log(`   ✓ No changes needed`);
@@ -481,7 +472,7 @@ async function autoFixWorkflowPlan(planFile: string, inPlace: boolean): Promise<
 
     if (result.warnings.length > 0) {
       console.log(`   ⚠️  Warnings:`);
-      result.warnings.forEach(warning => console.log(`      - ${warning}`));
+      result.warnings.forEach((warning) => console.log(`      - ${warning}`));
       totalWarnings += result.warnings.length;
     }
 
@@ -521,7 +512,7 @@ async function autoFixWorkflowPlan(planFile: string, inPlace: boolean): Promise<
 // Main
 const args = process.argv.slice(2);
 const inPlace = args.includes('--in-place');
-const planFile = args.find(arg => !arg.startsWith('--'));
+const planFile = args.find((arg) => !arg.startsWith('--'));
 
 if (!planFile || args.includes('--help') || args.includes('-h')) {
   console.log(`

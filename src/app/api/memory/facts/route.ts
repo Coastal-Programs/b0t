@@ -1,7 +1,8 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { MemoryManager } from '@/lib/memory/memory-manager';
 import { logger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +12,13 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const rateLimitResult = await checkRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
 
     if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -23,13 +27,10 @@ export async function GET(request: NextRequest) {
     const memoryManager = new MemoryManager(session.user.id, organizationId);
     const facts = await memoryManager.getAllFacts();
 
-    return Response.json({ facts });
+    return NextResponse.json({ facts });
   } catch (error) {
     logger.error({ error }, 'Failed to get memory facts');
-    return Response.json(
-      { error: 'Failed to get memory facts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get memory facts' }, { status: 500 });
   }
 }
 
@@ -39,10 +40,13 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResult = await checkRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
 
     if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!category || !subject || !content) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Missing required fields: category, subject, content' },
         { status: 400 }
       );
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
       'decisions',
     ];
     if (!validCategories.includes(category)) {
-      return Response.json(
+      return NextResponse.json(
         {
           error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
         },
@@ -76,12 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const memoryManager = new MemoryManager(session.user.id, organizationId);
-    const result = await memoryManager.saveFact(
-      category,
-      subject,
-      content,
-      metadata
-    );
+    const result = await memoryManager.saveFact(category, subject, content, metadata);
 
     logger.info(
       {
@@ -92,12 +91,9 @@ export async function POST(request: NextRequest) {
       'Memory fact created'
     );
 
-    return Response.json(result, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     logger.error({ error }, 'Failed to save memory fact');
-    return Response.json(
-      { error: 'Failed to save memory fact' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save memory fact' }, { status: 500 });
   }
 }

@@ -5,7 +5,7 @@
  * Update this file when new models are released or deprecated.
  */
 
-export type AIProvider = 'openai' | 'anthropic' | 'openrouter';
+export type AIProvider = 'openai' | 'anthropic' | 'openrouter' | 'perplexity';
 
 export interface AIModel {
   id: string;
@@ -199,15 +199,21 @@ export const OPENROUTER_MODELS: AIModel[] = [];
  * Returns the current list of all available models
  */
 export async function fetchOpenRouterModels(): Promise<AIModel[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/models');
+    const response = await fetch('https://openrouter.ai/api/v1/models', {
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       console.error('Failed to fetch OpenRouter models');
       return [];
     }
 
-    const data: { data: Array<{ id: string; name: string; context_length: number; description?: string }> } = await response.json();
+    const data: {
+      data: Array<{ id: string; name: string; context_length: number; description?: string }>;
+    } = await response.json();
 
     return data.data.map((model) => ({
       id: model.id,
@@ -220,6 +226,8 @@ export async function fetchOpenRouterModels(): Promise<AIModel[]> {
   } catch (error) {
     console.error('Error fetching OpenRouter models:', error);
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -287,6 +295,7 @@ export const DEFAULT_MODELS: Record<AIProvider, string> = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-sonnet-20241022',
   openrouter: 'openai/gpt-4o-mini',
+  perplexity: 'sonar',
 };
 
 /**

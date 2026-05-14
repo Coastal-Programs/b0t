@@ -25,7 +25,17 @@ interface WorkflowExecutionDialogProps {
   workflowName: string;
   workflowDescription?: string;
   workflowConfig?: Record<string, unknown>;
-  triggerType: 'manual' | 'cron' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'gmail' | 'outlook';
+  triggerType:
+    | 'manual'
+    | 'cron'
+    | 'webhook'
+    | 'telegram'
+    | 'discord'
+    | 'chat'
+    | 'chat-input'
+    | 'gmail'
+    | 'outlook'
+    | 'airtable';
   triggerConfig?: Record<string, unknown>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,12 +69,14 @@ export function WorkflowExecutionDialog({
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [showOutputModal, setShowOutputModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentTriggerData, setCurrentTriggerData] = useState<Record<string, unknown> | undefined>();
+  const [currentTriggerData, setCurrentTriggerData] = useState<
+    Record<string, unknown> | undefined
+  >();
   const chatInputExecuteRef = useRef<(() => void) | null>(null);
   const hasShownToastRef = useRef(false);
 
   // Use the workflow progress hook for real-time updates
-  const { state: progressState, reset: resetProgress} = useWorkflowProgress(
+  const { state: progressState, reset: resetProgress } = useWorkflowProgress(
     executing ? workflowId : null,
     executing,
     triggerType,
@@ -116,14 +128,21 @@ export function WorkflowExecutionDialog({
           duration: 0,
           output: null,
           error: errorMessage,
-          errorStep: null,
+          errorStep: progressState.errorStep ?? null,
           triggerType: 'manual',
         });
         setExecuting(false);
         toast.error(errorMessage);
       });
     }
-  }, [progressState.status, progressState.duration, progressState.output, progressState.error, onExecuted]);
+  }, [
+    progressState.status,
+    progressState.duration,
+    progressState.output,
+    progressState.error,
+    progressState.errorStep,
+    onExecuted,
+  ]);
 
   const handleExecute = useCallback(async () => {
     setExecuting(true);
@@ -150,14 +169,17 @@ export function WorkflowExecutionDialog({
     return { success: true };
   };
 
-  const handleChatInputExecute = useCallback(async (inputData: Record<string, unknown>) => {
-    // Set trigger data and start execution
-    // This will cause the useWorkflowProgress hook to connect to SSE stream with the trigger data
-    setCurrentTriggerData(inputData);
-    setExecutionResult(null);
-    resetProgress();
-    setExecuting(true);
-  }, [resetProgress]);
+  const handleChatInputExecute = useCallback(
+    async (inputData: Record<string, unknown>) => {
+      // Set trigger data and start execution
+      // This will cause the useWorkflowProgress hook to connect to SSE stream with the trigger data
+      setCurrentTriggerData(inputData);
+      setExecutionResult(null);
+      resetProgress();
+      setExecuting(true);
+    },
+    [resetProgress]
+  );
 
   const renderTriggerConfig = () => {
     switch (triggerType) {
@@ -203,12 +225,15 @@ export function WorkflowExecutionDialog({
   };
 
   // Handle Enter key for manual trigger
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !executing && !executionResult && triggerType === 'manual') {
-      e.preventDefault();
-      handleExecute();
-    }
-  }, [executing, executionResult, triggerType, handleExecute]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !executing && !executionResult && triggerType === 'manual') {
+        e.preventDefault();
+        handleExecute();
+      }
+    },
+    [executing, executionResult, triggerType, handleExecute]
+  );
 
   return (
     <>
@@ -227,20 +252,18 @@ export function WorkflowExecutionDialog({
           {triggerType === 'chat' && !isFullscreen ? (
             <DialogHeader>
               <DialogTitle className="sr-only">{workflowName}</DialogTitle>
-              <DialogDescription className="sr-only">
-                {getTriggerDescription()}
-              </DialogDescription>
+              <DialogDescription className="sr-only">{getTriggerDescription()}</DialogDescription>
             </DialogHeader>
           ) : triggerType !== 'chat' ? (
             <DialogHeader>
               <DialogTitle>{workflowName}</DialogTitle>
-              <DialogDescription className="text-xs">
-                {getTriggerDescription()}
-              </DialogDescription>
+              <DialogDescription className="text-xs">{getTriggerDescription()}</DialogDescription>
             </DialogHeader>
           ) : null}
 
-          <div className={triggerType === 'chat' ? 'flex-1 min-h-0 overflow-hidden' : 'py-4 space-y-4'}>
+          <div
+            className={triggerType === 'chat' ? 'flex-1 min-h-0 overflow-hidden' : 'py-4 space-y-4'}
+          >
             {/* Show real-time progress when executing */}
             {executing && progressState.status !== 'idle' && (
               <div className="px-6">

@@ -1,7 +1,8 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { MemoryManager } from '@/lib/memory/memory-manager';
 import { logger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +12,13 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const rateLimitResult = await checkRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
 
     if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -33,12 +37,9 @@ export async function GET(request: NextRequest) {
       'Memory graph generated'
     );
 
-    return Response.json(graphData);
+    return NextResponse.json(graphData);
   } catch (error) {
     logger.error({ error }, 'Failed to get memory graph');
-    return Response.json(
-      { error: 'Failed to get memory graph' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get memory graph' }, { status: 500 });
   }
 }

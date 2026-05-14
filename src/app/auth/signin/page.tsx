@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
-const REMEMBERED_EMAIL_KEY = 'odin_remembered_email';
+const REMEMBERED_EMAIL_KEY = 'b0t_remembered_email';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -61,10 +61,10 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-sm border-border bg-surface">
+      <Card className="w-full max-w-sm border-border bg-surface shadow-lg">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-xl font-black tracking-tight">Sign In</CardTitle>
-          <CardDescription className="text-xs text-secondary">
+          <CardDescription className="text-xs text-muted-foreground">
             Enter your credentials to continue
           </CardDescription>
         </CardHeader>
@@ -72,7 +72,7 @@ export default function SignInPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs text-secondary">
+              <Label htmlFor="email" className="text-xs text-foreground">
                 Email
               </Label>
               <Input
@@ -81,7 +81,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="h-9 bg-background border-border text-sm"
+                className="h-9 bg-background border-input text-sm"
                 autoComplete="email"
                 required
               />
@@ -89,7 +89,7 @@ export default function SignInPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs text-secondary">
+              <Label htmlFor="password" className="text-xs text-foreground">
                 Password
               </Label>
               <Input
@@ -98,7 +98,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="h-9 bg-background border-border text-sm"
+                className="h-9 bg-background border-input text-sm"
                 autoComplete="current-password"
                 required
               />
@@ -118,29 +118,18 @@ export default function SignInPage() {
                     localStorage.removeItem(REMEMBERED_EMAIL_KEY);
                   }
                 }}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
               />
-              <Label
-                htmlFor="remember-me"
-                className="text-xs text-secondary cursor-pointer"
-              >
+              <Label htmlFor="remember-me" className="text-xs text-muted-foreground cursor-pointer">
                 Remember me for 30 days
               </Label>
             </div>
 
             {/* Error Message */}
-            {error && (
-              <div className="text-xs text-destructive text-center">
-                {error}
-              </div>
-            )}
+            {error && <div className="text-xs text-destructive text-center">{error}</div>}
 
             {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-9 text-xs"
-            >
+            <Button type="submit" disabled={loading} className="w-full h-9 text-xs">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -151,7 +140,7 @@ export default function SignInPage() {
               )}
             </Button>
 
-            <p className="text-center text-[10px] text-secondary mt-4">
+            <p className="text-center text-[10px] text-muted-foreground mt-4">
               Single user application
             </p>
           </form>

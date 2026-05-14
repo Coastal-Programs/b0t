@@ -6,22 +6,22 @@
  */
 
 export interface OAuthPermission {
-  scope: string;           // OAuth scope string
-  label: string;          // User-facing label
-  description: string;    // What this permission allows
-  required?: boolean;     // Always include (not shown to user)
-  recommended?: boolean;  // Suggested for most users
+  scope: string; // OAuth scope string
+  label: string; // User-facing label
+  description: string; // What this permission allows
+  required?: boolean; // Always include (not shown to user)
+  recommended?: boolean; // Suggested for most users
 }
 
 export interface OAuthServiceConfig {
-  id: string;                    // e.g., 'gmail', 'outlook'
-  name: string;                  // Display name
+  id: string; // e.g., 'gmail', 'outlook'
+  name: string; // Display name
   provider: 'google' | 'microsoft' | 'calcom';
-  icon: string;                  // Icon name (for UI)
+  icon: string; // Icon name (for UI)
   category: 'email' | 'calendar' | 'storage' | 'social' | 'data' | 'content';
-  description: string;           // Service description
+  description: string; // Service description
   permissions: OAuthPermission[];
-  defaultPermissions: string[];  // Default selected scopes (non-required)
+  defaultPermissions: string[]; // Default selected scopes (non-required)
 }
 
 // ============================================================================
@@ -87,6 +87,8 @@ const gmailConfig: OAuthServiceConfig = {
   defaultPermissions: [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.labels',
   ],
 };
 
@@ -193,9 +195,7 @@ const googleSheetsConfig: OAuthServiceConfig = {
       description: 'Access files created or opened by this app',
     },
   ],
-  defaultPermissions: [
-    'https://www.googleapis.com/auth/spreadsheets',
-  ],
+  defaultPermissions: ['https://www.googleapis.com/auth/spreadsheets'],
 };
 
 const googleDocsConfig: OAuthServiceConfig = {
@@ -244,9 +244,7 @@ const googleDocsConfig: OAuthServiceConfig = {
       description: 'Access files created or opened by this app',
     },
   ],
-  defaultPermissions: [
-    'https://www.googleapis.com/auth/documents',
-  ],
+  defaultPermissions: ['https://www.googleapis.com/auth/documents'],
 };
 
 const googleDriveConfig: OAuthServiceConfig = {
@@ -367,6 +365,42 @@ const youtubeConfig: OAuthServiceConfig = {
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/youtube.upload',
   ],
+};
+
+const googleBusinessConfig: OAuthServiceConfig = {
+  id: 'google_business',
+  name: 'Google Business Profile',
+  provider: 'google',
+  icon: 'Building2',
+  category: 'data',
+  description: 'Manage business listings, reviews, and media on Google Business Profile',
+  permissions: [
+    {
+      scope: 'openid',
+      label: 'OpenID',
+      description: 'Required for authentication',
+      required: true,
+    },
+    {
+      scope: 'profile',
+      label: 'Profile',
+      description: 'Required for authentication',
+      required: true,
+    },
+    {
+      scope: 'email',
+      label: 'Email Address',
+      description: 'Required for authentication',
+      required: true,
+    },
+    {
+      scope: 'https://www.googleapis.com/auth/business.manage',
+      label: 'Manage Business Profile',
+      description: 'Full access to business listings, reviews, and media',
+      recommended: true,
+    },
+  ],
+  defaultPermissions: ['https://www.googleapis.com/auth/business.manage'],
 };
 
 // ============================================================================
@@ -610,6 +644,7 @@ const serviceRegistry: Record<string, OAuthServiceConfig> = {
   google_docs: googleDocsConfig,
   google_drive: googleDriveConfig,
   youtube: youtubeConfig,
+  google_business: googleBusinessConfig,
   outlook: outlookConfig,
   microsoft_teams: microsoftTeamsConfig,
   microsoft_onedrive: microsoftOneDriveConfig,
@@ -639,7 +674,7 @@ export function getAllOAuthServices(): OAuthServiceConfig[] {
  * @returns Array of service configurations for the provider
  */
 export function getOAuthServicesByProvider(provider: 'google' | 'microsoft'): OAuthServiceConfig[] {
-  return Object.values(serviceRegistry).filter(service => service.provider === provider);
+  return Object.values(serviceRegistry).filter((service) => service.provider === provider);
 }
 
 /**
@@ -650,9 +685,7 @@ export function getOAuthServicesByProvider(provider: 'google' | 'microsoft'): OA
 export function getRequiredScopes(serviceId: string): string[] {
   const config = getOAuthServiceConfig(serviceId);
   if (!config) return [];
-  return config.permissions
-    .filter(p => p.required)
-    .map(p => p.scope);
+  return config.permissions.filter((p) => p.required).map((p) => p.scope);
 }
 
 /**
@@ -663,7 +696,7 @@ export function getRequiredScopes(serviceId: string): string[] {
 export function getSelectablePermissions(serviceId: string): OAuthPermission[] {
   const config = getOAuthServiceConfig(serviceId);
   if (!config) return [];
-  return config.permissions.filter(p => !p.required);
+  return config.permissions.filter((p) => !p.required);
 }
 
 /**
@@ -680,12 +713,10 @@ export function validateAndCombineScopes(serviceId: string, selectedScopes: stri
   const requiredScopes = getRequiredScopes(serviceId);
 
   // Get valid selectable scopes
-  const validSelectableScopes = config.permissions
-    .filter(p => !p.required)
-    .map(p => p.scope);
+  const validSelectableScopes = config.permissions.filter((p) => !p.required).map((p) => p.scope);
 
   // Filter user selections to only valid scopes
-  const validatedSelections = selectedScopes.filter(scope =>
+  const validatedSelections = selectedScopes.filter((scope) =>
     validSelectableScopes.includes(scope)
   );
 
@@ -703,6 +734,6 @@ export function getPermissionLabel(serviceId: string, scope: string): string {
   const config = getOAuthServiceConfig(serviceId);
   if (!config) return scope;
 
-  const permission = config.permissions.find(p => p.scope === scope);
+  const permission = config.permissions.find((p) => p.scope === scope);
   return permission?.label || scope;
 }

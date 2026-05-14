@@ -53,7 +53,7 @@ async function waitForServer(maxWaitSeconds: number = 30): Promise<boolean> {
     if (await checkServerRunning()) {
       return true;
     }
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   return false;
 }
@@ -91,10 +91,44 @@ async function importWorkflow(workflowJson: string): Promise<void> {
 
     console.log(`✅ Server is running at ${API_URL}\n`);
 
+    // Check for existing workflow with the same name and delete it
+    const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (process.env.B0T_API_KEY) {
+      authHeaders['Authorization'] = `Bearer ${process.env.B0T_API_KEY}`;
+    }
+
+    try {
+      const listResponse = await fetch(`${API_URL}/api/workflows`, { headers: authHeaders });
+      if (listResponse.ok) {
+        const data = await listResponse.json();
+        const workflows = data.workflows || data; // paginated response has { workflows: [...] }
+        const existing = workflows.filter((w: any) => w.name === workflow.name);
+        if (existing.length > 0) {
+          console.log(
+            `⚠️  Found ${existing.length} existing workflow(s) named "${workflow.name}" — deleting before reimport`
+          );
+          for (const w of existing) {
+            const delRes = await fetch(`${API_URL}/api/workflows/${w.id}`, {
+              method: 'DELETE',
+              headers: authHeaders,
+            });
+            if (delRes.ok) {
+              console.log(`   🗑️  Deleted: ${w.id}`);
+            } else {
+              console.log(`   ⚠️  Failed to delete ${w.id}, continuing anyway`);
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — if we can't check, just import anyway
+    }
+
     // Import via API (use test endpoint in development for no-auth import)
-    const importEndpoint = process.env.NODE_ENV === 'production'
-      ? `${API_URL}/api/workflows/import`
-      : `${API_URL}/api/workflows/import-test`;
+    const importEndpoint =
+      process.env.NODE_ENV === 'production'
+        ? `${API_URL}/api/workflows/import`
+        : `${API_URL}/api/workflows/import-test`;
 
     let response: Response | undefined;
     let importAttempt = 1;
@@ -106,19 +140,23 @@ async function importWorkflow(workflowJson: string): Promise<void> {
 
         response = await fetch(importEndpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ workflowJson }),
           signal: AbortSignal.timeout(10000), // 10 second timeout
         });
 
         break; // Success, exit loop
       } catch (error) {
-        if (error instanceof Error && error.name === 'TimeoutError' && importAttempt < maxAttempts) {
+        if (
+          error instanceof Error &&
+          error.name === 'TimeoutError' &&
+          importAttempt < maxAttempts
+        ) {
           console.log('⚠️  Import taking too long (>10s), server might be frozen');
           console.log('🔄 Killing frozen server and retrying...');
 
           killServerOnPort();
-          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s for cleanup
+          await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3s for cleanup
 
           console.log('💡 Please restart server manually: npm run dev:full');
           console.log('⏳ Waiting 30s for server...');
@@ -191,7 +229,7 @@ let workflowJson: string;
 if (args[0] === '--stdin') {
   // Read from stdin
   const chunks: Buffer[] = [];
-  process.stdin.on('data', (chunk) => chunks.push(chunk));
+  process.stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
   process.stdin.on('end', () => {
     workflowJson = Buffer.concat(chunks).toString('utf-8');
     importWorkflow(workflowJson);

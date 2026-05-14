@@ -34,10 +34,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ credentials });
   } catch (error) {
     logger.error({ error }, 'Failed to list credentials');
-    return NextResponse.json(
-      { error: 'Failed to list credentials' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to list credentials' }, { status: 500 });
   }
 }
 
@@ -68,10 +65,7 @@ export async function POST(request: NextRequest) {
         message: err.message,
       }));
 
-      logger.warn(
-        { userId: session.user.id, errors },
-        'Credential validation failed'
-      );
+      logger.warn({ userId: session.user.id, errors }, 'Credential validation failed');
 
       return NextResponse.json(
         {
@@ -97,6 +91,10 @@ export async function POST(request: NextRequest) {
       organizationId
     );
 
+    // Invalidate credential cache so new credential is immediately available
+    const { invalidateUserCredentialCache } = await import('@/lib/workflows/credential-cache');
+    await invalidateUserCredentialCache(session.user.id);
+
     logger.info(
       { userId: session.user.id, platform, credentialId: result.id },
       'Credential stored'
@@ -105,9 +103,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: result.id }, { status: 201 });
   } catch (error) {
     logger.error({ error }, 'Failed to store credential');
-    return NextResponse.json(
-      { error: 'Failed to store credential' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to store credential' }, { status: 500 });
   }
 }

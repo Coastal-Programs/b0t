@@ -6,9 +6,12 @@ import { logger } from '@/lib/logger';
 export default function GlobalError({
   error,
   reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
+  // unstable_retry: Next.js 16.2+ — calls router.refresh() + reset() in startTransition
+  unstable_retry?: () => void;
 }) {
   useEffect(() => {
     // Log the error to an error reporting service
@@ -24,7 +27,7 @@ export default function GlobalError({
             <p className="mt-4 text-xl">Something went wrong</p>
             <div className="mt-8">
               <button
-                onClick={() => reset()}
+                onClick={() => (unstable_retry ?? reset)()}
                 className="px-4 py-2 bg-black text-white border-none rounded-md cursor-pointer hover:opacity-90"
               >
                 Try again

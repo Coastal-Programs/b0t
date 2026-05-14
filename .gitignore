@@ -72,3 +72,32 @@ Thumbs.db
 openapi.json
 email.json
 /workflow/
+
+# Plans and workflow blueprints (may contain client data)
+/plans/
+/make.com workflows/
+
+# Dev test artifacts
+test-webhook-plan.yaml
+test-webhook-workflow.json
+test-webhook.json
+
+# Screenshots (keep only if needed for README)
+/pictures/
+
+# Workflow translator learnings (local agent memory)
+data/workflow-translator/learnings.jsonl
+
+# ggcoder-eyes
+.gg/eyes/out/
+.gg/eyes/state/
+.gg/eyes/bin/
+.gg/eyes/recordings/
+.gg/eyes/auth/
+.gg/eyes/remote.json
+.gg/eyes/_lib.sh
+.gg/eyes/_redact.sh
+
+# ggcoder worktrees (separate git checkouts)
+.gg/worktrees/
+.gg/.DS_Store

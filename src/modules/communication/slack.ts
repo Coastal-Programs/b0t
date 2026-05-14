@@ -29,7 +29,9 @@ function getSlackClient(token?: string): WebClient {
   const botToken = token || process.env.SLACK_BOT_TOKEN;
 
   if (!botToken) {
-    throw new Error('Slack bot token not provided. Set SLACK_BOT_TOKEN environment variable or pass token via credentials.');
+    throw new Error(
+      'Slack bot token not provided. Set SLACK_BOT_TOKEN environment variable or pass token via credentials.'
+    );
   }
 
   // Return cached client if exists
@@ -72,9 +74,7 @@ export interface SlackMessageResponse {
 /**
  * Internal post message function (unprotected)
  */
-async function postMessageInternal(
-  options: SlackMessageOptions
-): Promise<SlackMessageResponse> {
+async function postMessageInternal(options: SlackMessageOptions): Promise<SlackMessageResponse> {
   const slackClient = getSlackClient(options.token);
 
   logger.info(
@@ -132,10 +132,8 @@ const postMessageRateLimited = withRateLimit(
   slackRateLimiter
 );
 
-export async function postMessage(
-  options: SlackMessageOptions
-): Promise<SlackMessageResponse> {
-  return await postMessageRateLimited(options) as unknown as SlackMessageResponse;
+export async function postMessage(options: SlackMessageOptions): Promise<SlackMessageResponse> {
+  return (await postMessageRateLimited(options)) as unknown as SlackMessageResponse;
 }
 
 /**
@@ -143,9 +141,10 @@ export async function postMessage(
  */
 export async function sendText(
   channel: string,
-  text: string
+  text: string,
+  token?: string
 ): Promise<SlackMessageResponse> {
-  return postMessage({ channel, text });
+  return postMessage({ channel, text, token });
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   // Force dynamic rendering for all pages to avoid static generation errors
@@ -15,25 +15,26 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
 
-  // Performance optimizations (10-15% bundle size reduction)
+  // Explicitly set Turbopack root to silence multiple lockfiles warning
+  turbopack: {
+    root: __dirname,
+  },
+
+  // Performance optimizations
   experimental: {
     // Tree-shake icon libraries for better bundle size
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    // Minify server code in production
-    serverMinification: true,
-    // Explicitly set Turbopack root to silence multiple lockfiles warning
-    // @ts-expect-error - turbopack.root exists but not in type definitions yet
-    turbopack: {
-      root: __dirname,
-    },
+    optimizePackageImports: ['@radix-ui/react-icons'],
   },
 
   // Production-only optimizations
   compiler: {
     // Remove console.log in production (keep error/warn for debugging)
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? {
+            exclude: ['error', 'warn'],
+          }
+        : false,
   },
 
   // Exclude packages with native dependencies from webpack bundling
@@ -55,36 +56,6 @@ const nextConfig: NextConfig = {
     '@node-rs/bcrypt',
     'pdf-parse',
   ],
-
-  // Configure webpack to ignore native modules and optional dependencies
-  // Note: This config is only used in production builds (npm run build)
-  // During dev (npm run dev with --turbopack), webpack config is ignored
-  // The one-time warning "Webpack is configured while Turbopack is not" is expected and harmless
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Don't bundle native modules on server
-      config.externals.push({
-        'discord.js': 'commonjs discord.js',
-        'zlib-sync': 'commonjs zlib-sync',
-        'better-sqlite3': 'commonjs better-sqlite3',
-        'snoowrap': 'commonjs snoowrap',
-      });
-    }
-
-    // Suppress warnings about missing optional dependencies, conflicting exports, and package externals
-    config.ignoreWarnings = [
-      /Module not found.*bufferutil/,
-      /Module not found.*utf-8-validate/,
-      /Module not found.*encoding/,
-      /Module not found.*@chroma-core\/default-embed/,
-      /Module not found.*pg-native/,
-      /conflicting star exports/,
-      /A Node\.js API is used/,
-      /Package ioredis can't be external/,
-    ];
-
-    return config;
-  },
 };
 
 export default nextConfig;

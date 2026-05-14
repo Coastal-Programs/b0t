@@ -1,4 +1,3 @@
- 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   storeCredential,
@@ -9,7 +8,7 @@ import {
   updateCredentialName,
   deleteCredential,
   hasCredential,
-  type CredentialInput
+  type CredentialInput,
 } from '../credentials';
 
 /**
@@ -22,30 +21,30 @@ import {
 vi.mock('@/lib/db', () => ({
   db: {
     insert: vi.fn(() => ({
-      values: vi.fn().mockResolvedValue(undefined)
+      values: vi.fn().mockResolvedValue(undefined),
     })),
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
-          limit: vi.fn().mockResolvedValue([])
-        }))
-      }))
+          limit: vi.fn().mockResolvedValue([]),
+        })),
+      })),
     })),
     update: vi.fn(() => ({
       set: vi.fn(() => ({
-        where: vi.fn().mockResolvedValue(undefined)
-      }))
+        where: vi.fn().mockResolvedValue(undefined),
+      })),
     })),
     delete: vi.fn(() => ({
-      where: vi.fn().mockResolvedValue(undefined)
-    }))
-  }
+      where: vi.fn().mockResolvedValue(undefined),
+    })),
+  },
 }));
 
 // Mock encryption
 vi.mock('@/lib/encryption', () => ({
   encrypt: vi.fn((text: string) => `encrypted:${text}`),
-  decrypt: vi.fn((text: string) => text.replace('encrypted:', ''))
+  decrypt: vi.fn((text: string) => text.replace('encrypted:', '')),
 }));
 
 // Mock logger to suppress output
@@ -53,13 +52,33 @@ vi.mock('@/lib/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
-  }
+    error: vi.fn(),
+  },
 }));
 
 describe('credentials', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-establish default mock chain after clearAllMocks wipes implementations
+    const { db } = await import('@/lib/db');
+    (db.insert as any).mockReturnValue({
+      values: vi.fn().mockResolvedValue(undefined),
+    });
+    (db.select as any).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+    (db.update as any).mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      }),
+    });
+    (db.delete as any).mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   describe('storeCredential', () => {
@@ -71,7 +90,7 @@ describe('credentials', () => {
         platform: 'openai',
         name: 'OpenAI API Key',
         value: 'sk-test-123',
-        type: 'api_key'
+        type: 'api_key',
       };
 
       const result = await storeCredential('user-123', input);
@@ -90,9 +109,9 @@ describe('credentials', () => {
         name: 'Twitter OAuth',
         fields: {
           client_id: 'client-123',
-          client_secret: 'secret-456'
+          client_secret: 'secret-456',
         },
-        type: 'multi_field'
+        type: 'multi_field',
       };
 
       const result = await storeCredential('user-123', input);
@@ -110,7 +129,7 @@ describe('credentials', () => {
         platform: 'OpenAI',
         name: 'Test',
         value: 'test',
-        type: 'api_key'
+        type: 'api_key',
       };
 
       await storeCredential('user-123', input);
@@ -129,7 +148,7 @@ describe('credentials', () => {
         platform: 'stripe',
         name: 'Stripe Key',
         value: 'sk_test_123',
-        type: 'api_key'
+        type: 'api_key',
       };
 
       await storeCredential('user-123', input, 'org-456');
@@ -149,7 +168,7 @@ describe('credentials', () => {
         name: 'Custom Credential',
         value: 'test',
         type: 'api_key',
-        metadata: { environment: 'production', region: 'us-east-1' }
+        metadata: { environment: 'production', region: 'us-east-1' },
       };
 
       await storeCredential('user-123', input);
@@ -160,7 +179,7 @@ describe('credentials', () => {
 
       expect(insertedData.metadata).toEqual({
         environment: 'production',
-        region: 'us-east-1'
+        region: 'us-east-1',
       });
     });
   });
@@ -176,15 +195,15 @@ describe('credentials', () => {
         userId: 'user-123',
         platform: 'openai',
         encryptedValue: 'encrypted:sk-test-123',
-        type: 'api_key'
+        type: 'api_key',
       };
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([mockCredential]),
+          })),
+        })),
       });
 
       const result = await getCredential('user-123', 'openai');
@@ -200,9 +219,9 @@ describe('credentials', () => {
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([]),
+          })),
+        })),
       });
 
       const result = await getCredential('user-123', 'nonexistent');
@@ -218,15 +237,15 @@ describe('credentials', () => {
         userId: 'user-123',
         platform: 'openai',
         encryptedValue: 'encrypted:test',
-        type: 'api_key'
+        type: 'api_key',
       };
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([mockCredential]),
+          })),
+        })),
       });
 
       const result = await getCredential('user-123', 'OpenAI'); // Mixed case
@@ -254,24 +273,24 @@ describe('credentials', () => {
         metadata: {
           fields: {
             client_id: 'encrypted:client-123',
-            client_secret: 'encrypted:secret-456'
-          }
-        }
+            client_secret: 'encrypted:secret-456',
+          },
+        },
       };
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([mockCredential]),
+          })),
+        })),
       });
 
       const result = await getCredentialFields('user-123', 'twitter');
 
       expect(result).toEqual({
         client_id: 'client-123',
-        client_secret: 'secret-456'
+        client_secret: 'secret-456',
       });
       expect(decrypt).toHaveBeenCalledTimes(2);
     });
@@ -285,15 +304,15 @@ describe('credentials', () => {
         platform: 'openai',
         encryptedValue: 'encrypted:sk-test-123',
         type: 'api_key',
-        metadata: {}
+        metadata: {},
       };
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([mockCredential]),
+          })),
+        })),
       });
 
       const result = await getCredentialFields('user-123', 'openai');
@@ -311,15 +330,15 @@ describe('credentials', () => {
         platform: 'stripe',
         encryptedValue: 'encrypted:test',
         type: 'api_key',
-        metadata: {}
+        metadata: {},
       };
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([mockCredential])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([mockCredential]),
+          })),
+        })),
       });
 
       await getCredentialFields('user-123', 'stripe', 'org-456');
@@ -334,9 +353,9 @@ describe('credentials', () => {
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([]),
+          })),
+        })),
       });
 
       const result = await getCredentialFields('user-123', 'nonexistent');
@@ -356,7 +375,7 @@ describe('credentials', () => {
           name: 'OpenAI Key',
           type: 'api_key',
           createdAt: new Date(),
-          lastUsed: new Date()
+          lastUsed: new Date(),
         },
         {
           id: 'cred-2',
@@ -364,14 +383,14 @@ describe('credentials', () => {
           name: 'Stripe Key',
           type: 'api_key',
           createdAt: new Date(),
-          lastUsed: null
-        }
+          lastUsed: null,
+        },
       ];
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
-          where: vi.fn().mockResolvedValue(mockCredentials)
-        }))
+          where: vi.fn().mockResolvedValue(mockCredentials),
+        })),
       });
 
       const result = await listCredentials('user-123');
@@ -387,8 +406,8 @@ describe('credentials', () => {
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
-          where: vi.fn().mockResolvedValue([])
-        }))
+          where: vi.fn().mockResolvedValue([]),
+        })),
       });
 
       await listCredentials('user-123', 'org-456');
@@ -401,8 +420,8 @@ describe('credentials', () => {
 
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
-          where: vi.fn().mockResolvedValue([])
-        }))
+          where: vi.fn().mockResolvedValue([]),
+        })),
       });
 
       await listCredentials('user-123');
@@ -444,21 +463,31 @@ describe('credentials', () => {
   });
 
   describe('deleteCredential', () => {
-    it('should delete credential', async () => {
+    it('should delete credential when it exists', async () => {
       const { db } = await import('@/lib/db');
+
+      // Mock the select query to find the credential first
+      (db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ platform: 'openai', type: 'api_key' }]),
+          }),
+        }),
+      });
 
       await deleteCredential('user-123', 'cred-456');
 
       expect(db.delete).toHaveBeenCalled();
     });
 
-    it('should verify user ownership before deleting', async () => {
+    it('should not delete when credential not found', async () => {
       const { db } = await import('@/lib/db');
 
+      // Default mock returns [] — credential not found
       await deleteCredential('user-123', 'cred-456');
 
-      // Verify where clause includes userId
-      expect(db.delete).toHaveBeenCalled();
+      // delete should NOT be called because select returned empty
+      expect(db.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -469,9 +498,9 @@ describe('credentials', () => {
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([{ id: 'cred-123' }])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([{ id: 'cred-123' }]),
+          })),
+        })),
       });
 
       const result = await hasCredential('user-123', 'openai');
@@ -485,9 +514,9 @@ describe('credentials', () => {
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([]),
+          })),
+        })),
       });
 
       const result = await hasCredential('user-123', 'nonexistent');
@@ -501,9 +530,9 @@ describe('credentials', () => {
       (db.select as any).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn().mockResolvedValue([])
-          }))
-        }))
+            limit: vi.fn().mockResolvedValue([]),
+          })),
+        })),
       });
 
       await hasCredential('user-123', 'stripe', 'org-456');
@@ -516,13 +545,7 @@ describe('credentials', () => {
     it('should handle various platform name formats', async () => {
       const { db } = await import('@/lib/db');
 
-      const testCases = [
-        'OpenAI',
-        'TWITTER',
-        'stripe',
-        'Google-Analytics',
-        'RAPID_API'
-      ];
+      const testCases = ['OpenAI', 'TWITTER', 'stripe', 'Google-Analytics', 'RAPID_API'];
 
       for (const platform of testCases) {
         const mockCredential = {
@@ -530,15 +553,15 @@ describe('credentials', () => {
           userId: 'user-123',
           platform: platform.toLowerCase(),
           encryptedValue: 'encrypted:test',
-          type: 'api_key'
+          type: 'api_key',
         };
 
         (db.select as any).mockReturnValue({
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              limit: vi.fn().mockResolvedValue([mockCredential])
-            }))
-          }))
+              limit: vi.fn().mockResolvedValue([mockCredential]),
+            })),
+          })),
         });
 
         const result = await getCredential('user-123', platform);

@@ -1,0 +1,8 @@
+src/lib/foo.ts(4,7): error TS2322: Type 'A' is not assignable to type 'B'.
+  The types of 'foo.bar.baz' are incompatible between these types.
+    Type 'number' is not assignable to type 'string'.
+src/lib/foo.ts(5,52): error TS2322: Type 'Promise<{ a: string; b: number; }>' is not assignable to type 'Promise<{ a: number; b: string; }>'.
+  Type '{ a: string; b: number; }' is not assignable to type '{ a: number; b: string; }'.
+    Types of property 'a' are incompatible.
+      Type 'string' is not assignable to type 'number'.
+src/lib/foo.ts(10,7): error TS2740: Type '{ a: string; }' is missing the following properties from type 'Big': b, c, d, e, and 47 more.

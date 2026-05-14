@@ -5,17 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChevronsUpDown, Check } from 'lucide-react';
-import {
-  Command,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface GmailTriggerConfigProps {
   initialConfig?: Record<string, unknown>;
@@ -31,9 +22,7 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
   const [from, setFrom] = useState((initialFilters.from as string) || '');
   const [to, setTo] = useState((initialFilters.to as string) || '');
   const [subject, setSubject] = useState((initialFilters.subject as string) || '');
-  const [pollInterval, setPollInterval] = useState(
-    (initialConfig?.pollInterval as number) || 60
-  );
+  const [pollInterval, setPollInterval] = useState((initialConfig?.pollInterval as number) || 60);
   const [labelOpen, setLabelOpen] = useState(false);
   const [intervalOpen, setIntervalOpen] = useState(false);
 
@@ -82,7 +71,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
         </p>
 
         <div className="space-y-2">
-          <Label htmlFor="gmail-label" className="text-sm">Gmail Label</Label>
+          <Label htmlFor="gmail-label" className="text-sm">
+            Gmail Label
+          </Label>
           <Popover open={labelOpen} onOpenChange={setLabelOpen} modal={true}>
             <PopoverTrigger asChild>
               <Button
@@ -92,11 +83,15 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
                 aria-expanded={labelOpen}
                 className="w-full justify-between font-normal text-sm"
               >
-                {commonLabels.find(l => l.value === label)?.label || 'Select label'}
+                {commonLabels.find((l) => l.value === label)?.label || 'Select label'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+            <PopoverContent
+              className="w-full p-0"
+              align="start"
+              style={{ width: 'var(--radix-popover-trigger-width)' }}
+            >
               <Command>
                 <CommandList className="max-h-[300px]">
                   <CommandGroup>
@@ -110,7 +105,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
                         }}
                         className="text-sm"
                       >
-                        <Check className={`mr-2 h-4 w-4 ${label === l.value ? 'opacity-100' : 'opacity-0'}`} />
+                        <Check
+                          className={`mr-2 h-4 w-4 ${label === l.value ? 'opacity-100' : 'opacity-0'}`}
+                        />
                         {l.label}
                       </CommandItem>
                     ))}
@@ -130,10 +127,7 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
               onChange={(e) => setIsUnread(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <Label
-              htmlFor="gmail-unread"
-              className="text-sm font-normal cursor-pointer"
-            >
+            <Label htmlFor="gmail-unread" className="text-sm font-normal cursor-pointer">
               Only unread emails
             </Label>
           </div>
@@ -146,17 +140,16 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
               onChange={(e) => setHasNoLabels(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
-            <Label
-              htmlFor="gmail-no-labels"
-              className="text-sm font-normal cursor-pointer"
-            >
+            <Label htmlFor="gmail-no-labels" className="text-sm font-normal cursor-pointer">
               Only emails without user labels
             </Label>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="gmail-from" className="text-sm">From (sender email)</Label>
+          <Label htmlFor="gmail-from" className="text-sm">
+            From (sender email)
+          </Label>
           <Input
             id="gmail-from"
             value={from}
@@ -167,7 +160,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="gmail-to" className="text-sm">To (recipient email)</Label>
+          <Label htmlFor="gmail-to" className="text-sm">
+            To (recipient email)
+          </Label>
           <Input
             id="gmail-to"
             value={to}
@@ -178,7 +173,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="gmail-subject" className="text-sm">Subject contains</Label>
+          <Label htmlFor="gmail-subject" className="text-sm">
+            Subject contains
+          </Label>
           <Input
             id="gmail-subject"
             value={subject}
@@ -193,7 +190,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
         <h4 className="text-sm font-medium">Polling Settings</h4>
 
         <div className="space-y-2">
-          <Label htmlFor="gmail-interval" className="text-sm">Check for new emails</Label>
+          <Label htmlFor="gmail-interval" className="text-sm">
+            Check for new emails
+          </Label>
           <Popover open={intervalOpen} onOpenChange={setIntervalOpen} modal={true}>
             <PopoverTrigger asChild>
               <Button
@@ -203,11 +202,15 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
                 aria-expanded={intervalOpen}
                 className="w-full justify-between font-normal text-sm"
               >
-                {pollIntervals.find(i => i.value === pollInterval)?.label || 'Select interval'}
+                {pollIntervals.find((i) => i.value === pollInterval)?.label || 'Select interval'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+            <PopoverContent
+              className="w-full p-0"
+              align="start"
+              style={{ width: 'var(--radix-popover-trigger-width)' }}
+            >
               <Command>
                 <CommandList className="max-h-[300px]">
                   <CommandGroup>
@@ -221,7 +224,9 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
                         }}
                         className="text-sm"
                       >
-                        <Check className={`mr-2 h-4 w-4 ${pollInterval === interval.value ? 'opacity-100' : 'opacity-0'}`} />
+                        <Check
+                          className={`mr-2 h-4 w-4 ${pollInterval === interval.value ? 'opacity-100' : 'opacity-0'}`}
+                        />
                         {interval.label}
                       </CommandItem>
                     ))}
@@ -238,22 +243,39 @@ export function GmailTriggerConfig({ initialConfig, onConfigChange }: GmailTrigg
 
       <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950 p-3">
         <p className="text-xs text-blue-900 dark:text-blue-100">
-          <strong>Note:</strong> Requires Google OAuth connection. Go to Settings → Credentials to connect your Gmail account.
+          <strong>Note:</strong> Requires Google OAuth connection. Go to Settings → Credentials to
+          connect your Gmail account.
         </p>
       </div>
 
       <div className="rounded-lg border border-border/50 bg-muted/50 p-3 space-y-2">
         <h4 className="text-sm font-medium">Available Trigger Data</h4>
         <div className="text-xs text-muted-foreground space-y-1">
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.id}}'}</code> - Email ID</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.from}}'}</code> - Sender address</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.to}}'}</code> - Recipient address</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.subject}}'}</code> - Email subject</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.body.text}}'}</code> - Plain text body</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.body.html}}'}</code> - HTML body</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.labels}}'}</code> - Array of labels</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.date}}'}</code> - Email date</div>
-          <div><code className="bg-muted px-1 rounded">{'{{trigger.email.isUnread}}'}</code> - Read status</div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.messageId}}'}</code> - Email ID
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.from}}'}</code> - Sender address
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.to}}'}</code> - Recipient address
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.subject}}'}</code> - Email subject
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.body}}'}</code> - Plain text body
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.bodyHtml}}'}</code> - HTML body
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.snippet}}'}</code> - Email snippet
+          </div>
+          <div>
+            <code className="bg-muted px-1 rounded">{'{{trigger.attachments}}'}</code> - Array of
+            attachments
+          </div>
         </div>
       </div>
     </div>

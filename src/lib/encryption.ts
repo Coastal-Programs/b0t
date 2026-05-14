@@ -43,51 +43,82 @@ const validateEncryptionKey = (): void => {
 validateEncryptionKey();
 
 // Get encryption key from environment (fallback to AUTH_SECRET in development only)
-const getEncryptionKey = (): string => {
+const getEncryptionKey = (): Buffer => {
   const key = process.env.ENCRYPTION_KEY || process.env.AUTH_SECRET;
   if (!key) {
     throw new Error('ENCRYPTION_KEY or AUTH_SECRET must be set for credential encryption');
   }
-  // Ensure key is 32 bytes for AES-256
-  return crypto.createHash('sha256').update(key).digest('base64').slice(0, 32);
+  // Derive a full 32-byte (256-bit) key via SHA-256
+  return crypto.createHash('sha256').update(key).digest();
 };
 
-const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16;
+const GCM_ALGORITHM = 'aes-256-gcm';
+const GCM_IV_LENGTH = 12; // GCM recommended IV length
+const CBC_ALGORITHM = 'aes-256-cbc';
+const CBC_IV_LENGTH = 16;
 
 /**
- * Encrypt a string value
+ * Encrypt a string value using AES-256-GCM (authenticated encryption)
  */
 export function encrypt(text: string): string {
   const key = getEncryptionKey();
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(key), iv);
+  const iv = crypto.randomBytes(GCM_IV_LENGTH);
+  const cipher = crypto.createCipheriv(GCM_ALGORITHM, key, iv);
 
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
 
-  // Return IV + encrypted data (both in hex)
-  return iv.toString('hex') + ':' + encrypted;
+  // Return IV + encrypted data + auth tag (all in hex)
+  return iv.toString('hex') + ':' + encrypted + ':' + authTag.toString('hex');
 }
 
 /**
- * Decrypt an encrypted string
+ * Decrypt legacy AES-256-CBC encrypted data (2-part format: iv:ciphertext)
  */
-export function decrypt(encryptedText: string): string {
-  const key = getEncryptionKey();
-  const parts = encryptedText.split(':');
-
-  if (parts.length !== 2) {
-    throw new Error('Invalid encrypted data format');
-  }
-
+function decryptCBC(parts: string[], key: Buffer): string {
   const iv = Buffer.from(parts[0], 'hex');
   const encrypted = parts[1];
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(key), iv);
+  const decipher = crypto.createDecipheriv(CBC_ALGORITHM, key, iv);
 
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
 
   return decrypted;
+}
+
+/**
+ * Decrypt AES-256-GCM encrypted data (3-part format: iv:ciphertext:authTag)
+ */
+function decryptGCM(parts: string[], key: Buffer): string {
+  const iv = Buffer.from(parts[0], 'hex');
+  const encrypted = parts[1];
+  const authTag = Buffer.from(parts[2], 'hex');
+
+  const decipher = crypto.createDecipheriv(GCM_ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+
+  return decrypted;
+}
+
+/**
+ * Decrypt an encrypted string. Supports both legacy CBC (2-part) and GCM (3-part) formats.
+ */
+export function decrypt(encryptedText: string): string {
+  const key = getEncryptionKey();
+  const parts = encryptedText.split(':');
+
+  if (parts.length === 3) {
+    return decryptGCM(parts, key);
+  }
+
+  if (parts.length === 2) {
+    return decryptCBC(parts, key);
+  }
+
+  throw new Error('Invalid encrypted data format');
 }

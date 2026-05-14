@@ -56,13 +56,15 @@ interface EmailListFilters {
 
 /**
  * Get authenticated Microsoft Graph client
+ * If accessToken is provided, uses it directly (for credential-selected workflows).
+ * Otherwise falls back to getValidOAuthToken which picks the first account.
  */
-async function getGraphClient(userId: string): Promise<Client> {
-  const accessToken = await getValidOAuthToken(userId, 'outlook');
+async function getGraphClient(userId: string, accessToken?: string): Promise<Client> {
+  const token = accessToken || (await getValidOAuthToken(userId, 'outlook'));
 
   return Client.init({
     authProvider: (done) => {
-      done(null, accessToken);
+      done(null, token);
     },
   });
 }
@@ -103,6 +105,7 @@ export async function fetchEmails(params: {
   filters?: EmailListFilters;
   limit?: number;
   includeBody?: boolean;
+  accessToken?: string;
 }): Promise<
   Array<{
     id: string;
@@ -118,22 +121,25 @@ export async function fetchEmails(params: {
     hasAttachments: boolean;
   }>
 > {
-  const { userId, filters = {}, limit = 10, includeBody = false } = params;
+  const { userId, filters = {}, limit = 10, includeBody = false, accessToken } = params;
 
   logger.info({ userId, filters, limit }, 'Fetching Outlook emails');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   // Build folder path
   const folder = filters.folder || 'inbox';
   const folderPath = `/me/mailFolders/${folder}/messages`;
 
   // Build query
-  let query = client.api(folderPath).top(limit).select(
-    includeBody
-      ? 'id,subject,from,toRecipients,body,bodyPreview,categories,isRead,receivedDateTime,importance,hasAttachments'
-      : 'id,subject,from,toRecipients,bodyPreview,categories,isRead,receivedDateTime,importance,hasAttachments'
-  );
+  let query = client
+    .api(folderPath)
+    .top(limit)
+    .select(
+      includeBody
+        ? 'id,subject,from,toRecipients,body,bodyPreview,categories,isRead,receivedDateTime,importance,hasAttachments'
+        : 'id,subject,from,toRecipients,bodyPreview,categories,isRead,receivedDateTime,importance,hasAttachments'
+    );
 
   // Add filter if present
   const filterQuery = buildFilterQuery(filters);
@@ -182,12 +188,13 @@ export async function updateCategories(params: {
   userId: string;
   emailId: string;
   categories: string[];
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId, categories } = params;
+  const { userId, emailId, categories, accessToken } = params;
 
   logger.info({ userId, emailId, categories }, 'Updating Outlook categories');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   await client.api(`/me/messages/${emailId}`).patch({
     categories,
@@ -205,12 +212,13 @@ export async function addCategories(params: {
   userId: string;
   emailId: string;
   categories: string[];
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId, categories } = params;
+  const { userId, emailId, categories, accessToken } = params;
 
   logger.info({ userId, emailId, categories }, 'Adding Outlook categories');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   // Get current categories
   const message = await client.api(`/me/messages/${emailId}`).select('categories').get();
@@ -234,12 +242,13 @@ export async function moveToFolder(params: {
   userId: string;
   emailId: string;
   folderId: string; // Can be 'deleteditems', 'inbox', or actual folder ID
+  accessToken?: string;
 }): Promise<{ success: boolean; newId: string }> {
-  const { userId, emailId, folderId } = params;
+  const { userId, emailId, folderId, accessToken } = params;
 
   logger.info({ userId, emailId, folderId }, 'Moving Outlook email to folder');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   const result = await client.api(`/me/messages/${emailId}/move`).post({
     destinationId: folderId,
@@ -256,12 +265,13 @@ export async function moveToFolder(params: {
 export async function markAsRead(params: {
   userId: string;
   emailId: string;
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId } = params;
+  const { userId, emailId, accessToken } = params;
 
   logger.info({ userId, emailId }, 'Marking Outlook email as read');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   await client.api(`/me/messages/${emailId}`).patch({
     isRead: true,
@@ -278,12 +288,13 @@ export async function markAsRead(params: {
 export async function markAsUnread(params: {
   userId: string;
   emailId: string;
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId } = params;
+  const { userId, emailId, accessToken } = params;
 
   logger.info({ userId, emailId }, 'Marking Outlook email as unread');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   await client.api(`/me/messages/${emailId}`).patch({
     isRead: false,
@@ -300,8 +311,9 @@ export async function markAsUnread(params: {
 export async function moveToTrash(params: {
   userId: string;
   emailId: string;
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId } = params;
+  const { userId, emailId, accessToken } = params;
 
   logger.info({ userId, emailId }, 'Moving Outlook email to trash');
 
@@ -309,6 +321,7 @@ export async function moveToTrash(params: {
     userId,
     emailId,
     folderId: 'deleteditems',
+    accessToken,
   });
 
   logger.info({ userId, emailId }, 'Outlook email moved to trash');
@@ -321,12 +334,13 @@ export async function moveToTrash(params: {
  */
 export async function getFolders(params: {
   userId: string;
+  accessToken?: string;
 }): Promise<Array<{ id: string; displayName: string; unreadItemCount: number }>> {
-  const { userId } = params;
+  const { userId, accessToken } = params;
 
   logger.info({ userId }, 'Fetching Outlook folders');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   const response = await client
     .api('/me/mailFolders')
@@ -349,12 +363,13 @@ export async function getFolders(params: {
  */
 export async function getCategories(params: {
   userId: string;
+  accessToken?: string;
 }): Promise<Array<{ displayName: string; color: string }>> {
-  const { userId } = params;
+  const { userId, accessToken } = params;
 
   logger.info({ userId }, 'Fetching Outlook categories');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   const response = await client.api('/me/outlook/masterCategories').get();
 
@@ -381,6 +396,7 @@ export async function sendEmail(params: {
   bcc?: string | string[];
   replyTo?: string;
   importance?: 'low' | 'normal' | 'high';
+  accessToken?: string;
 }): Promise<{ success: boolean; messageId?: string }> {
   const {
     userId,
@@ -392,11 +408,12 @@ export async function sendEmail(params: {
     bcc,
     replyTo,
     importance = 'normal',
+    accessToken,
   } = params;
 
   logger.info({ userId, to, subject }, 'Sending Outlook email');
 
-  const client = await getGraphClient(userId);
+  const client = await getGraphClient(userId, accessToken);
 
   // Build recipients arrays
   const toRecipients = (Array.isArray(to) ? to : [to]).map((email) => ({

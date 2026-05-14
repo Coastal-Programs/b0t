@@ -5,21 +5,93 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Vercel-inspired design system - Dark first */
+  /* Vercel-inspired design system - Light theme (default) */
   --radius: 0.5rem;
 
+  /* Vercel grayscale palette (higher number = darker) */
+  --gray-50: #fafafa;    /* Lightest */
+  --gray-100: #f5f5f5;
+  --gray-200: #e5e5e5;
+  --gray-300: #d4d4d4;
+  --gray-400: #a3a3a3;
+  --gray-500: #737373;
+  --gray-600: #525252;
+  --gray-700: #404040;
+  --gray-800: #262626;
+  --gray-900: #1a1a1a;
+  --gray-1000: #0a0a0a;  /* Darkest */
+
+  /* Background variants */
+  --background-100: #ffffff;
+  --background-200: #fafafa;
+
+  /* Alpha variants for overlays */
+  --gray-alpha-100: rgba(0, 0, 0, 0.04);
+  --gray-alpha-200: rgba(0, 0, 0, 0.08);
+  --gray-alpha-300: rgba(0, 0, 0, 0.12);
+  --gray-alpha-400: rgba(0, 0, 0, 0.16);
+
+  /* Vercel blue accent */
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+
+  /* Light theme semantic colors - proper contrast for accessibility */
+  --background: #ffffff;
+  --foreground: var(--gray-900);
+  --card: #ffffff;
+  --card-foreground: var(--gray-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--gray-900);
+  --primary: var(--gray-900);
+  --primary-foreground: #ffffff;
+  --secondary: var(--gray-100);
+  --secondary-foreground: var(--gray-900);
+  --muted: var(--gray-100);
+  --muted-foreground: var(--gray-600);
+  --accent: var(--gray-100);
+  --accent-foreground: var(--gray-900);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--gray-300);
+  --input: var(--gray-300);
+  --ring: var(--gray-500);
+
+  /* Light theme shadows - darker shadows for depth on white */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Chart colors */
+  --chart-1: var(--blue-500);
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+
+  /* Platform brand colors */
+  --twitter-blue: #1DA1F2;
+  --youtube-red: #FF0000;
+  --instagram-gradient-start: #f09433;
+  --instagram-gradient-end: #bc1888;
+  --success-green: #10b981;
+}
+
+/* Dark theme overrides */
+.dark {
   /* Vercel grayscale palette - INVERTED for dark theme (higher number = lighter) */
-  --gray-1000: #fafafa;  /* Lightest */
-  --gray-900: #ededed;   /* Very light gray - body text */
-  --gray-800: #d4d4d4;
-  --gray-700: #a3a3a3;
-  --gray-600: #737373;
-  --gray-500: #525252;
-  --gray-400: #404040;
-  --gray-300: #262626;
-  --gray-200: #1a1a1a;
-  --gray-100: #171717;
   --gray-50: #0a0a0a;    /* Darkest */
+  --gray-100: #171717;
+  --gray-200: #1a1a1a;
+  --gray-300: #262626;
+  --gray-400: #404040;
+  --gray-500: #525252;
+  --gray-600: #737373;
+  --gray-700: #a3a3a3;
+  --gray-800: #d4d4d4;
+  --gray-900: #ededed;
+  --gray-1000: #fafafa;  /* Lightest */
 
   /* Background variants */
   --background-100: #0d0d0d;
@@ -31,12 +103,7 @@
   --gray-alpha-300: rgba(255, 255, 255, 0.12);
   --gray-alpha-400: rgba(255, 255, 255, 0.16);
 
-  /* Vercel blue accent */
-  --blue-500: #3b82f6;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-
-  /* Base dark theme */
+  /* Dark theme semantic colors */
   --background: var(--gray-50);
   --foreground: var(--gray-1000);
   --card: var(--gray-100);
@@ -57,19 +124,11 @@
   --input: var(--gray-200);
   --ring: var(--gray-600);
 
-  /* Chart colors */
-  --chart-1: var(--blue-500);
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
-
-  /* Platform brand colors */
-  --twitter-blue: #1DA1F2;
-  --youtube-red: #FF0000;
-  --instagram-gradient-start: #f09433;
-  --instagram-gradient-end: #bc1888;
-  --success-green: #10b981;
+  /* Dark mode shadows - subtle glow effect */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
 @theme inline {
@@ -141,6 +200,12 @@
   --color-instagram-gradient-start: var(--instagram-gradient-start);
   --color-instagram-gradient-end: var(--instagram-gradient-end);
   --color-success-green: var(--success-green);
+
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
 @layer base {

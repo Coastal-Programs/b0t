@@ -14,8 +14,8 @@ import { logger } from '@/lib/logger';
  * - https://www.googleapis.com/auth/gmail.labels (for label management)
  *
  * Authentication:
- * - Uses OAuth 2.0 via google credential system
- * - Automatic token refresh via oauth-token-manager
+ * - Uses Google OAuth token from accounts table via getValidOAuthToken
+ * - Automatic token refresh via oauth-token-manager when expired
  */
 
 interface GmailMessage {
@@ -46,15 +46,97 @@ interface EmailListFilters {
 }
 
 /**
- * Get authenticated Gmail client
+ * Get authenticated Gmail client.
+ * If `accessToken` is provided directly (from executor credential injection), uses it.
+ * Otherwise auto-refreshes via getValidOAuthToken.
  */
-async function getGmailClient(userId: string) {
-  const accessToken = await getValidOAuthToken(userId, 'google');
+async function getGmailClient(userId: string, accessToken?: string) {
+  const token = accessToken || (await getValidOAuthToken(userId, 'google'));
 
   const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: accessToken });
+  oauth2Client.setCredentials({ access_token: token });
 
   return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+// Cache label name→ID mappings per session to avoid repeated API calls
+let labelCache: Map<string, string> | null = null;
+let labelCacheTime = 0;
+const LABEL_CACHE_TTL = 60000; // 1 minute
+
+/**
+ * Resolve label names to Gmail label IDs.
+ * If a label name looks like an ID already (e.g., "INBOX", "Label_123"), pass it through.
+ * Otherwise, look up the ID by name and create the label if it doesn't exist.
+ */
+async function resolveLabelsToIds(
+  gmail: ReturnType<typeof google.gmail>,
+  labels: string[]
+): Promise<string[]> {
+  // System labels are already IDs
+  const systemLabels = [
+    'INBOX',
+    'SENT',
+    'DRAFT',
+    'SPAM',
+    'TRASH',
+    'UNREAD',
+    'STARRED',
+    'IMPORTANT',
+    'CATEGORY_PERSONAL',
+    'CATEGORY_SOCIAL',
+    'CATEGORY_PROMOTIONS',
+    'CATEGORY_UPDATES',
+    'CATEGORY_FORUMS',
+  ];
+
+  // Refresh cache if stale
+  if (!labelCache || Date.now() - labelCacheTime > LABEL_CACHE_TTL) {
+    const response = await gmail.users.labels.list({ userId: 'me' });
+    labelCache = new Map();
+    for (const label of response.data.labels || []) {
+      if (label.name && label.id) {
+        labelCache.set(label.name.toLowerCase(), label.id);
+      }
+    }
+    labelCacheTime = Date.now();
+  }
+
+  const resolvedIds: string[] = [];
+
+  for (const label of labels) {
+    // Already an ID (system label or Label_xxx format)
+    if (systemLabels.includes(label) || label.startsWith('Label_')) {
+      resolvedIds.push(label);
+      continue;
+    }
+
+    // Look up by name (case-insensitive)
+    const cachedId = labelCache.get(label.toLowerCase());
+    if (cachedId) {
+      resolvedIds.push(cachedId);
+      continue;
+    }
+
+    // Label doesn't exist — create it
+    logger.info({ label }, 'Creating Gmail label');
+    const created = await gmail.users.labels.create({
+      userId: 'me',
+      requestBody: {
+        name: label,
+        labelListVisibility: 'labelShow',
+        messageListVisibility: 'show',
+      },
+    });
+
+    if (created.data.id) {
+      labelCache.set(label.toLowerCase(), created.data.id);
+      resolvedIds.push(created.data.id);
+      logger.info({ label, labelId: created.data.id }, 'Gmail label created');
+    }
+  }
+
+  return resolvedIds;
 }
 
 /**
@@ -145,18 +227,20 @@ export async function fetchEmails(params: {
   filters?: EmailListFilters;
   limit?: number;
   includeBody?: boolean;
-}): Promise<Array<{
-  id: string;
-  threadId: string;
-  from: string;
-  to: string;
-  subject: string;
-  snippet: string;
-  body?: { text?: string; html?: string };
-  labels: string[];
-  date: Date;
-  isUnread: boolean;
-}>> {
+}): Promise<
+  Array<{
+    id: string;
+    threadId: string;
+    from: string;
+    to: string;
+    subject: string;
+    snippet: string;
+    body?: { text?: string; html?: string };
+    labels: string[];
+    date: Date;
+    isUnread: boolean;
+  }>
+> {
   const { userId, filters = {}, limit = 10, includeBody = false } = params;
 
   logger.info({ userId, filters, limit }, 'Fetching Gmail emails');
@@ -213,51 +297,69 @@ export async function fetchEmails(params: {
 }
 
 /**
- * Add labels to an email
+ * Add labels to an email.
+ * Accepts `emailId` or `messageId` (alias) and `labels` or `labelIds` (alias).
  */
 export async function addLabels(params: {
   userId: string;
-  emailId: string;
-  labels: string[];
+  emailId?: string;
+  messageId?: string; // alias for emailId
+  labels?: string[];
+  labelIds?: string[]; // alias for labels
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId, labels } = params;
+  const emailId = params.emailId || params.messageId || '';
+  const labels = params.labels || params.labelIds || [];
+  const { userId } = params;
 
   logger.info({ userId, emailId, labels }, 'Adding Gmail labels');
 
-  const gmail = await getGmailClient(userId);
+  const gmail = await getGmailClient(userId, params.accessToken);
+
+  // Resolve label names to IDs — Gmail API requires IDs, not names
+  const resolvedLabelIds = await resolveLabelsToIds(gmail, labels);
 
   await gmail.users.messages.modify({
     userId: 'me',
     id: emailId,
     requestBody: {
-      addLabelIds: labels,
+      addLabelIds: resolvedLabelIds,
     },
   });
 
-  logger.info({ userId, emailId, labels }, 'Gmail labels added');
+  logger.info({ userId, emailId, labels, resolvedLabelIds }, 'Gmail labels added');
 
   return { success: true };
 }
 
 /**
- * Remove labels from an email
+ * Remove labels from an email.
+ * Accepts `emailId` or `messageId` (alias) and `labels` or `labelIds` (alias).
  */
 export async function removeLabels(params: {
   userId: string;
-  emailId: string;
-  labels: string[];
+  emailId?: string;
+  messageId?: string; // alias for emailId
+  labels?: string[];
+  labelIds?: string[]; // alias for labels
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId, labels } = params;
+  const emailId = params.emailId || params.messageId || '';
+  const labels = params.labels || params.labelIds || [];
+  const { userId } = params;
 
   logger.info({ userId, emailId, labels }, 'Removing Gmail labels');
 
-  const gmail = await getGmailClient(userId);
+  const gmail = await getGmailClient(userId, params.accessToken);
+
+  // Resolve label names to IDs
+  const resolvedLabelIds = await resolveLabelsToIds(gmail, labels);
 
   await gmail.users.messages.modify({
     userId: 'me',
     id: emailId,
     requestBody: {
-      removeLabelIds: labels,
+      removeLabelIds: resolvedLabelIds,
     },
   });
 
@@ -267,17 +369,21 @@ export async function removeLabels(params: {
 }
 
 /**
- * Mark email as read
+ * Mark email as read.
+ * Accepts `emailId` or `messageId` (alias).
  */
 export async function markAsRead(params: {
   userId: string;
-  emailId: string;
+  emailId?: string;
+  messageId?: string; // alias for emailId
+  accessToken?: string;
 }): Promise<{ success: boolean }> {
-  const { userId, emailId } = params;
+  const emailId = params.emailId || params.messageId || '';
+  const { userId } = params;
 
   logger.info({ userId, emailId }, 'Marking Gmail email as read');
 
-  const gmail = await getGmailClient(userId);
+  const gmail = await getGmailClient(userId, params.accessToken);
 
   await gmail.users.messages.modify({
     userId: 'me',
@@ -365,6 +471,53 @@ export async function archiveEmail(params: {
   logger.info({ userId, emailId }, 'Gmail email archived');
 
   return { success: true };
+}
+
+/**
+ * Send an email via Gmail
+ */
+export async function sendEmail(params: {
+  userId: string;
+  to: string;
+  subject: string;
+  body: string;
+  bodyType?: 'text' | 'html';
+  cc?: string;
+  bcc?: string;
+  replyTo?: string;
+}): Promise<{ messageId: string; threadId: string }> {
+  const { userId, to, subject, body, bodyType = 'html', cc, bcc, replyTo } = params;
+
+  logger.info({ userId, to, subject }, 'Sending Gmail email');
+
+  const gmail = await getGmailClient(userId);
+
+  // Build RFC 2822 MIME message
+  const messageParts: string[] = [];
+  messageParts.push(`To: ${to}`);
+  if (cc) messageParts.push(`Cc: ${cc}`);
+  if (bcc) messageParts.push(`Bcc: ${bcc}`);
+  if (replyTo) messageParts.push(`Reply-To: ${replyTo}`);
+  messageParts.push(`Subject: ${subject}`);
+  const contentType = bodyType === 'html' ? 'text/html' : 'text/plain';
+  messageParts.push(`Content-Type: ${contentType}; charset=utf-8`);
+  messageParts.push('');
+  messageParts.push(body);
+
+  const rawMessage = messageParts.join('\r\n');
+  const raw = Buffer.from(rawMessage).toString('base64url');
+
+  const response = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw },
+  });
+
+  const messageId = response.data.id || '';
+  const threadId = response.data.threadId || '';
+
+  logger.info({ userId, messageId, threadId }, 'Gmail email sent');
+
+  return { messageId, threadId };
 }
 
 /**

@@ -44,11 +44,13 @@ export const ratelimit = hasUpstashConfig
  *   // Your API logic here
  * }
  */
-export async function checkRateLimit(
-  req: NextRequest
-): Promise<NextResponse | null> {
-  // Get identifier (IP address or user ID)
-  const identifier = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'anonymous';
+export async function checkRateLimit(req: NextRequest): Promise<NextResponse | null> {
+  // Prefer x-real-ip (set by reverse proxy), fall back to first IP in x-forwarded-for
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const identifier =
+    req.headers.get('x-real-ip') ??
+    (forwardedFor ? forwardedFor.split(',')[0].trim() : null) ??
+    'anonymous';
 
   try {
     const { success, limit, remaining, reset } = await ratelimit.limit(identifier);
@@ -77,8 +79,10 @@ export async function checkRateLimit(
     logger.debug({ identifier, remaining }, 'Rate limit check passed');
     return null; // Allow request to continue
   } catch (error) {
-    logger.error({ error }, 'Rate limit check failed');
-    // On error, allow the request (fail open)
+    // SECURITY NOTE: Fail-open by design — availability over rate limiting.
+    // If Redis/Upstash is down, requests proceed without rate limits.
+    // Monitor this log for sustained failures that indicate rate limiting is disabled.
+    logger.error({ error, identifier }, 'Rate limit check failed - failing open');
     return null;
   }
 }
@@ -99,10 +103,125 @@ export const strictRatelimit = hasUpstashConfig
       analytics: false,
     });
 
-export async function checkStrictRateLimit(
-  req: NextRequest
-): Promise<NextResponse | null> {
-  const identifier = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'anonymous';
+// Agent chat rate limit (5 requests per 10 seconds)
+export const agentChatRatelimit = hasUpstashConfig
+  ? new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(5, '10 s'),
+      analytics: true,
+      prefix: '@upstash/ratelimit/agent-chat',
+    })
+  : new Ratelimit({
+      redis: new Map() as unknown as RatelimitConfig['redis'],
+      limiter: Ratelimit.slidingWindow(5, '10 s'),
+      analytics: false,
+    });
+
+// Import rate limit (5 requests per 60 seconds)
+export const importRatelimit = hasUpstashConfig
+  ? new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(5, '60 s'),
+      analytics: true,
+      prefix: '@upstash/ratelimit/import',
+    })
+  : new Ratelimit({
+      redis: new Map() as unknown as RatelimitConfig['redis'],
+      limiter: Ratelimit.slidingWindow(5, '60 s'),
+      analytics: false,
+    });
+
+export async function checkAgentChatRateLimit(req: NextRequest): Promise<NextResponse | null> {
+  // Prefer x-real-ip (set by reverse proxy), fall back to first IP in x-forwarded-for
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const identifier =
+    req.headers.get('x-real-ip') ??
+    (forwardedFor ? forwardedFor.split(',')[0].trim() : null) ??
+    'anonymous';
+
+  try {
+    const { success, limit, remaining, reset } = await agentChatRatelimit.limit(identifier);
+
+    if (!success) {
+      logger.warn({ identifier, limit, remaining }, 'Agent chat rate limit exceeded');
+
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please slow down.',
+          limit,
+          remaining,
+          reset: new Date(reset).toISOString(),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': reset.toString(),
+          },
+        }
+      );
+    }
+
+    return null;
+  } catch (error) {
+    // SECURITY NOTE: Fail-open by design — availability over rate limiting.
+    // If Redis/Upstash is down, requests proceed without rate limits.
+    // Monitor this log for sustained failures that indicate rate limiting is disabled.
+    logger.error({ error, identifier }, 'Agent chat rate limit check failed - failing open');
+    return null;
+  }
+}
+
+export async function checkImportRateLimit(req: NextRequest): Promise<NextResponse | null> {
+  // Prefer x-real-ip (set by reverse proxy), fall back to first IP in x-forwarded-for
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const identifier =
+    req.headers.get('x-real-ip') ??
+    (forwardedFor ? forwardedFor.split(',')[0].trim() : null) ??
+    'anonymous';
+
+  try {
+    const { success, limit, remaining, reset } = await importRatelimit.limit(identifier);
+
+    if (!success) {
+      logger.warn({ identifier, limit, remaining }, 'Import rate limit exceeded');
+
+      return NextResponse.json(
+        {
+          error: 'Too many import requests. Please slow down.',
+          limit,
+          remaining,
+          reset: new Date(reset).toISOString(),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': reset.toString(),
+          },
+        }
+      );
+    }
+
+    return null;
+  } catch (error) {
+    // SECURITY NOTE: Fail-open by design — availability over rate limiting.
+    // If Redis/Upstash is down, requests proceed without rate limits.
+    // Monitor this log for sustained failures that indicate rate limiting is disabled.
+    logger.error({ error, identifier }, 'Import rate limit check failed - failing open');
+    return null;
+  }
+}
+
+export async function checkStrictRateLimit(req: NextRequest): Promise<NextResponse | null> {
+  // Prefer x-real-ip (set by reverse proxy), fall back to first IP in x-forwarded-for
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const identifier =
+    req.headers.get('x-real-ip') ??
+    (forwardedFor ? forwardedFor.split(',')[0].trim() : null) ??
+    'anonymous';
 
   try {
     const { success, limit, remaining, reset } = await strictRatelimit.limit(identifier);
@@ -130,7 +249,10 @@ export async function checkStrictRateLimit(
 
     return null;
   } catch (error) {
-    logger.error({ error }, 'Strict rate limit check failed');
+    // SECURITY NOTE: Fail-open by design — availability over rate limiting.
+    // If Redis/Upstash is down, requests proceed without rate limits.
+    // Monitor this log for sustained failures that indicate rate limiting is disabled.
+    logger.error({ error, identifier }, 'Strict rate limit check failed - failing open');
     return null;
   }
 }

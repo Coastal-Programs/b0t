@@ -26,9 +26,7 @@ if (!GITHUB_TOKEN) {
   logger.warn('⚠️  GITHUB_TOKEN not set. GitHub features will not work.');
 }
 
-const githubClient = GITHUB_TOKEN
-  ? new Octokit({ auth: GITHUB_TOKEN })
-  : null;
+const githubClient = GITHUB_TOKEN ? new Octokit({ auth: GITHUB_TOKEN }) : null;
 
 // Rate limiter: GitHub allows 5000 req/hour for authenticated users
 const githubRateLimiter = createRateLimiter({
@@ -62,9 +60,7 @@ export interface GitHubCreateIssueOptions {
 /**
  * Internal create issue function (unprotected)
  */
-async function createIssueInternal(
-  options: GitHubCreateIssueOptions
-): Promise<GitHubIssue> {
+async function createIssueInternal(options: GitHubCreateIssueOptions): Promise<GitHubIssue> {
   if (!githubClient) {
     throw new Error('GitHub client not initialized. Set GITHUB_TOKEN.');
   }
@@ -109,14 +105,11 @@ const createIssueWithBreaker = createCircuitBreaker(createIssueInternal, {
 });
 
 const createIssueRateLimited = withRateLimit(
-  async (options: GitHubCreateIssueOptions) =>
-    createIssueWithBreaker.fire(options),
+  async (options: GitHubCreateIssueOptions) => createIssueWithBreaker.fire(options),
   githubRateLimiter
 );
 
-export async function createIssue(
-  options: GitHubCreateIssueOptions
-): Promise<GitHubIssue> {
+export async function createIssue(options: GitHubCreateIssueOptions): Promise<GitHubIssue> {
   return (await createIssueRateLimited(options)) as unknown as GitHubIssue;
 }
 
@@ -251,12 +244,14 @@ export async function listPullRequests(
   owner: string,
   repo: string,
   state: 'open' | 'closed' | 'all' = 'open'
-): Promise<Array<{
-  number: number;
-  title: string;
-  htmlUrl: string;
-  state: string;
-}>> {
+): Promise<
+  Array<{
+    number: number;
+    title: string;
+    htmlUrl: string;
+    state: string;
+  }>
+> {
   if (!githubClient) {
     throw new Error('GitHub client not initialized. Set GITHUB_TOKEN.');
   }
@@ -368,13 +363,15 @@ export async function searchRepositories(
   query: string,
   sort?: 'stars' | 'forks' | 'updated',
   per_page: number = 30
-): Promise<Array<{
-  name: string;
-  fullName: string;
-  description: string;
-  htmlUrl: string;
-  stargazersCount: number;
-}>> {
+): Promise<
+  Array<{
+    name: string;
+    fullName: string;
+    description: string;
+    htmlUrl: string;
+    stargazersCount: number;
+  }>
+> {
   if (!githubClient) {
     throw new Error('GitHub client not initialized. Set GITHUB_TOKEN.');
   }
@@ -437,17 +434,19 @@ export async function getTrendingRepositories(options?: {
   language?: string;
   since?: 'daily' | 'weekly' | 'monthly';
   per_page?: number;
-}): Promise<Array<{
-  name: string;
-  fullName: string;
-  owner: string;
-  description: string;
-  htmlUrl: string;
-  stargazersCount: number;
-  language: string;
-  forksCount: number;
-  createdAt: string;
-}>> {
+}): Promise<
+  Array<{
+    name: string;
+    fullName: string;
+    owner: string;
+    description: string;
+    htmlUrl: string;
+    stargazersCount: number;
+    language: string;
+    forksCount: number;
+    createdAt: string;
+  }>
+> {
   const since = options?.since || 'weekly';
   const per_page = Math.min(options?.per_page || 30, 100); // GitHub max is 100
 
@@ -470,7 +469,10 @@ export async function getTrendingRepositories(options?: {
     query += ` language:${options.language}`;
   }
 
-  logger.info({ query, since, language: options?.language }, 'Getting trending GitHub repositories');
+  logger.info(
+    { query, since, language: options?.language },
+    'Getting trending GitHub repositories'
+  );
 
   // Use public GitHub API (no auth required)
   const url = new URL('https://api.github.com/search/repositories');
@@ -481,8 +483,8 @@ export async function getTrendingRepositories(options?: {
 
   const response = await fetch(url.toString(), {
     headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'odin-workflow-automation',
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'b0t-workflow-automation',
     },
   });
 
@@ -490,7 +492,7 @@ export async function getTrendingRepositories(options?: {
     throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     items: Array<{
       name: string;
       full_name: string;

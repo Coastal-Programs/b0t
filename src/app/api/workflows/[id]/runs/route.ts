@@ -11,10 +11,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/workflows/[id]/runs
  * Get execution history for a workflow
  */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -68,10 +65,17 @@ export async function GET(
       .offset(offset);
 
     // Parse JSON fields (output is stored as text)
-    const parsedRuns = runs.map((run) => ({
-      ...run,
-      output: run.output ? JSON.parse(run.output as string) : null,
-    }));
+    const parsedRuns = runs.map((run) => {
+      let output = null;
+      if (run.output) {
+        try {
+          output = JSON.parse(run.output as string);
+        } catch {
+          output = null;
+        }
+      }
+      return { ...run, output };
+    });
 
     return NextResponse.json({ runs: parsedRuns });
   } catch (error) {
@@ -79,7 +83,7 @@ export async function GET(
       {
         error: error instanceof Error ? error.message : String(error),
         workflowId: id,
-        action: 'workflow_runs_fetch_failed'
+        action: 'workflow_runs_fetch_failed',
       },
       'Failed to fetch workflow runs'
     );

@@ -36,9 +36,7 @@ const activeClients = new Map<string, MCPClientInstance>();
 /**
  * Connect to an MCP server and initialize the client
  */
-export async function connectToMCPServer(
-  config: MCPServerConfig
-): Promise<MCPClientInstance> {
+export async function connectToMCPServer(config: MCPServerConfig): Promise<MCPClientInstance> {
   const { name, command, args = [], env = {} } = config;
 
   try {
@@ -57,7 +55,7 @@ export async function connectToMCPServer(
     // Create client
     const client = new Client(
       {
-        name: `odin-mcp-client-${name}`,
+        name: `b0t-mcp-client-${name}`,
         version: '1.0.0',
       },
       {
@@ -261,10 +259,7 @@ export function getMCPServerTools(serverName: string): Record<string, Tool> {
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(
-            { serverName, toolName, error: errorMessage },
-            'MCP tool execution failed'
-          );
+          logger.error({ serverName, toolName, error: errorMessage }, 'MCP tool execution failed');
 
           return {
             success: false,

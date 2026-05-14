@@ -12,7 +12,17 @@ export interface WorkflowExport {
   name: string;
   description: string;
   trigger?: {
-    type: 'manual' | 'cron' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'gmail' | 'outlook';
+    type:
+      | 'manual'
+      | 'cron'
+      | 'webhook'
+      | 'telegram'
+      | 'discord'
+      | 'chat'
+      | 'chat-input'
+      | 'airtable'
+      | 'gmail'
+      | 'outlook';
     config: Record<string, unknown>;
   };
   config: {
@@ -153,30 +163,43 @@ export function importWorkflow(jsonData: string): WorkflowExport {
 
     // Validate version compatibility
     if (workflow.version !== '1.0') {
-      logger.warn(
-        { version: workflow.version },
-        'Workflow version may not be fully compatible'
-      );
+      logger.warn({ version: workflow.version }, 'Workflow version may not be fully compatible');
     }
 
-    // Validate steps
+    // Validate steps and auto-set outputAs from id when missing
+    const controlFlowTypes = ['condition', 'forEach', 'while'];
     for (const step of workflow.config.steps) {
       if (!step.id) {
         throw new Error('Step missing id field');
       }
-      if (!step.module) {
-        throw new Error(`Step ${step.id} missing module field`);
-      }
-      if (!step.inputs || typeof step.inputs !== 'object') {
-        throw new Error(`Step ${step.id} missing or invalid inputs field`);
-      }
 
-      // Validate module path format (category.module.function)
-      const parts = step.module.split('.');
-      if (parts.length !== 3) {
-        throw new Error(
-          `Step ${step.id} has invalid module path: ${step.module}. Expected format: category.module.function`
-        );
+      const stepType = (step as Record<string, unknown>).type as string | undefined;
+      const isControlFlow = stepType && controlFlowTypes.includes(stepType);
+
+      // Control flow steps use condition/then/else/steps instead of module/inputs
+      if (!isControlFlow) {
+        if (!step.module) {
+          throw new Error(`Step ${step.id} missing module field`);
+        }
+        if (!step.inputs || typeof step.inputs !== 'object') {
+          throw new Error(`Step ${step.id} missing or invalid inputs field`);
+        }
+
+        // Validate module path format (category.module.function)
+        const parts = step.module.split('.');
+        if (parts.length !== 3) {
+          throw new Error(
+            `Step ${step.id} has invalid module path: ${step.module}. Expected format: category.module.function`
+          );
+        }
+
+        // Auto-set outputAs from id when not explicitly provided
+        if (!step.outputAs && step.id) {
+          // Convert kebab-case id to camelCase for valid variable name
+          step.outputAs = step.id.replace(/-([a-zA-Z0-9])/g, (_: string, c: string) =>
+            c.toUpperCase()
+          );
+        }
       }
     }
 
@@ -184,7 +207,7 @@ export function importWorkflow(jsonData: string): WorkflowExport {
     const validation = validateWorkflowExport(workflow);
     if (!validation.valid) {
       throw new Error(
-        `Workflow validation failed:\n${validation.errors.map(e => `  - ${e}`).join('\n')}`
+        `Workflow validation failed:\n${validation.errors.map((e) => `  - ${e}`).join('\n')}`
       );
     }
 
@@ -236,6 +259,7 @@ export function validateWorkflowExport(workflow: unknown): {
     if (!Array.isArray(config.steps)) {
       errors.push('config.steps must be an array');
     } else {
+      const controlFlowTypes = ['condition', 'forEach', 'while'];
       config.steps.forEach((step: unknown, index: number) => {
         if (!step || typeof step !== 'object') {
           errors.push(`Step ${index} must be an object`);
@@ -244,17 +268,21 @@ export function validateWorkflowExport(workflow: unknown): {
 
         const s = step as Record<string, unknown>;
         if (!s.id) errors.push(`Step ${index} missing id field`);
-        if (!s.module) errors.push(`Step ${index} missing module field`);
-        if (!s.inputs || typeof s.inputs !== 'object') {
-          errors.push(`Step ${index} missing or invalid inputs field`);
-        }
 
-        if (s.module && typeof s.module === 'string') {
-          const parts = s.module.split('.');
-          if (parts.length !== 3) {
-            errors.push(
-              `Step ${index} has invalid module path: ${s.module}. Expected: category.module.function`
-            );
+        const isControlFlow = s.type && controlFlowTypes.includes(s.type as string);
+        if (!isControlFlow) {
+          if (!s.module) errors.push(`Step ${index} missing module field`);
+          if (!s.inputs || typeof s.inputs !== 'object') {
+            errors.push(`Step ${index} missing or invalid inputs field`);
+          }
+
+          if (s.module && typeof s.module === 'string') {
+            const parts = s.module.split('.');
+            if (parts.length !== 3) {
+              errors.push(
+                `Step ${index} has invalid module path: ${s.module}. Expected: category.module.function`
+              );
+            }
           }
         }
       });
@@ -273,9 +301,20 @@ export function validateWorkflowExport(workflow: unknown): {
         } else if (typeof output.type !== 'string') {
           errors.push('config.outputDisplay.type must be a string');
         } else {
-          const validTypes = ['table', 'list', 'text', 'markdown', 'json', 'image', 'images', 'chart'];
+          const validTypes = [
+            'table',
+            'list',
+            'text',
+            'markdown',
+            'json',
+            'image',
+            'images',
+            'chart',
+          ];
           if (!validTypes.includes(output.type as string)) {
-            errors.push(`config.outputDisplay.type must be one of: ${validTypes.join(', ')}. Got: ${output.type}`);
+            errors.push(
+              `config.outputDisplay.type must be one of: ${validTypes.join(', ')}. Got: ${output.type}`
+            );
           }
 
           // Validate table-specific configuration
@@ -294,15 +333,21 @@ export function validateWorkflowExport(workflow: unknown): {
                 }
                 const column = col as Record<string, unknown>;
                 if (!column.key || typeof column.key !== 'string') {
-                  errors.push(`config.outputDisplay.columns[${idx}] missing required field: key (string)`);
+                  errors.push(
+                    `config.outputDisplay.columns[${idx}] missing required field: key (string)`
+                  );
                 }
                 if (!column.label || typeof column.label !== 'string') {
-                  errors.push(`config.outputDisplay.columns[${idx}] missing required field: label (string)`);
+                  errors.push(
+                    `config.outputDisplay.columns[${idx}] missing required field: label (string)`
+                  );
                 }
                 if (column.type && typeof column.type === 'string') {
                   const validColumnTypes = ['text', 'link', 'date', 'number', 'boolean'];
                   if (!validColumnTypes.includes(column.type as string)) {
-                    errors.push(`config.outputDisplay.columns[${idx}].type must be one of: ${validColumnTypes.join(', ')}. Got: ${column.type}`);
+                    errors.push(
+                      `config.outputDisplay.columns[${idx}].type must be one of: ${validColumnTypes.join(', ')}. Got: ${column.type}`
+                    );
                   }
                 }
               });
@@ -317,21 +362,27 @@ export function validateWorkflowExport(workflow: unknown): {
       if (typeof config.returnValue !== 'string') {
         errors.push('config.returnValue must be a string (e.g., "{{variableName}}")');
       } else if (!/^\{\{[^}]+\}\}$/.test(config.returnValue as string)) {
-        errors.push(`config.returnValue must be in format {{variableName}}. Got: ${config.returnValue}`);
+        errors.push(
+          `config.returnValue must be in format {{variableName}}. Got: ${config.returnValue}`
+        );
       } else {
         // Check if returnValue references a valid step output
         const varName = (config.returnValue as string).match(/^\{\{([^}]+)\}\}$/)?.[1];
         if (varName && Array.isArray(config.steps)) {
-          const stepOutputs = config.steps.map((s: unknown) => {
-            const step = s as Record<string, unknown>;
-            return step.outputAs as string;
-          }).filter(Boolean);
+          const stepOutputs = config.steps
+            .map((s: unknown) => {
+              const step = s as Record<string, unknown>;
+              return step.outputAs as string;
+            })
+            .filter(Boolean);
 
           // Extract base variable name (before any dot notation)
           const baseVar = varName.split('.')[0].split('[')[0];
 
           if (!stepOutputs.includes(baseVar)) {
-            errors.push(`config.returnValue references unknown variable: ${baseVar}. Available: ${stepOutputs.join(', ')}`);
+            errors.push(
+              `config.returnValue references unknown variable: ${baseVar}. Available: ${stepOutputs.join(', ')}`
+            );
           }
         }
       }

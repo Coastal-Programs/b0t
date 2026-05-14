@@ -45,7 +45,10 @@ async function getSettingValue(key: string): Promise<string | null> {
       }
     }
   } catch (err) {
-    logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'Failed to read app setting');
+    logger.warn(
+      { error: err instanceof Error ? err.message : String(err) },
+      'Failed to read app setting'
+    );
   }
   return null;
 }
@@ -79,13 +82,15 @@ export async function getResendFromEmail(): Promise<string> {
 
   const value = await getSettingValue('communication_resend_from_email');
   cachedFromEmail = { value, expiresAt: now + CACHE_TTL };
-  return value || 'Odin <noreply@odin.build>';
+  return value || 'b0t <noreply@b0t.dev>';
 }
 
 async function getResendClient(): Promise<Resend> {
   const apiKey = await getResendApiKey();
   if (!apiKey) {
-    throw new Error('Resend API key not configured. Set RESEND_API_KEY env var or add it in Settings > Keys.');
+    throw new Error(
+      'Resend API key not configured. Set RESEND_API_KEY env var or add it in Settings > Keys.'
+    );
   }
 
   // Recreate client if key may have changed (cache expired)

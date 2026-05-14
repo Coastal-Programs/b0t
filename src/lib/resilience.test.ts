@@ -1,14 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  createCircuitBreaker,
-  createTwitterCircuitBreaker,
-  createYouTubeCircuitBreaker,
-  createOpenAICircuitBreaker,
-  createInstagramCircuitBreaker,
-  createRapidAPICircuitBreaker,
-  withFallback,
-  getCircuitBreakerStats,
-} from './resilience';
+import { createCircuitBreaker, createTwitterCircuitBreaker } from './resilience';
 
 describe('resilience', () => {
   beforeEach(() => {
@@ -60,7 +51,7 @@ describe('resilience', () => {
 
     it('should timeout long-running functions', async () => {
       const slowFn = vi.fn(async () => {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
         return 'done';
       });
 
@@ -116,7 +107,7 @@ describe('resilience', () => {
       expect(breaker.opened).toBe(true);
 
       // Wait for reset timeout
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Should be half-open now
       expect(breaker.halfOpen).toBe(true);
@@ -131,226 +122,30 @@ describe('resilience', () => {
       await breaker.fire();
       await breaker.fire();
 
-      const stats = getCircuitBreakerStats(breaker);
+      const stats = breaker.stats;
       expect(stats.successes).toBe(3);
       expect(stats.failures).toBe(0);
     });
   });
 
-  describe('platform-specific circuit breakers', () => {
-    describe('createTwitterCircuitBreaker', () => {
-      it('should create breaker with Twitter-specific config', () => {
-        const fn = vi.fn(async () => 'success');
-        const breaker = createTwitterCircuitBreaker(fn);
+  describe('createTwitterCircuitBreaker', () => {
+    it('should create breaker with Twitter-specific config', () => {
+      const fn = vi.fn(async () => 'success');
+      const breaker = createTwitterCircuitBreaker(fn);
 
-        expect(breaker.name).toContain('twitter');
-      });
-
-      it('should handle Twitter API calls', async () => {
-        const mockTwitterCall = vi.fn(async (tweetId: string) => ({
-          id: tweetId,
-          text: 'Hello world',
-        }));
-
-        const breaker = createTwitterCircuitBreaker(mockTwitterCall);
-        const result = await breaker.fire('123');
-
-        expect(result).toEqual({ id: '123', text: 'Hello world' });
-      });
+      expect(breaker.name).toContain('twitter');
     });
 
-    describe('createYouTubeCircuitBreaker', () => {
-      it('should create breaker with YouTube-specific config', () => {
-        const fn = vi.fn(async () => 'success');
-        const breaker = createYouTubeCircuitBreaker(fn);
-
-        expect(breaker.name).toContain('youtube');
-      });
-    });
-
-    describe('createOpenAICircuitBreaker', () => {
-      it('should create breaker with OpenAI-specific config', () => {
-        const fn = vi.fn(async () => 'success');
-        const breaker = createOpenAICircuitBreaker(fn);
-
-        expect(breaker.name).toContain('openai');
-      });
-
-      it('should have longer timeout for AI generation', async () => {
-        const slowAI = vi.fn(async () => {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return 'AI response';
-        });
-
-        const breaker = createOpenAICircuitBreaker(slowAI);
-        const result = await breaker.fire();
-
-        expect(result).toBe('AI response');
-      });
-    });
-
-    describe('createInstagramCircuitBreaker', () => {
-      it('should create breaker with Instagram-specific config', () => {
-        const fn = vi.fn(async () => 'success');
-        const breaker = createInstagramCircuitBreaker(fn);
-
-        expect(breaker.name).toContain('instagram');
-      });
-    });
-
-    describe('createRapidAPICircuitBreaker', () => {
-      it('should create breaker with RapidAPI-specific config', () => {
-        const fn = vi.fn(async () => 'success');
-        const breaker = createRapidAPICircuitBreaker(fn);
-
-        expect(breaker.name).toContain('rapidapi');
-      });
-    });
-  });
-
-  describe('withFallback', () => {
-    it('should return function result when circuit is closed', async () => {
-      const mainFn = vi.fn(async (x: number) => x * 2);
-      const fallbackFn = vi.fn(async (x: number) => x * 3);
-
-      const breaker = createCircuitBreaker(mainFn);
-      const wrappedFn = withFallback(breaker, fallbackFn);
-
-      const result = await wrappedFn(5);
-
-      expect(result).toBe(10);
-      expect(mainFn).toHaveBeenCalledWith(5);
-      expect(fallbackFn).not.toHaveBeenCalled();
-    });
-
-    it('should use fallback when circuit is open', async () => {
-      const mainFn = vi.fn(async () => {
-        throw new Error('Service down');
-      });
-      const fallbackFn = vi.fn(async () => 'fallback result');
-
-      const breaker = createCircuitBreaker(mainFn, {
-        errorThresholdPercentage: 50,
-        volumeThreshold: 2,
-      });
-
-      // Open the circuit
-      await expect(breaker.fire()).rejects.toThrow();
-      await expect(breaker.fire()).rejects.toThrow();
-
-      const wrappedFn = withFallback(breaker, fallbackFn);
-
-      // Should use fallback
-      const result = await wrappedFn();
-      expect(result).toBe('fallback result');
-      expect(fallbackFn).toHaveBeenCalled();
-    }, 10000);
-
-    it('should pass arguments to fallback function', async () => {
-      const mainFn = vi.fn(async () => {
-        throw new Error('Fail');
-      });
-      const fallbackFn = vi.fn(async (a: string, b: number) => `${a}-${b}`);
-
-      const breaker = createCircuitBreaker(mainFn, {
-        errorThresholdPercentage: 50,
-        volumeThreshold: 2,
-      });
-
-      // Open the circuit
-      await expect(breaker.fire()).rejects.toThrow();
-      await expect(breaker.fire()).rejects.toThrow();
-
-      const wrappedFn = withFallback(breaker, fallbackFn);
-
-      const result = await wrappedFn('test', 42);
-      expect(result).toBe('test-42');
-      expect(fallbackFn).toHaveBeenCalledWith('test', 42);
-    }, 10000);
-
-    it('should work with realistic API fallback scenario', async () => {
-      const getTrendsFromAPI = vi.fn(async () => {
-        throw new Error('API rate limited');
-      });
-
-      const getTrendsFromCache = vi.fn(async () => ({
-        trends: ['cached-trend-1', 'cached-trend-2'],
+    it('should handle Twitter API calls', async () => {
+      const mockTwitterCall = vi.fn(async (tweetId: string) => ({
+        id: tweetId,
+        text: 'Hello world',
       }));
 
-      const breaker = createTwitterCircuitBreaker(getTrendsFromAPI);
-      const getTrendsWithFallback = withFallback(breaker, getTrendsFromCache);
+      const breaker = createTwitterCircuitBreaker(mockTwitterCall);
+      const result = await breaker.fire('123');
 
-      // Open circuit
-      await expect(breaker.fire()).rejects.toThrow();
-      await expect(breaker.fire()).rejects.toThrow();
-      await expect(breaker.fire()).rejects.toThrow();
-
-      // Should return cached data
-      const result = await getTrendsWithFallback();
-      expect(result.trends).toEqual(['cached-trend-1', 'cached-trend-2']);
-    }, 10000);
-  });
-
-  describe('getCircuitBreakerStats', () => {
-    it('should return stats for a closed circuit', async () => {
-      const fn = vi.fn(async () => 'success');
-      const breaker = createCircuitBreaker(fn);
-
-      await breaker.fire();
-      await breaker.fire();
-
-      const stats = getCircuitBreakerStats(breaker);
-
-      expect(stats.state).toBe('CLOSED');
-      expect(stats.successes).toBe(2);
-      expect(stats.failures).toBe(0);
-      expect(stats.fires).toBe(2);
-    });
-
-    it('should return stats for an open circuit', async () => {
-      const fn = vi.fn(async () => {
-        throw new Error('Failure');
-      });
-
-      const breaker = createCircuitBreaker(fn, {
-        errorThresholdPercentage: 50,
-        volumeThreshold: 2,
-      });
-
-      // Open the circuit
-      await expect(breaker.fire()).rejects.toThrow();
-      await expect(breaker.fire()).rejects.toThrow();
-
-      const stats = getCircuitBreakerStats(breaker);
-
-      expect(stats.state).toBe('OPEN');
-      expect(stats.failures).toBe(2);
-    }, 10000);
-
-    it('should track timeout failures', async () => {
-      const slowFn = vi.fn(async () => {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        return 'done';
-      });
-
-      const breaker = createCircuitBreaker(slowFn, {
-        timeout: 50,
-      });
-
-      await expect(breaker.fire()).rejects.toThrow();
-
-      const stats = getCircuitBreakerStats(breaker);
-
-      expect(stats.timeouts).toBeGreaterThan(0);
-    }, 10000);
-
-    it('should include breaker name in stats', () => {
-      const fn = vi.fn(async () => 'success');
-      const breaker = createCircuitBreaker(fn, { name: 'test-breaker' });
-
-      const stats = getCircuitBreakerStats(breaker);
-
-      expect(stats.name).toBe('test-breaker');
+      expect(result).toEqual({ id: '123', text: 'Hello world' });
     });
   });
 
@@ -390,7 +185,7 @@ describe('resilience', () => {
       externalServiceDown = false;
 
       // Wait for circuit to try half-open
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Circuit tests recovery
       const result = await breaker.fire();
@@ -479,8 +274,8 @@ describe('resilience', () => {
     });
 
     it('should handle function with many arguments', async () => {
-      const fn = vi.fn(async (a: number, b: number, c: number, d: number, e: number) =>
-        a + b + c + d + e
+      const fn = vi.fn(
+        async (a: number, b: number, c: number, d: number, e: number) => a + b + c + d + e
       );
       const breaker = createCircuitBreaker(fn);
 

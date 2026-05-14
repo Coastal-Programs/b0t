@@ -66,7 +66,7 @@ curl -X POST http://localhost:3123/api/workflows/build-from-plan \
 ## 3. File Structure Validation
 
 ### ✅ Project Version (UnstableMind/b0t)
-**Location:** `/Users/kenkai/Documents/UnstableMind/b0t/.claude/skills/workflow-generator-v2/`
+**Location:** `<project-root>/.claude/skills/workflow-generator-v2/`
 
 **Files:**
 ```
@@ -90,7 +90,7 @@ skill.md (176 lines)
 ```
 
 ### ✅ Build Mode Version (Documents/b0t)
-**Location:** `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/`
+**Location:** `<project-root>/.claude/skills/workflow-generator-v2/`
 
 **Files:**
 ```
@@ -145,13 +145,13 @@ curl -X POST http://localhost:3123/api/workflows/build-from-plan \
 - `.claude/skills/workflow-generator-v2/references/yaml-format.md`
 
 **Build Mode Version:** Absolute paths
-- `/Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/yaml-format.md`
+- `<project-root>/.claude/skills/workflow-generator-v2/references/yaml-format.md`
 
 ### ✅ Plans Directory
 
 **Project Version:** `plans/` (relative to project root)
 
-**Build Mode Version:** `/Users/kenkai/Documents/b0t/plans/`
+**Build Mode Version:** `<project-root>/plans/`
 
 ---
 
@@ -162,13 +162,13 @@ curl -X POST http://localhost:3123/api/workflows/build-from-plan \
 
 **Command:**
 ```bash
-grep -r "npm run" /Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/
+grep -r "npm run" <project-root>/.claude/skills/workflow-generator-v2/references/
 ```
 **Result:** ✅ No npm run references found (all successfully replaced)
 
 **Verification:**
 ```bash
-grep -c "curl" /Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/references/common-modules.md
+grep -c "curl" <project-root>/.claude/skills/workflow-generator-v2/references/common-modules.md
 ```
 **Result:** ✅ 1 curl reference found (correct API usage)
 
@@ -181,7 +181,7 @@ grep -c "curl" /Users/kenkai/Documents/b0t/.claude/skills/workflow-generator-v2/
 **Scenario:** Create a simple manual workflow using Build Mode approach
 
 **Steps:**
-1. ✅ Created YAML plan: `/Users/kenkai/Documents/b0t/plans/test-api-workflow.yaml`
+1. ✅ Created YAML plan: `<project-root>/plans/test-api-workflow.yaml`
 2. ✅ Called API: `/api/workflows/build-from-plan`
 3. ✅ Workflow validated (3 steps, all modules exist)
 4. ✅ Workflow imported to database

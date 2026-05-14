@@ -14,7 +14,10 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import YAML from 'yaml';
-import { validateWorkflowComplete, formatValidationErrors } from '../src/lib/workflows/workflow-validator';
+import {
+  validateWorkflowComplete,
+  formatValidationErrors,
+} from '../src/lib/workflows/workflow-validator';
 import type { WorkflowExport } from '../src/lib/workflows/import-export';
 import { getModuleRegistry } from '../src/lib/workflows/module-registry';
 
@@ -48,7 +51,27 @@ function findModuleInRegistry(modulePath: string) {
 async function validateModuleFunctions(workflow: WorkflowExport): Promise<string[]> {
   const errors: string[] = [];
 
-  for (const step of workflow.config.steps) {
+  // Collect all steps recursively (including nested forEach/condition/while steps)
+  function collectActionSteps(steps: typeof workflow.config.steps): typeof workflow.config.steps {
+    const result: typeof workflow.config.steps = [];
+    for (const step of steps) {
+      const s = step as Record<string, unknown>;
+      if (s.type === 'forEach' || s.type === 'while') {
+        if (Array.isArray(s.steps))
+          result.push(...collectActionSteps(s.steps as typeof workflow.config.steps));
+      } else if (s.type === 'condition') {
+        if (Array.isArray(s.then))
+          result.push(...collectActionSteps(s.then as typeof workflow.config.steps));
+        if (Array.isArray(s.else))
+          result.push(...collectActionSteps(s.else as typeof workflow.config.steps));
+      } else if (s.module) {
+        result.push(step);
+      }
+    }
+    return result;
+  }
+
+  for (const step of collectActionSteps(workflow.config.steps)) {
     const [category, moduleName, functionName] = step.module.split('.');
 
     try {
@@ -66,12 +89,10 @@ async function validateModuleFunctions(workflow: WorkflowExport): Promise<string
 
         // Show available functions
         const availableFunctions = Object.keys(moduleExports).filter(
-          key => typeof moduleExports[key as keyof typeof moduleExports] === 'function'
+          (key) => typeof moduleExports[key as keyof typeof moduleExports] === 'function'
         );
         if (availableFunctions.length > 0) {
-          errors.push(
-            `   Available functions: ${availableFunctions.join(', ')}`
-          );
+          errors.push(`   Available functions: ${availableFunctions.join(', ')}`);
         }
       } else {
         // NEW: Parameter validation
@@ -79,23 +100,30 @@ async function validateModuleFunctions(workflow: WorkflowExport): Promise<string
         if (moduleInfo) {
           const providedParams = Object.keys(step.inputs || {});
           const allParams = moduleInfo.signature.match(/\(([^)]*)\)/)?.[1] || '';
-          const expectedParamNames = moduleInfo.signature
-            .match(/\(([^)]*)\)/)?.[1]
-            ?.split(',')
-            .map(p => p.trim().split(/[?:]/)[0].trim())
-            .filter(p => p && p !== 'params' && p !== 'options') || [];
+          const expectedParamNames =
+            moduleInfo.signature
+              .match(/\(([^)]*)\)/)?.[1]
+              ?.split(',')
+              .map((p) => p.trim().split(/[?:]/)[0].trim())
+              .filter((p) => p && p !== 'params' && p !== 'options') || [];
 
           // Get required params from registry (if available)
-          const requiredParamNames = expectedParamNames.filter(name =>
-            !allParams.includes(`${name}?`)
+          const requiredParamNames = expectedParamNames.filter(
+            (name) => !allParams.includes(`${name}?`)
           );
 
           // If function uses params/options wrapper, skip validation
           // Wrapper functions accept flexible object shapes
-          if (allParams.includes('params:') || allParams.includes('params)') ||
-              allParams.includes('options:') || allParams.includes('options)')) {
+          if (
+            allParams.includes('params:') ||
+            allParams.includes('params)') ||
+            allParams.includes('options:') ||
+            allParams.includes('options)')
+          ) {
             // Wrapper-based function - skip detailed param validation
-            console.log(`   ℹ️  Module uses params/options wrapper - skipping parameter validation for ${step.id}`);
+            console.log(
+              `   ℹ️  Module uses params/options wrapper - skipping parameter validation for ${step.id}`
+            );
             continue;
           }
 
@@ -104,9 +132,7 @@ async function validateModuleFunctions(workflow: WorkflowExport): Promise<string
             errors.push(
               `Step "${step.id}": Module "${step.module}" uses rest parameters (...) which are not supported in workflows`
             );
-            errors.push(
-              `   Signature: ${moduleInfo.signature}`
-            );
+            errors.push(`   Signature: ${moduleInfo.signature}`);
             errors.push(
               `   💡 Use the array-utils version instead (e.g., utilities.array-utils.max instead of utilities.math.max)`
             );
@@ -115,49 +141,48 @@ async function validateModuleFunctions(workflow: WorkflowExport): Promise<string
           // For direct parameter functions, validate
           if (expectedParamNames.length > 0) {
             // Check for missing required params (approximate - we assume all are required unless marked with ?)
-            const missingParams = requiredParamNames.filter(p => !providedParams.includes(p));
+            const missingParams = requiredParamNames.filter((p) => !providedParams.includes(p));
             if (missingParams.length > 0) {
               errors.push(
                 `Step "${step.id}": Parameter mismatch for ${step.module}: Function expects [${expectedParamNames.join(', ')}] but workflow provided [${providedParams.join(', ')}]`
               );
-              errors.push(
-                `   Missing parameters: ${missingParams.join(', ')}`
-              );
-              errors.push(
-                `   💡 Expected signature: ${moduleInfo.signature}`
-              );
+              errors.push(`   Missing parameters: ${missingParams.join(', ')}`);
+              errors.push(`   💡 Expected signature: ${moduleInfo.signature}`);
             }
 
             // Check for unexpected params
-            const unexpectedParams = providedParams.filter(p =>
-              !expectedParamNames.includes(p)
-            );
+            const unexpectedParams = providedParams.filter((p) => !expectedParamNames.includes(p));
             if (unexpectedParams.length > 0 && missingParams.length === 0) {
               // Only show unexpected if we're not already showing missing
               errors.push(
                 `Step "${step.id}": Parameter mismatch for ${step.module}: Function expects [${expectedParamNames.join(', ')}] but workflow provided [${providedParams.join(', ')}]`
               );
-              errors.push(
-                `   Unexpected parameters: ${unexpectedParams.join(', ')}`
-              );
-              errors.push(
-                `   💡 Expected signature: ${moduleInfo.signature}`
-              );
+              errors.push(`   Unexpected parameters: ${unexpectedParams.join(', ')}`);
+              errors.push(`   💡 Expected signature: ${moduleInfo.signature}`);
             }
 
             // NEW: Check for function parameters that are provided as strings
             // Functions like predicate, mapper, fn should be actual functions, not strings
-            const functionParamNames = ['predicate', 'mapper', 'fn', 'callback', 'transform', 'comparator'];
+            const functionParamNames = [
+              'predicate',
+              'mapper',
+              'fn',
+              'callback',
+              'transform',
+              'comparator',
+            ];
             for (const paramName of expectedParamNames) {
-              if (functionParamNames.includes(paramName) && step.inputs && paramName in step.inputs) {
+              if (
+                functionParamNames.includes(paramName) &&
+                step.inputs &&
+                paramName in step.inputs
+              ) {
                 const value = step.inputs[paramName];
                 if (typeof value === 'string' && value.includes('=>')) {
                   errors.push(
                     `Step "${step.id}": Type error for ${step.module}.${paramName}: Arrow function provided as string`
                   );
-                  errors.push(
-                    `   Provided: "${value}" (string)`
-                  );
+                  errors.push(`   Provided: "${value}" (string)`);
                   errors.push(
                     `   💡 Workflow executor doesn't evaluate JavaScript strings. Remove this step or use a different approach.`
                   );
@@ -173,9 +198,7 @@ async function validateModuleFunctions(workflow: WorkflowExport): Promise<string
     } catch (error: unknown) {
       // Module doesn't exist
       const message = error instanceof Error ? error.message : String(error);
-      errors.push(
-        `Step "${step.id}": Failed to load module ${category}/${moduleName}: ${message}`
-      );
+      errors.push(`Step "${step.id}": Failed to load module ${category}/${moduleName}: ${message}`);
     }
   }
 
@@ -194,7 +217,9 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
         console.log('✅ YAML parsed successfully');
       } else {
         // Check for invalid JSON values like undefined (but not in strings like "{{undefinedVariable}}")
-        const hasActualUndefined = /:\s*undefined\s*[,\}]/.test(workflowContent) || /\[\s*undefined\s*[,\]]/.test(workflowContent);
+        const hasActualUndefined =
+          /:\s*undefined\s*[,\}]/.test(workflowContent) ||
+          /\[\s*undefined\s*[,\]]/.test(workflowContent);
         if (hasActualUndefined) {
           console.error('❌ Invalid JSON: Contains "undefined" value (not in quotes)');
           console.error('💡 Tip: Replace undefined with null, or remove the field entirely');
@@ -229,7 +254,9 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
       functionErrors.forEach((error) => {
         console.error(`   • ${error}`);
       });
-      console.log('\n💡 Tip: The function name in the registry might not match the actual implementation');
+      console.log(
+        '\n💡 Tip: The function name in the registry might not match the actual implementation'
+      );
       console.log('   Run: npx tsx scripts/generate-module-registry.ts to sync the registry');
       process.exit(1);
     }
@@ -243,7 +270,12 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
       // Validate cron schedule
       if (trigger.type === 'cron' && trigger.config?.schedule) {
         const schedule = trigger.config.schedule as string;
-        const cronRegex = /^(\*|[0-5]?[0-9])\s+(\*|[01]?[0-9]|2[0-3])\s+(\*|[1-2]?[0-9]|3[01])\s+(\*|[1-9]|1[0-2])\s+(\*|[0-6])$/;
+        // Each field supports: *, numeric values, ranges (1-5), lists (0,15,30), step values (*/5, 1-30/2)
+        const cronField = '(\\*|[0-9]+(-[0-9]+)?)(\\/[0-9]+)?';
+        const cronList = `(${cronField})(,${cronField})*`;
+        const cronRegex = new RegExp(
+          `^${cronList}\\s+${cronList}\\s+${cronList}\\s+${cronList}\\s+${cronList}$`
+        );
         if (!cronRegex.test(schedule)) {
           console.error(`\n❌ Invalid cron schedule: "${schedule}"`);
           console.error('   Expected format: "minute hour day month dayOfWeek"');
@@ -254,7 +286,10 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
       }
 
       // Validate chat inputVariable
-      if ((trigger.type === 'chat' || trigger.type === 'chat-input') && trigger.config?.inputVariable) {
+      if (
+        (trigger.type === 'chat' || trigger.type === 'chat-input') &&
+        trigger.config?.inputVariable
+      ) {
         const inputVar = trigger.config.inputVariable as string;
         if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(inputVar)) {
           console.error(`\n❌ Invalid inputVariable: "${inputVar}"`);
@@ -267,7 +302,10 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
 
     // ENHANCED VALIDATION: ReturnValue
     console.log('\n🔍 Validating returnValue...');
-    const workflowConfig = workflow.config as { returnValue?: string; steps: Array<{ id: string; outputAs?: string; inputs?: Record<string, unknown> }> };
+    const workflowConfig = workflow.config as {
+      returnValue?: string;
+      steps: Array<{ id: string; outputAs?: string; inputs?: Record<string, unknown> }>;
+    };
     if (workflowConfig.returnValue) {
       const varMatch = workflowConfig.returnValue.match(/{{([^}]+)}}/);
       if (varMatch) {
@@ -275,13 +313,26 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
         const rootVar = varPath.split('.')[0].split('[')[0];
 
         // Check if variable is produced by any step
-        const producingStep = workflowConfig.steps.find(s => s.outputAs === rootVar);
-        if (!producingStep && !['workflowId', 'userId', 'trigger', 'credential'].includes(rootVar)) {
-          console.error(`\n❌ ReturnValue references "{{${varPath}}}" but no step produces "${rootVar}"`);
-          console.error('   Available outputs:', workflowConfig.steps.filter(s => s.outputAs).map(s => s.outputAs).join(', '));
+        const producingStep = workflowConfig.steps.find((s) => s.outputAs === rootVar);
+        if (
+          !producingStep &&
+          !['workflowId', 'userId', 'trigger', 'credential'].includes(rootVar)
+        ) {
+          console.error(
+            `\n❌ ReturnValue references "{{${varPath}}}" but no step produces "${rootVar}"`
+          );
+          console.error(
+            '   Available outputs:',
+            workflowConfig.steps
+              .filter((s) => s.outputAs)
+              .map((s) => s.outputAs)
+              .join(', ')
+          );
           process.exit(1);
         }
-        console.log(`   ✅ ReturnValue variable "${rootVar}" is produced by step: ${producingStep?.id || 'system'}`);
+        console.log(
+          `   ✅ ReturnValue variable "${rootVar}" is produced by step: ${producingStep?.id || 'system'}`
+        );
       }
     } else {
       console.log('   ℹ️  No returnValue specified - will use auto-detection');
@@ -290,7 +341,27 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
     // ENHANCED VALIDATION: Credential analysis
     console.log('\n🔍 Analyzing credential usage...');
     const credentialRefs = new Set<string>();
-    for (const step of workflowConfig.steps) {
+    // Recursively collect all steps (including nested forEach/condition/while)
+    function collectAllSteps(
+      steps: Array<Record<string, unknown>>
+    ): Array<Record<string, unknown>> {
+      const result: Array<Record<string, unknown>> = [];
+      for (const step of steps) {
+        result.push(step);
+        if (Array.isArray(step.steps))
+          result.push(...collectAllSteps(step.steps as Array<Record<string, unknown>>));
+        if (Array.isArray(step.then))
+          result.push(...collectAllSteps(step.then as Array<Record<string, unknown>>));
+        if (Array.isArray(step.else))
+          result.push(...collectAllSteps(step.else as Array<Record<string, unknown>>));
+      }
+      return result;
+    }
+    const allFlatSteps = collectAllSteps(
+      workflowConfig.steps as unknown as Array<Record<string, unknown>>
+    );
+    for (const step of allFlatSteps) {
+      if (!step.inputs) continue;
       const inputStr = JSON.stringify(step.inputs);
       const matches = inputStr.matchAll(/{{credential\.([^}]+)}}/g);
       for (const match of matches) {
@@ -302,7 +373,7 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
       console.log(`   📋 Credentials used: ${[...credentialRefs].join(', ')}`);
 
       const documented = workflow.metadata?.requiresCredentials || [];
-      const undocumented = [...credentialRefs].filter(c => !documented.includes(c));
+      const undocumented = [...credentialRefs].filter((c) => !documented.includes(c));
 
       if (undocumented.length > 0) {
         console.log(`   ⚠️  Undocumented credentials: ${undocumented.join(', ')}`);
@@ -316,16 +387,22 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
 
     // ENHANCED VALIDATION: Dead code detection
     console.log('\n🔍 Analyzing data flow...');
-    const createdVars = new Set(workflowConfig.steps.map(s => s.outputAs).filter(Boolean) as string[]);
+    const createdVars = new Set(allFlatSteps.map((s) => s.outputAs as string).filter(Boolean));
     const usedVars = new Set<string>();
 
     // Check usage in step inputs
-    for (const step of workflowConfig.steps) {
+    for (const step of allFlatSteps) {
+      if (!step.inputs) continue;
       const inputStr = JSON.stringify(step.inputs);
       const matches = inputStr.matchAll(/{{([^}]+)}}/g);
       for (const match of matches) {
         const rootVar = match[1].split('.')[0].split('[')[0];
-        if (!rootVar.startsWith('credential') && rootVar !== 'workflowId' && rootVar !== 'userId' && rootVar !== 'trigger') {
+        if (
+          !rootVar.startsWith('credential') &&
+          rootVar !== 'workflowId' &&
+          rootVar !== 'userId' &&
+          rootVar !== 'trigger'
+        ) {
           usedVars.add(rootVar);
         }
       }
@@ -340,7 +417,7 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
       }
     }
 
-    const unusedVars = [...createdVars].filter(v => !usedVars.has(v));
+    const unusedVars = [...createdVars].filter((v) => !usedVars.has(v));
     if (unusedVars.length > 0) {
       console.log(`   ⚠️  Unused variables: ${unusedVars.join(', ')}`);
       console.log('   💡 These steps produce output that is never used');
@@ -352,7 +429,7 @@ async function validateWorkflow(workflowContent: string, isYaml: boolean): Promi
     if (!workflowConfig.returnValue && workflow.trigger?.type !== 'chat') {
       console.log('\n⚠️  Missing returnValue - workflow will use auto-detection\n');
       console.log('   Auto-detection filters out internal variables (user, trigger, credentials)');
-      console.log('   but it\'s better to explicitly specify what to return.\n');
+      console.log("   but it's better to explicitly specify what to return.\n");
       console.log('   💡 Recommended: Add returnValue to config:');
 
       // Suggest based on last step
@@ -426,7 +503,7 @@ let isYaml = false;
 if (args[0] === '--stdin') {
   // Read from stdin
   const chunks: Buffer[] = [];
-  process.stdin.on('data', (chunk) => chunks.push(chunk));
+  process.stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
   process.stdin.on('end', () => {
     workflowContent = Buffer.concat(chunks).toString('utf-8');
     // Try to detect YAML vs JSON

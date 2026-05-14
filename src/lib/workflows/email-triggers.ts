@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { workflowsTable } from '@/lib/schema';
 import { sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
 import { queueWorkflowExecution, isWorkflowQueueAvailable } from './workflow-queue';
 import { executeWorkflow } from './executor';
 import * as gmailModule from '@/modules/communication/gmail';
@@ -15,8 +16,9 @@ import * as outlookModule from '@/modules/communication/outlook';
  *
  * Features:
  * - Separate pollers for Gmail and Outlook
- * - Configurable poll interval (default 60s)
- * - Deduplication (tracks last-checked timestamp)
+ * - Per-workflow configurable poll interval via `pollInterval` (default 60s)
+ * - Deduplication persisted to Redis (survives worker restarts)
+ * - Falls back to in-memory Set when Redis is unavailable
  * - Queue-based execution for scalability
  * - Error handling and retry logic
  *
@@ -48,26 +50,64 @@ interface EmailTriggerWorkflow {
   lastChecked?: Date;
 }
 
-interface PollerState {
-  workflows: Map<string, EmailTriggerWorkflow>;
-  intervalId?: NodeJS.Timeout;
-  isPolling: boolean;
+interface PerWorkflowTimer {
+  intervalId: NodeJS.Timeout;
+  intervalSeconds: number;
+  consecutiveFailures: number;
+  currentBackoffMs: number;
 }
 
+const REDIS_KEY_PREFIX = 'b0t:email-triggers:processed:';
+const REDIS_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const MAX_IN_MEMORY_TRACKED = 10000;
+
 class EmailTriggerPoller {
-  private gmailState: PollerState = {
-    workflows: new Map(),
-    isPolling: false,
-  };
+  private gmailWorkflows: Map<string, EmailTriggerWorkflow> = new Map();
+  private outlookWorkflows: Map<string, EmailTriggerWorkflow> = new Map();
+  private workflowTimers: Map<string, PerWorkflowTimer> = new Map();
+  private isInitialized = false;
 
-  private outlookState: PollerState = {
-    workflows: new Map(),
-    isPolling: false,
-  };
-
-  private defaultPollInterval = 60000; // 60 seconds
+  private defaultPollInterval = 60; // seconds
+  /** Fallback in-memory set when Redis is unavailable */
   private processedEmailIds: Set<string> = new Set();
-  private maxProcessedEmailsTracked = 10000;
+
+  /**
+   * Check if an email key has already been processed.
+   * Uses Redis when available, falls back to in-memory Set.
+   */
+  private async isProcessed(emailKey: string): Promise<boolean> {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const exists = await redis.exists(`${REDIS_KEY_PREFIX}${emailKey}`);
+        return exists === 1;
+      } catch (error) {
+        logger.warn({ error }, 'Redis read failed, falling back to in-memory dedup');
+      }
+    }
+    return this.processedEmailIds.has(emailKey);
+  }
+
+  /**
+   * Mark an email key as processed.
+   * Persists to Redis when available, always adds to in-memory Set.
+   */
+  private async markProcessed(emailKey: string): Promise<void> {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        await redis.set(`${REDIS_KEY_PREFIX}${emailKey}`, '1', 'EX', REDIS_EXPIRY_SECONDS);
+      } catch (error) {
+        logger.warn({ error }, 'Redis write failed, using in-memory dedup only');
+      }
+    }
+    this.processedEmailIds.add(emailKey);
+    // Trim in-memory set
+    if (this.processedEmailIds.size > MAX_IN_MEMORY_TRACKED) {
+      const entries = Array.from(this.processedEmailIds);
+      this.processedEmailIds = new Set(entries.slice(-5000));
+    }
+  }
 
   /**
    * Initialize email trigger polling
@@ -76,21 +116,23 @@ class EmailTriggerPoller {
     try {
       await this.loadWorkflows();
 
-      if (this.gmailState.workflows.size > 0) {
-        this.startGmailPolling();
-        logger.info(
-          { count: this.gmailState.workflows.size },
-          'Gmail trigger polling initialized'
-        );
+      // Start per-workflow timers for Gmail
+      for (const workflow of this.gmailWorkflows.values()) {
+        this.startWorkflowTimer(workflow, 'gmail');
+      }
+      if (this.gmailWorkflows.size > 0) {
+        logger.info({ count: this.gmailWorkflows.size }, 'Gmail trigger polling initialized');
       }
 
-      if (this.outlookState.workflows.size > 0) {
-        this.startOutlookPolling();
-        logger.info(
-          { count: this.outlookState.workflows.size },
-          'Outlook trigger polling initialized'
-        );
+      // Start per-workflow timers for Outlook
+      for (const workflow of this.outlookWorkflows.values()) {
+        this.startWorkflowTimer(workflow, 'outlook');
       }
+      if (this.outlookWorkflows.size > 0) {
+        logger.info({ count: this.outlookWorkflows.size }, 'Outlook trigger polling initialized');
+      }
+
+      this.isInitialized = true;
     } catch (error) {
       logger.error({ error }, 'Failed to initialize email triggers');
       throw error;
@@ -118,7 +160,7 @@ class EmailTriggerPoller {
       );
 
     for (const wf of gmailWorkflows) {
-      this.gmailState.workflows.set(wf.id, {
+      this.gmailWorkflows.set(wf.id, {
         id: wf.id,
         userId: wf.userId,
         name: wf.name,
@@ -143,7 +185,7 @@ class EmailTriggerPoller {
       );
 
     for (const wf of outlookWorkflows) {
-      this.outlookState.workflows.set(wf.id, {
+      this.outlookWorkflows.set(wf.id, {
         id: wf.id,
         userId: wf.userId,
         name: wf.name,
@@ -152,184 +194,211 @@ class EmailTriggerPoller {
     }
   }
 
-  /**
-   * Start Gmail polling loop
-   */
-  private startGmailPolling() {
-    if (this.gmailState.isPolling) {
-      logger.warn('Gmail polling already running');
-      return;
-    }
-
-    this.gmailState.isPolling = true;
-
-    // Poll immediately on start
-    this.pollGmail().catch((error) => {
-      logger.error({ error }, 'Gmail poll error on startup');
-    });
-
-    // Then poll on interval
-    this.gmailState.intervalId = setInterval(() => {
-      this.pollGmail().catch((error) => {
-        logger.error({ error }, 'Gmail poll error');
-      });
-    }, this.defaultPollInterval);
-
-    logger.info({ interval: this.defaultPollInterval }, 'Gmail polling started');
-  }
+  // Circuit breaker constants
+  private static readonly MAX_CONSECUTIVE_FAILURES = 5;
+  private static readonly MAX_BACKOFF_MS = 15 * 60 * 1000; // 15 minutes max backoff
 
   /**
-   * Start Outlook polling loop
+   * Start a per-workflow polling timer with exponential backoff on failures.
+   * After MAX_CONSECUTIVE_FAILURES, the poller enters circuit-breaker open state
+   * and backs off up to MAX_BACKOFF_MS between attempts.
    */
-  private startOutlookPolling() {
-    if (this.outlookState.isPolling) {
-      logger.warn('Outlook polling already running');
-      return;
-    }
+  private startWorkflowTimer(workflow: EmailTriggerWorkflow, type: 'gmail' | 'outlook') {
+    // Stop any existing timer for this workflow
+    this.stopWorkflowTimer(workflow.id);
 
-    this.outlookState.isPolling = true;
+    // Read pollInterval from trigger config, also accept legacy pollingInterval
+    const config = workflow.trigger.config || {};
+    const pollIntervalSeconds =
+      (config.pollInterval as number | undefined) ??
+      ((config as Record<string, unknown>).pollingInterval as number | undefined) ??
+      this.defaultPollInterval;
 
-    // Poll immediately on start
-    this.pollOutlook().catch((error) => {
-      logger.error({ error }, 'Outlook poll error on startup');
-    });
+    const baseIntervalMs = pollIntervalSeconds * 1000;
 
-    // Then poll on interval
-    this.outlookState.intervalId = setInterval(() => {
-      this.pollOutlook().catch((error) => {
-        logger.error({ error }, 'Outlook poll error');
-      });
-    }, this.defaultPollInterval);
+    const pollFn =
+      type === 'gmail'
+        ? () => this.pollWorkflowGmail(workflow)
+        : () => this.pollWorkflowOutlook(workflow);
 
-    logger.info({ interval: this.defaultPollInterval }, 'Outlook polling started');
-  }
+    const timerState: PerWorkflowTimer = {
+      intervalId: null as unknown as NodeJS.Timeout,
+      intervalSeconds: pollIntervalSeconds,
+      consecutiveFailures: 0,
+      currentBackoffMs: baseIntervalMs,
+    };
 
-  /**
-   * Poll Gmail for new emails
-   */
-  private async pollGmail() {
-    const workflows = Array.from(this.gmailState.workflows.values());
-
-    logger.debug({ workflowCount: workflows.length }, 'Polling Gmail');
-
-    for (const workflow of workflows) {
-      try {
-        const filters = (workflow.trigger.config.filters || {}) as {
-          label?: string;
-          isUnread?: boolean;
-          hasNoLabels?: boolean;
-          from?: string;
-          to?: string;
-          subject?: string;
-          after?: string;
-          before?: string;
-        };
-
-        // Fetch recent emails (last 5 minutes worth)
-        const emails = await gmailModule.fetchEmails({
-          userId: workflow.userId,
-          filters,
-          limit: 10,
-          includeBody: true,
-        });
-
-        // Filter out already processed emails
-        const newEmails = emails.filter((email) => {
-          const emailKey = `gmail:${workflow.id}:${email.id}`;
-          if (this.processedEmailIds.has(emailKey)) {
-            return false;
+    const schedulePoll = () => {
+      timerState.intervalId = setTimeout(async () => {
+        try {
+          await pollFn();
+          // Success — reset backoff
+          if (timerState.consecutiveFailures > 0) {
+            logger.info(
+              { workflowId: workflow.id, previousFailures: timerState.consecutiveFailures },
+              `${type} poll recovered after ${timerState.consecutiveFailures} consecutive failures`
+            );
           }
-          this.processedEmailIds.add(emailKey);
-          return true;
-        });
-
-        // Trim processed emails set if too large
-        if (this.processedEmailIds.size > this.maxProcessedEmailsTracked) {
-          const entries = Array.from(this.processedEmailIds);
-          this.processedEmailIds = new Set(entries.slice(-5000));
-        }
-
-        if (newEmails.length > 0) {
-          logger.info(
-            { workflowId: workflow.id, emailCount: newEmails.length },
-            'New Gmail emails found'
+          timerState.consecutiveFailures = 0;
+          timerState.currentBackoffMs = baseIntervalMs;
+        } catch (error) {
+          timerState.consecutiveFailures++;
+          // Exponential backoff: baseInterval * 2^failures, capped at MAX_BACKOFF_MS
+          timerState.currentBackoffMs = Math.min(
+            baseIntervalMs * Math.pow(2, timerState.consecutiveFailures),
+            EmailTriggerPoller.MAX_BACKOFF_MS
           );
 
-          // Execute workflow for each new email
-          for (const email of newEmails) {
-            await this.executeEmailWorkflow(workflow, email);
-          }
+          logger.error(
+            {
+              error: error instanceof Error ? error.message : String(error),
+              workflowId: workflow.id,
+              consecutiveFailures: timerState.consecutiveFailures,
+              nextPollInMs: timerState.currentBackoffMs,
+              circuitBreakerOpen:
+                timerState.consecutiveFailures >= EmailTriggerPoller.MAX_CONSECUTIVE_FAILURES,
+            },
+            `${type} poll failed (${timerState.consecutiveFailures} consecutive failures, next poll in ${Math.round(timerState.currentBackoffMs / 1000)}s)`
+          );
         }
-      } catch (error) {
-        logger.error(
-          { workflowId: workflow.id, error },
-          'Error polling Gmail for workflow'
+        // Schedule next poll with current backoff
+        schedulePoll();
+      }, timerState.currentBackoffMs);
+    };
+
+    // Poll immediately on startup
+    pollFn()
+      .then(() => {
+        timerState.consecutiveFailures = 0;
+      })
+      .catch((error) => {
+        timerState.consecutiveFailures++;
+        timerState.currentBackoffMs = Math.min(
+          baseIntervalMs * Math.pow(2, timerState.consecutiveFailures),
+          EmailTriggerPoller.MAX_BACKOFF_MS
         );
-      }
+        logger.error(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            workflowId: workflow.id,
+          },
+          `${type} poll error on startup`
+        );
+      })
+      .finally(() => {
+        schedulePoll();
+      });
+
+    this.workflowTimers.set(workflow.id, timerState);
+
+    logger.info(
+      { workflowId: workflow.id, intervalSeconds: pollIntervalSeconds },
+      `${type} workflow polling started`
+    );
+  }
+
+  /**
+   * Stop a per-workflow timer
+   */
+  private stopWorkflowTimer(workflowId: string) {
+    const timer = this.workflowTimers.get(workflowId);
+    if (timer) {
+      clearTimeout(timer.intervalId);
+      this.workflowTimers.delete(workflowId);
     }
   }
 
   /**
-   * Poll Outlook for new emails
+   * Poll Gmail for a single workflow
    */
-  private async pollOutlook() {
-    const workflows = Array.from(this.outlookState.workflows.values());
+  private async pollWorkflowGmail(workflow: EmailTriggerWorkflow) {
+    try {
+      const filters = (workflow.trigger.config?.filters || {}) as {
+        label?: string;
+        isUnread?: boolean;
+        hasNoLabels?: boolean;
+        from?: string;
+        to?: string;
+        subject?: string;
+        after?: string;
+        before?: string;
+      };
 
-    logger.debug({ workflowCount: workflows.length }, 'Polling Outlook');
+      const emails = await gmailModule.fetchEmails({
+        userId: workflow.userId,
+        filters,
+        limit: 10,
+        includeBody: true,
+      });
 
-    for (const workflow of workflows) {
-      try {
-        const filters = (workflow.trigger.config.filters || {}) as {
-          folder?: string;
-          isUnread?: boolean;
-          hasNoCategories?: boolean;
-          from?: string;
-          to?: string;
-          subject?: string;
-          importance?: 'low' | 'normal' | 'high';
-        };
-
-        // Fetch recent emails
-        const emails = await outlookModule.fetchEmails({
-          userId: workflow.userId,
-          filters,
-          limit: 10,
-          includeBody: true,
-        });
-
-        // Filter out already processed emails
-        const newEmails = emails.filter((email) => {
-          const emailKey = `outlook:${workflow.id}:${email.id}`;
-          if (this.processedEmailIds.has(emailKey)) {
-            return false;
-          }
-          this.processedEmailIds.add(emailKey);
-          return true;
-        });
-
-        // Trim processed emails set if too large
-        if (this.processedEmailIds.size > this.maxProcessedEmailsTracked) {
-          const entries = Array.from(this.processedEmailIds);
-          this.processedEmailIds = new Set(entries.slice(-5000));
-        }
-
-        if (newEmails.length > 0) {
-          logger.info(
-            { workflowId: workflow.id, emailCount: newEmails.length },
-            'New Outlook emails found'
-          );
-
-          // Execute workflow for each new email
-          for (const email of newEmails) {
-            await this.executeEmailWorkflow(workflow, email);
-          }
-        }
-      } catch (error) {
-        logger.error(
-          { workflowId: workflow.id, error },
-          'Error polling Outlook for workflow'
-        );
+      const newEmails: typeof emails = [];
+      for (const email of emails) {
+        const emailKey = `gmail:${workflow.id}:${email.id}`;
+        if (await this.isProcessed(emailKey)) continue;
+        await this.markProcessed(emailKey);
+        newEmails.push(email);
       }
+
+      if (newEmails.length > 0) {
+        logger.info(
+          { workflowId: workflow.id, emailCount: newEmails.length },
+          'New Gmail emails found'
+        );
+        for (const email of newEmails) {
+          await this.executeEmailWorkflow(workflow, email);
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      logger.error(
+        { workflowId: workflow.id, error: errorMessage, stack: errorStack },
+        'Error polling Gmail for workflow'
+      );
+    }
+  }
+
+  /**
+   * Poll Outlook for a single workflow
+   */
+  private async pollWorkflowOutlook(workflow: EmailTriggerWorkflow) {
+    try {
+      const filters = (workflow.trigger.config?.filters || {}) as {
+        folder?: string;
+        isUnread?: boolean;
+        hasNoCategories?: boolean;
+        from?: string;
+        to?: string;
+        subject?: string;
+        importance?: 'low' | 'normal' | 'high';
+      };
+
+      const emails = await outlookModule.fetchEmails({
+        userId: workflow.userId,
+        filters,
+        limit: 10,
+        includeBody: true,
+      });
+
+      const newEmails: typeof emails = [];
+      for (const email of emails) {
+        const emailKey = `outlook:${workflow.id}:${email.id}`;
+        if (await this.isProcessed(emailKey)) continue;
+        await this.markProcessed(emailKey);
+        newEmails.push(email);
+      }
+
+      if (newEmails.length > 0) {
+        logger.info(
+          { workflowId: workflow.id, emailCount: newEmails.length },
+          'New Outlook emails found'
+        );
+        for (const email of newEmails) {
+          await this.executeEmailWorkflow(workflow, email);
+        }
+      }
+    } catch (error) {
+      logger.error({ workflowId: workflow.id, error }, 'Error polling Outlook for workflow');
     }
   }
 
@@ -348,11 +417,17 @@ class EmailTriggerPoller {
       [key: string]: unknown;
     }
   ) {
+    // Flatten email data into trigger root to match documented API:
+    // trigger.from, trigger.subject, trigger.messageId, etc.
     const triggerData = {
-      email: {
-        ...email,
-        emailId: email.id, // Add unique property to avoid duplication
-      },
+      ...email,
+      messageId: email.id,
+      body:
+        typeof email.body === 'object'
+          ? email.body?.text || email.body?.html || ''
+          : email.body || '',
+      bodyHtml: typeof email.body === 'object' ? email.body?.html || '' : '',
+      attachments: (email as Record<string, unknown>).attachments || [],
       userId: workflow.userId,
     };
 
@@ -368,7 +443,6 @@ class EmailTriggerPoller {
     );
 
     try {
-      // Use queue if available, otherwise execute directly
       if (await isWorkflowQueueAvailable()) {
         await queueWorkflowExecution(
           workflow.id,
@@ -378,12 +452,7 @@ class EmailTriggerPoller {
         );
         logger.info({ workflowId: workflow.id, emailId: email.id }, 'Workflow queued');
       } else {
-        await executeWorkflow(
-          workflow.id,
-          workflow.userId,
-          workflow.trigger.type,
-          triggerData
-        );
+        await executeWorkflow(workflow.id, workflow.userId, workflow.trigger.type, triggerData);
         logger.info({ workflowId: workflow.id, emailId: email.id }, 'Workflow executed');
       }
     } catch (error) {
@@ -400,26 +469,30 @@ class EmailTriggerPoller {
   async reload() {
     logger.info('Reloading email trigger workflows');
 
-    // Clear existing
-    this.gmailState.workflows.clear();
-    this.outlookState.workflows.clear();
+    // Stop all existing timers
+    for (const workflowId of this.workflowTimers.keys()) {
+      this.stopWorkflowTimer(workflowId);
+    }
+
+    // Clear existing workflow maps
+    this.gmailWorkflows.clear();
+    this.outlookWorkflows.clear();
 
     // Reload from database
     await this.loadWorkflows();
 
-    // Restart polling if needed
-    if (this.gmailState.workflows.size > 0 && !this.gmailState.isPolling) {
-      this.startGmailPolling();
+    // Restart per-workflow timers
+    for (const workflow of this.gmailWorkflows.values()) {
+      this.startWorkflowTimer(workflow, 'gmail');
     }
-
-    if (this.outlookState.workflows.size > 0 && !this.outlookState.isPolling) {
-      this.startOutlookPolling();
+    for (const workflow of this.outlookWorkflows.values()) {
+      this.startWorkflowTimer(workflow, 'outlook');
     }
 
     logger.info(
       {
-        gmailWorkflows: this.gmailState.workflows.size,
-        outlookWorkflows: this.outlookState.workflows.size,
+        gmailWorkflows: this.gmailWorkflows.size,
+        outlookWorkflows: this.outlookWorkflows.size,
       },
       'Email triggers reloaded'
     );
@@ -429,33 +502,32 @@ class EmailTriggerPoller {
    * Stop all polling
    */
   stop() {
-    if (this.gmailState.intervalId) {
-      clearInterval(this.gmailState.intervalId);
-      this.gmailState.isPolling = false;
-      logger.info('Gmail polling stopped');
+    for (const [workflowId] of this.workflowTimers) {
+      this.stopWorkflowTimer(workflowId);
     }
-
-    if (this.outlookState.intervalId) {
-      clearInterval(this.outlookState.intervalId);
-      this.outlookState.isPolling = false;
-      logger.info('Outlook polling stopped');
-    }
+    logger.info('All email polling stopped');
   }
 
   /**
    * Get current status
    */
   getStatus() {
+    const timers: Record<string, number> = {};
+    for (const [id, timer] of this.workflowTimers) {
+      timers[id] = timer.intervalSeconds;
+    }
+
     return {
       gmail: {
-        isPolling: this.gmailState.isPolling,
-        workflowCount: this.gmailState.workflows.size,
+        isPolling: this.gmailWorkflows.size > 0,
+        workflowCount: this.gmailWorkflows.size,
       },
       outlook: {
-        isPolling: this.outlookState.isPolling,
-        workflowCount: this.outlookState.workflows.size,
+        isPolling: this.outlookWorkflows.size > 0,
+        workflowCount: this.outlookWorkflows.size,
       },
       processedEmailsTracked: this.processedEmailIds.size,
+      perWorkflowIntervals: timers,
     };
   }
 }

@@ -5,13 +5,36 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Download, Trash2, Play, Key, MessageSquare, Sliders, BarChart3, Pencil, Clock, Webhook, Send, FormInput, Mail } from 'lucide-react';
+import {
+  Download,
+  Trash2,
+  Play,
+  Key,
+  MessageSquare,
+  Sliders,
+  BarChart3,
+  Pencil,
+  Clock,
+  Webhook,
+  Send,
+  FormInput,
+  Mail,
+  GitBranch,
+} from 'lucide-react';
 import { WorkflowListItem } from '@/types/workflows';
 import { WorkflowExecutionDialog } from './workflow-execution-dialog';
 import { CredentialsConfigDialog } from './credentials-config-dialog';
 import { WorkflowSettingsDialog } from './workflow-settings-dialog';
 import { WorkflowOutputsDialog } from './workflow-outputs-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { WorkflowDiagramView } from './workflow-diagram-view';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -26,7 +49,12 @@ interface WorkflowCardProps {
   onUpdated?: () => void;
 }
 
-export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, onExport, onUpdated }: WorkflowCardProps) {
+export const WorkflowCard = memo(function WorkflowCard({
+  workflow,
+  onDeleted,
+  onExport,
+  onUpdated,
+}: WorkflowCardProps) {
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
@@ -34,6 +62,7 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
   const [credentialsConfigOpen, setCredentialsConfigOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [outputsDialogOpen, setOutputsDialogOpen] = useState(false);
+  const [diagramDialogOpen, setDiagramDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editName, setEditName] = useState(workflow.name);
   const [editDescription, setEditDescription] = useState(workflow.description || '');
@@ -74,32 +103,35 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
     });
   }, [workflow.name, performDelete]);
 
-  const handleToggleStatus = useCallback(async (checked: boolean) => {
-    const newStatus = checked ? 'active' : 'draft';
-    setToggling(true);
-    setOptimisticStatus(newStatus);
+  const handleToggleStatus = useCallback(
+    async (checked: boolean) => {
+      const newStatus = checked ? 'active' : 'draft';
+      setToggling(true);
+      setOptimisticStatus(newStatus);
 
-    try {
-      const response = await fetch(`/api/workflows/${workflow.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      try {
+        const response = await fetch(`/api/workflows/${workflow.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to update workflow status');
+        if (!response.ok) {
+          throw new Error('Failed to update workflow status');
+        }
+
+        toast.success(`Workflow ${checked ? 'activated' : 'deactivated'}`);
+        onUpdated?.();
+      } catch (error) {
+        logger.error({ error }, 'Error updating workflow status');
+        toast.error('Failed to update workflow status');
+        setOptimisticStatus(null);
+      } finally {
+        setToggling(false);
       }
-
-      toast.success(`Workflow ${checked ? 'activated' : 'deactivated'}`);
-      onUpdated?.();
-    } catch (error) {
-      logger.error({ error }, 'Error updating workflow status');
-      toast.error('Failed to update workflow status');
-      setOptimisticStatus(null);
-    } finally {
-      setToggling(false);
-    }
-  }, [workflow.id, onUpdated]);
+    },
+    [workflow.id, onUpdated]
+  );
 
   const handleRunClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
@@ -111,10 +143,13 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
     setEditDialogOpen(true);
   }, []);
 
-  const handleExportClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.blur();
-    onExport(workflow.id);
-  }, [onExport, workflow.id]);
+  const handleExportClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.blur();
+      onExport(workflow.id);
+    },
+    [onExport, workflow.id]
+  );
 
   const handleSettingsClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
@@ -129,6 +164,11 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
   const handleOutputsClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
     setOutputsDialogOpen(true);
+  }, []);
+
+  const handleDiagramClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    setDiagramDialogOpen(true);
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
@@ -163,7 +203,9 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
     }
   }, [workflow.id, editName, editDescription, onUpdated]);
 
-  const getStatusBadgeVariant = (status: string): 'gradient-success' | 'gradient-warning' | 'gradient-error' | 'outline' => {
+  const getStatusBadgeVariant = (
+    status: string
+  ): 'gradient-success' | 'gradient-warning' | 'gradient-error' | 'outline' => {
     switch (status) {
       case 'active':
         return 'gradient-success';
@@ -228,11 +270,13 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
   return (
     <Card className="group relative overflow-hidden rounded-lg border-0 bg-gradient-to-br from-primary/5 via-blue-500/3 to-primary/5 backdrop-blur-sm shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
       {/* Gradient top border - green when active, blue when inactive */}
-      <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 ${
-        isActive
-          ? 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-500 opacity-90'
-          : 'bg-gradient-to-r from-primary via-blue-400 to-primary opacity-80'
-      }`} />
+      <div
+        className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 ${
+          isActive
+            ? 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-500 opacity-90'
+            : 'bg-gradient-to-r from-primary via-blue-400 to-primary opacity-80'
+        }`}
+      />
       <CardHeader className="space-y-2 pt-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -242,7 +286,9 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
               disabled={toggling}
               className="data-[state=checked]:!bg-green-500 dark:data-[state=checked]:!bg-green-600 data-[state=unchecked]:!bg-gray-300 dark:data-[state=unchecked]:!bg-gray-600"
             />
-            <span className={`text-xs font-medium ${(optimisticStatus || workflow.status) === 'active' ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+            <span
+              className={`text-xs font-medium ${(optimisticStatus || workflow.status) === 'active' ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+            >
               {(optimisticStatus || workflow.status) === 'active' ? 'Active' : 'Inactive'}
             </span>
           </div>
@@ -258,12 +304,7 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
             </CardTitle>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleEditClick}
-              title="Edit workflow"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={handleEditClick} title="Edit workflow">
               <Pencil className="h-4 w-4" />
             </Button>
             <Button
@@ -287,9 +328,7 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
           </div>
         </div>
         {workflow.description && (
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-            {workflow.description}
-          </p>
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{workflow.description}</p>
         )}
       </CardHeader>
       <CardContent className="space-y-3">
@@ -305,7 +344,9 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
           <div className="flex justify-between">
             <span>{workflow.trigger.type === 'chat' ? 'Chats:' : 'Runs:'}</span>
             <span className="font-medium">
-              {workflow.trigger.type === 'chat' ? (workflow.conversationCount ?? 0) : workflow.runCount}
+              {workflow.trigger.type === 'chat'
+                ? (workflow.conversationCount ?? 0)
+                : workflow.runCount}
             </span>
           </div>
         </div>
@@ -351,6 +392,16 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
             <BarChart3 className="h-3.5 w-3.5 mr-1 transition-transform duration-200 group-hover:scale-110" />
             <span className="text-xs">Outputs</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDiagramClick}
+            className="h-7 px-2 transition-all duration-200 hover:scale-105 active:scale-95 group"
+            title="View workflow diagram"
+          >
+            <GitBranch className="h-3.5 w-3.5 mr-1 transition-transform duration-200 group-hover:scale-110" />
+            <span className="text-xs">Diagram</span>
+          </Button>
         </div>
       </CardContent>
 
@@ -392,13 +443,29 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
         onOpenChange={setOutputsDialogOpen}
       />
 
+      <Dialog open={diagramDialogOpen} onOpenChange={setDiagramDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base">Workflow Diagram: {workflow.name}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Visual flowchart of the workflow steps
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto py-3 px-1 -mx-1 flex-1 scrollbar-none">
+            <WorkflowDiagramView
+              workflowName={workflow.name}
+              workflowConfig={workflow.config}
+              trigger={workflow.trigger}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Workflow</DialogTitle>
-            <DialogDescription>
-              Update the name and description of this workflow.
-            </DialogDescription>
+            <DialogDescription>Update the name and description of this workflow.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -424,11 +491,7 @@ export const WorkflowCard = memo(function WorkflowCard({ workflow, onDeleted, on
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditDialogOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>
             <Button onClick={handleSaveEdit} disabled={saving || !editName.trim()}>

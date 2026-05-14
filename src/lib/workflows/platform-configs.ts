@@ -37,9 +37,9 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         placeholder: 'sk-...',
-        description: 'Your OpenAI API key from platform.openai.com'
-      }
-    ]
+        description: 'Your OpenAI API key from platform.openai.com',
+      },
+    ],
   },
 
   anthropic: {
@@ -53,9 +53,9 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         placeholder: 'sk-ant-...',
-        description: 'Your Anthropic API key from console.anthropic.com'
-      }
-    ]
+        description: 'Your Anthropic API key from console.anthropic.com',
+      },
+    ],
   },
 
   openrouter: {
@@ -69,70 +69,87 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         placeholder: 'sk-or-v1-...',
-        description: 'Your OpenRouter API key from openrouter.ai/keys - Access 300+ AI models from one API'
-      }
-    ]
+        description:
+          'Your OpenRouter API key from openrouter.ai/keys - Access 300+ AI models from one API',
+      },
+    ],
+  },
+
+  perplexity: {
+    id: 'perplexity',
+    name: 'Perplexity AI',
+    category: 'AI',
+    fields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+        placeholder: 'pplx-...',
+        description: 'Your Perplexity API key from perplexity.ai/settings/api',
+      },
+    ],
+  },
+
+  gemini: {
+    id: 'gemini',
+    name: 'Google Gemini',
+    category: 'AI',
+    fields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+        placeholder: 'AIza...',
+        description: 'Your Gemini API key from aistudio.google.com/apikey',
+      },
+    ],
   },
 
   cohere: {
     id: 'cohere',
     name: 'Cohere',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   stabilityai: {
     id: 'stabilityai',
     name: 'Stability AI',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   replicate: {
     id: 'replicate',
     name: 'Replicate',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Token', type: 'password', required: true }],
   },
 
   huggingface: {
     id: 'huggingface',
     name: 'Hugging Face',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Token', type: 'password', required: true }],
   },
 
   // ============================================
   // SOCIAL MEDIA
   // ============================================
+  twitter: {
+    id: 'twitter',
+    name: 'Twitter / X',
+    category: 'Social Media',
+    fields: [],
+  },
+
   twitter_oauth2_app: {
     id: 'twitter_oauth2_app',
     name: 'Twitter OAuth 2.0 App Credentials',
     category: 'Social Media',
-    fields: [
-      {
-        key: 'client_id',
-        label: 'Client ID',
-        type: 'text',
-        required: true,
-        description: 'OAuth 2.0 Client ID from Twitter Developer Portal'
-      },
-      {
-        key: 'client_secret',
-        label: 'Client Secret',
-        type: 'password',
-        required: true,
-        description: 'OAuth 2.0 Client Secret from Twitter Developer Portal'
-      }
-    ]
+    fields: [],
   },
 
   reddit: {
@@ -143,8 +160,15 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
       { key: 'username', label: 'Username', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true }
-    ]
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
+  },
+
+  youtube: {
+    id: 'youtube',
+    name: 'YouTube',
+    category: 'Social Media',
+    fields: [], // OAuth platform - uses Google OAuth
   },
 
   youtube_apikey: {
@@ -158,18 +182,16 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         placeholder: 'AIza...',
-        description: 'API key from Google Cloud Console (for read-only operations)'
-      }
-    ]
+        description: 'API key from Google Cloud Console (for read-only operations)',
+      },
+    ],
   },
 
   instagram: {
     id: 'instagram',
     name: 'Instagram',
     category: 'Social Media',
-    fields: [
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'access_token', label: 'Access Token', type: 'password', required: true }],
   },
 
   tiktok: {
@@ -178,8 +200,8 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     category: 'Social Media',
     fields: [
       { key: 'client_key', label: 'Client Key', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true }
-    ]
+      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -196,25 +218,16 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         type: 'password',
         required: true,
         placeholder: 'xoxb-...',
-        description: 'Bot user token (simpler for team automation)'
-      }
-    ]
+        description: 'Bot user token (simpler for team automation)',
+      },
+    ],
   },
 
   slack_oauth: {
     id: 'slack_oauth',
-    name: 'Slack (OAuth User Token)',
+    name: 'Slack',
     category: 'Communication',
-    fields: [
-      {
-        key: 'user_token',
-        label: 'User OAuth Token',
-        type: 'password',
-        required: true,
-        placeholder: 'xoxp-...',
-        description: 'User-level OAuth token for personal actions'
-      }
-    ]
+    fields: [],
   },
 
   discord: {
@@ -227,38 +240,30 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
         label: 'Bot Token',
         type: 'password',
         required: true,
-        description: 'Bot token from Discord Developer Portal (simpler for server automation)'
-      }
-    ]
+        description: 'Bot token from Discord Developer Portal (simpler for server automation)',
+      },
+    ],
   },
 
   discord_oauth: {
     id: 'discord_oauth',
     name: 'Discord (OAuth)',
     category: 'Communication',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth token for user-level actions' }
-    ]
+    fields: [],
   },
 
   telegram: {
     id: 'telegram',
     name: 'Telegram',
     category: 'Communication',
-    fields: [
-      { key: 'bot_token', label: 'Bot Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'bot_token', label: 'Bot Token', type: 'password', required: true }],
   },
 
   resend: {
     id: 'resend',
     name: 'Resend',
     category: 'Communication',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   twilio: {
@@ -268,8 +273,14 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     fields: [
       { key: 'account_sid', label: 'Account SID', type: 'text', required: true },
       { key: 'auth_token', label: 'Auth Token', type: 'password', required: true },
-      { key: 'phone_number', label: 'Phone Number', type: 'text', required: true, placeholder: '+1234567890' }
-    ]
+      {
+        key: 'phone_number',
+        label: 'Phone Number',
+        type: 'text',
+        required: true,
+        placeholder: '+1234567890',
+      },
+    ],
   },
 
   whatsapp: {
@@ -278,8 +289,8 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     category: 'Communication',
     fields: [
       { key: 'api_token', label: 'API Token', type: 'password', required: true },
-      { key: 'phone_number_id', label: 'Phone Number ID', type: 'text', required: true }
-    ]
+      { key: 'phone_number_id', label: 'Phone Number ID', type: 'text', required: true },
+    ],
   },
 
   zendesk: {
@@ -287,19 +298,23 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     name: 'Zendesk',
     category: 'Communication',
     fields: [
-      { key: 'subdomain', label: 'Subdomain', type: 'text', required: true, placeholder: 'yourcompany' },
+      {
+        key: 'subdomain',
+        label: 'Subdomain',
+        type: 'text',
+        required: true,
+        placeholder: 'yourcompany',
+      },
       { key: 'email', label: 'Email', type: 'email', required: true },
-      { key: 'api_token', label: 'API Token', type: 'password', required: true }
-    ]
+      { key: 'api_token', label: 'API Token', type: 'password', required: true },
+    ],
   },
 
   intercom: {
     id: 'intercom',
     name: 'Intercom',
     category: 'Communication',
-    fields: [
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'access_token', label: 'Access Token', type: 'password', required: true }],
   },
 
   freshdesk: {
@@ -308,43 +323,63 @@ export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     category: 'Communication',
     fields: [
       { key: 'api_key', label: 'API Key', type: 'password', required: true },
-      { key: 'domain', label: 'Domain', type: 'text', required: true, placeholder: 'yourcompany.freshdesk.com' }
-    ]
+      {
+        key: 'domain',
+        label: 'Domain',
+        type: 'text',
+        required: true,
+        placeholder: 'yourcompany.freshdesk.com',
+      },
+    ],
   },
 
-gmail: {
+  gmail: {
     id: 'gmail',
     name: 'Gmail',
     category: 'Communication',
-    fields: []
+    fields: [],
+  },
+
+  outlook: {
+    id: 'outlook',
+    name: 'Microsoft Outlook',
+    category: 'Communication',
+    fields: [], // OAuth platform - uses Microsoft Graph OAuth
   },
 
   google_calendar: {
     id: 'google_calendar',
     name: 'Google Calendar',
     category: 'Productivity',
-    fields: []
+    fields: [],
   },
 
   google_sheets: {
     id: 'google_sheets',
     name: 'Google Sheets',
     category: 'Data',
-    fields: []
+    fields: [],
   },
 
   google_docs: {
     id: 'google_docs',
     name: 'Google Docs',
     category: 'Content',
-    fields: []
+    fields: [],
   },
 
   google_drive: {
     id: 'google_drive',
     name: 'Google Drive',
     category: 'Cloud Storage',
-    fields: []
+    fields: [],
+  },
+
+  google_business: {
+    id: 'google_business',
+    name: 'Google Business Profile',
+    category: 'Data',
+    fields: [],
   },
 
   google_oauth_app: {
@@ -357,16 +392,16 @@ gmail: {
         label: 'Client ID',
         type: 'text',
         required: true,
-        description: 'OAuth 2.0 Client ID from Google Cloud Console'
+        description: 'OAuth 2.0 Client ID from Google Cloud Console',
       },
       {
         key: 'client_secret',
         label: 'Client Secret',
         type: 'password',
         required: true,
-        description: 'OAuth 2.0 Client Secret from Google Cloud Console'
-      }
-    ]
+        description: 'OAuth 2.0 Client Secret from Google Cloud Console',
+      },
+    ],
   },
 
   outlook_oauth_app: {
@@ -379,16 +414,16 @@ gmail: {
         label: 'Client ID',
         type: 'text',
         required: true,
-        description: 'OAuth 2.0 Client ID from Microsoft Azure Portal'
+        description: 'OAuth 2.0 Client ID from Microsoft Azure Portal',
       },
       {
         key: 'client_secret',
         label: 'Client Secret',
         type: 'password',
         required: true,
-        description: 'OAuth 2.0 Client Secret from Microsoft Azure Portal'
-      }
-    ]
+        description: 'OAuth 2.0 Client Secret from Microsoft Azure Portal',
+      },
+    ],
   },
 
   youtube_oauth_app: {
@@ -401,16 +436,16 @@ gmail: {
         label: 'Client ID',
         type: 'text',
         required: true,
-        description: 'OAuth 2.0 Client ID from Google Cloud Console'
+        description: 'OAuth 2.0 Client ID from Google Cloud Console',
       },
       {
         key: 'client_secret',
         label: 'Client Secret',
         type: 'password',
         required: true,
-        description: 'OAuth 2.0 Client Secret from Google Cloud Console'
-      }
-    ]
+        description: 'OAuth 2.0 Client Secret from Google Cloud Console',
+      },
+    ],
   },
 
   // ============================================
@@ -427,20 +462,56 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'pat...',
-        description: 'Personal token from Airtable account (simpler for personal bases)'
-      }
-    ]
+        description: 'Personal token from Airtable account (simpler for personal bases)',
+      },
+    ],
   },
 
   airtable_oauth: {
     id: 'airtable_oauth',
     name: 'Airtable (OAuth)',
     category: 'Data',
+    fields: [],
+  },
+
+  dropbox: {
+    id: 'dropbox',
+    name: 'Dropbox',
+    category: 'Data',
     fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth token for multi-user apps' }
-    ]
+      {
+        key: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        placeholder: 'sl.xxx',
+        description: 'OAuth access token from Dropbox App Console',
+      },
+    ],
+  },
+
+  supabase: {
+    id: 'supabase',
+    name: 'Supabase',
+    category: 'Data',
+    fields: [
+      {
+        key: 'url',
+        label: 'Project URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://xyz.supabase.co',
+        description: 'Your Supabase project URL from Settings > API',
+      },
+      {
+        key: 'api_key',
+        label: 'Service Role Key',
+        type: 'password',
+        required: true,
+        placeholder: 'eyJ...',
+        description: 'Service role key from Settings > API (bypasses RLS)',
+      },
+    ],
   },
 
   notion: {
@@ -454,20 +525,16 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'secret_...',
-        description: 'Internal integration token (simpler for single workspace)'
-      }
-    ]
+        description: 'Internal integration token (simpler for single workspace)',
+      },
+    ],
   },
 
   notion_oauth: {
     id: 'notion_oauth',
     name: 'Notion (OAuth)',
     category: 'Data',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth access token for multi-workspace integrations' }
-    ]
+    fields: [],
   },
 
   googlecalendar_serviceaccount: {
@@ -475,9 +542,20 @@ gmail: {
     name: 'Google Calendar (Service Account)',
     category: 'Productivity',
     fields: [
-      { key: 'service_account_email', label: 'Service Account Email', type: 'email', required: true },
-      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'For domain-wide delegation and shared calendars' }
-    ]
+      {
+        key: 'service_account_email',
+        label: 'Service Account Email',
+        type: 'email',
+        required: true,
+      },
+      {
+        key: 'private_key',
+        label: 'Private Key',
+        type: 'textarea',
+        required: true,
+        description: 'For domain-wide delegation and shared calendars',
+      },
+    ],
   },
 
   googlesheets: {
@@ -485,9 +563,21 @@ gmail: {
     name: 'Google Sheets (Service Account)',
     category: 'Data',
     fields: [
-      { key: 'service_account_email', label: 'Service Account Email', type: 'email', required: true },
-      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'Paste the entire private key from your service account JSON (simpler for automation)' }
-    ]
+      {
+        key: 'service_account_email',
+        label: 'Service Account Email',
+        type: 'email',
+        required: true,
+      },
+      {
+        key: 'private_key',
+        label: 'Private Key',
+        type: 'textarea',
+        required: true,
+        description:
+          'Paste the entire private key from your service account JSON (simpler for automation)',
+      },
+    ],
   },
 
   googledocs: {
@@ -495,9 +585,20 @@ gmail: {
     name: 'Google Docs (Service Account)',
     category: 'Content',
     fields: [
-      { key: 'service_account_email', label: 'Service Account Email', type: 'email', required: true },
-      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'Paste the entire private key from your service account JSON' }
-    ]
+      {
+        key: 'service_account_email',
+        label: 'Service Account Email',
+        type: 'email',
+        required: true,
+      },
+      {
+        key: 'private_key',
+        label: 'Private Key',
+        type: 'textarea',
+        required: true,
+        description: 'Paste the entire private key from your service account JSON',
+      },
+    ],
   },
 
   mongodb: {
@@ -505,8 +606,14 @@ gmail: {
     name: 'MongoDB',
     category: 'Data',
     fields: [
-      { key: 'connection_string', label: 'Connection String', type: 'password', required: true, placeholder: 'mongodb://...' }
-    ]
+      {
+        key: 'connection_string',
+        label: 'Connection String',
+        type: 'password',
+        required: true,
+        placeholder: 'mongodb://...',
+      },
+    ],
   },
 
   postgresql: {
@@ -518,8 +625,8 @@ gmail: {
       { key: 'port', label: 'Port', type: 'text', required: false, placeholder: '5432' },
       { key: 'database', label: 'Database', type: 'text', required: true },
       { key: 'user', label: 'User', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true }
-    ]
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
   },
 
   mysql: {
@@ -531,8 +638,8 @@ gmail: {
       { key: 'port', label: 'Port', type: 'text', required: false, placeholder: '3306' },
       { key: 'database', label: 'Database', type: 'text', required: true },
       { key: 'user', label: 'User', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true }
-    ]
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -549,32 +656,23 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'pat-...',
-        description: 'Private app token (simpler for single account)'
-      }
-    ]
+        description: 'Private app token (simpler for single account)',
+      },
+    ],
   },
 
   hubspot_oauth: {
     id: 'hubspot_oauth',
     name: 'HubSpot (OAuth)',
     category: 'Business',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth token for public apps' }
-    ]
+    fields: [],
   },
 
   salesforce: {
     id: 'salesforce',
-    name: 'Salesforce (OAuth)',
+    name: 'Salesforce',
     category: 'Business',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'username', label: 'Username', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true, description: 'OAuth username-password flow' }
-    ]
+    fields: [],
   },
 
   salesforce_jwt: {
@@ -584,8 +682,14 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Consumer Key', type: 'text', required: true },
       { key: 'username', label: 'Username', type: 'text', required: true },
-      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true, description: 'JWT private key for server-to-server authentication' }
-    ]
+      {
+        key: 'private_key',
+        label: 'Private Key',
+        type: 'textarea',
+        required: true,
+        description: 'JWT private key for server-to-server authentication',
+      },
+    ],
   },
 
   pipedrive: {
@@ -594,39 +698,21 @@ gmail: {
     category: 'Business',
     fields: [
       { key: 'api_token', label: 'API Token', type: 'password', required: true },
-      { key: 'company_domain', label: 'Company Domain', type: 'text', required: true, placeholder: 'yourcompany' }
-    ]
+      {
+        key: 'company_domain',
+        label: 'Company Domain',
+        type: 'text',
+        required: true,
+        placeholder: 'yourcompany',
+      },
+    ],
   },
 
   gohighlevel: {
     id: 'gohighlevel',
-    name: 'GoHighLevel (OAuth 2.0)',
+    name: 'GoHighLevel',
     category: 'Business',
-    fields: [
-      {
-        key: 'access_token',
-        label: 'Access Token',
-        type: 'password',
-        required: true,
-        placeholder: 'eyJ...',
-        description: 'OAuth 2.0 access token from GHL (valid for 24 hours)'
-      },
-      {
-        key: 'refresh_token',
-        label: 'Refresh Token',
-        type: 'password',
-        required: false,
-        description: 'OAuth 2.0 refresh token for automatic token renewal'
-      },
-      {
-        key: 'location_id',
-        label: 'Location ID',
-        type: 'text',
-        required: false,
-        placeholder: 'loc_...',
-        description: 'Default location ID (can be overridden per request)'
-      }
-    ]
+    fields: [],
   },
 
   // ============================================
@@ -643,9 +729,9 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'sk_...',
-        description: 'Direct secret key (simpler for single account)'
-      }
-    ]
+        description: 'Direct secret key (simpler for single account)',
+      },
+    ],
   },
 
   stripe_connect: {
@@ -655,8 +741,14 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth Connect token for marketplace platforms' }
-    ]
+      {
+        key: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        description: 'OAuth Connect token for marketplace platforms',
+      },
+    ],
   },
 
   square: {
@@ -665,8 +757,8 @@ gmail: {
     category: 'Payments',
     fields: [
       { key: 'access_token', label: 'Access Token', type: 'password', required: true },
-      { key: 'location_id', label: 'Location ID', type: 'text', required: true }
-    ]
+      { key: 'location_id', label: 'Location ID', type: 'text', required: true },
+    ],
   },
 
   // ============================================
@@ -677,10 +769,22 @@ gmail: {
     name: 'Shopify',
     category: 'E-commerce',
     fields: [
-      { key: 'shop_name', label: 'Shop Name', type: 'text', required: true, placeholder: 'yourstore' },
+      {
+        key: 'shop_name',
+        label: 'Shop Name',
+        type: 'text',
+        required: true,
+        placeholder: 'yourstore',
+      },
       { key: 'access_token', label: 'Access Token', type: 'password', required: true },
-      { key: 'api_version', label: 'API Version', type: 'text', required: false, placeholder: '2024-01' }
-    ]
+      {
+        key: 'api_version',
+        label: 'API Version',
+        type: 'text',
+        required: false,
+        placeholder: '2024-01',
+      },
+    ],
   },
 
   woocommerce: {
@@ -688,10 +792,16 @@ gmail: {
     name: 'WooCommerce',
     category: 'E-commerce',
     fields: [
-      { key: 'url', label: 'Store URL', type: 'url', required: true, placeholder: 'https://yourstore.com' },
+      {
+        key: 'url',
+        label: 'Store URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://yourstore.com',
+      },
       { key: 'consumer_key', label: 'Consumer Key', type: 'text', required: true },
-      { key: 'consumer_secret', label: 'Consumer Secret', type: 'password', required: true }
-    ]
+      { key: 'consumer_secret', label: 'Consumer Secret', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -708,38 +818,37 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'ghp_...',
-        description: 'Personal Access Token from GitHub settings (simpler for automation)'
-      }
-    ]
+        description: 'Personal Access Token from GitHub settings (simpler for automation)',
+      },
+    ],
   },
 
   github_oauth: {
     id: 'github_oauth',
     name: 'GitHub (OAuth App)',
     category: 'Developer Tools',
-    fields: [
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
-      { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true, description: 'OAuth access token for user operations' }
-    ]
+    fields: [],
+  },
+
+  github_oauth_service: {
+    id: 'github_oauth_service',
+    name: 'GitHub (OAuth)',
+    category: 'Developer Tools',
+    fields: [],
   },
 
   vercel: {
     id: 'vercel',
     name: 'Vercel',
     category: 'Developer Tools',
-    fields: [
-      { key: 'token', label: 'API Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'token', label: 'API Token', type: 'password', required: true }],
   },
 
   netlify: {
     id: 'netlify',
     name: 'Netlify',
     category: 'Developer Tools',
-    fields: [
-      { key: 'token', label: 'Personal Access Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'token', label: 'Personal Access Token', type: 'password', required: true }],
   },
 
   sentry: {
@@ -748,8 +857,8 @@ gmail: {
     category: 'Developer Tools',
     fields: [
       { key: 'dsn', label: 'DSN', type: 'url', required: true },
-      { key: 'auth_token', label: 'Auth Token', type: 'password', required: false }
-    ]
+      { key: 'auth_token', label: 'Auth Token', type: 'password', required: false },
+    ],
   },
 
   datadog: {
@@ -758,8 +867,8 @@ gmail: {
     category: 'Developer Tools',
     fields: [
       { key: 'api_key', label: 'API Key', type: 'password', required: true },
-      { key: 'app_key', label: 'Application Key', type: 'password', required: true }
-    ]
+      { key: 'app_key', label: 'Application Key', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -769,9 +878,7 @@ gmail: {
     id: 'elevenlabs',
     name: 'ElevenLabs',
     category: 'Video & Media',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   cloudinary: {
@@ -781,44 +888,36 @@ gmail: {
     fields: [
       { key: 'cloud_name', label: 'Cloud Name', type: 'text', required: true },
       { key: 'api_key', label: 'API Key', type: 'text', required: true },
-      { key: 'api_secret', label: 'API Secret', type: 'password', required: true }
-    ]
+      { key: 'api_secret', label: 'API Secret', type: 'password', required: true },
+    ],
   },
 
   heygen: {
     id: 'heygen',
     name: 'HeyGen',
     category: 'Video & Media',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   runway: {
     id: 'runway',
     name: 'Runway',
     category: 'Video & Media',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   synthesia: {
     id: 'synthesia',
     name: 'Synthesia',
     category: 'Video & Media',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   vimeo: {
     id: 'vimeo',
     name: 'Vimeo',
     category: 'Video & Media',
-    fields: [
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'access_token', label: 'Access Token', type: 'password', required: true }],
   },
 
   // ============================================
@@ -828,36 +927,28 @@ gmail: {
     id: 'clearbit',
     name: 'Clearbit',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   hunter: {
     id: 'hunter',
     name: 'Hunter.io',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   apollo: {
     id: 'apollo',
     name: 'Apollo.io',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   lusha: {
     id: 'lusha',
     name: 'Lusha',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   // ============================================
@@ -867,54 +958,42 @@ gmail: {
     id: 'unsplash',
     name: 'Unsplash',
     category: 'Content',
-    fields: [
-      { key: 'access_key', label: 'Access Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'access_key', label: 'Access Key', type: 'password', required: true }],
   },
 
   pexels: {
     id: 'pexels',
     name: 'Pexels',
     category: 'Content',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   medium: {
     id: 'medium',
     name: 'Medium',
     category: 'Content',
-    fields: [
-      { key: 'access_token', label: 'Access Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'access_token', label: 'Access Token', type: 'password', required: true }],
   },
 
   bannerbear: {
     id: 'bannerbear',
     name: 'Bannerbear',
     category: 'Content',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   placid: {
     id: 'placid',
     name: 'Placid',
     category: 'Content',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   canva: {
     id: 'canva',
     name: 'Canva',
     category: 'Content',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   ghost: {
@@ -922,9 +1001,15 @@ gmail: {
     name: 'Ghost CMS',
     category: 'Content',
     fields: [
-      { key: 'url', label: 'Ghost URL', type: 'url', required: true, placeholder: 'https://yourblog.ghost.io' },
-      { key: 'admin_api_key', label: 'Admin API Key', type: 'password', required: true }
-    ]
+      {
+        key: 'url',
+        label: 'Ghost URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://yourblog.ghost.io',
+      },
+      { key: 'admin_api_key', label: 'Admin API Key', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -934,9 +1019,7 @@ gmail: {
     id: 'pinecone',
     name: 'Pinecone',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   weaviate: {
@@ -945,8 +1028,8 @@ gmail: {
     category: 'AI',
     fields: [
       { key: 'url', label: 'Weaviate URL', type: 'url', required: true },
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+      { key: 'api_key', label: 'API Key', type: 'password', required: true },
+    ],
   },
 
   chromadb: {
@@ -954,8 +1037,14 @@ gmail: {
     name: 'ChromaDB',
     category: 'AI',
     fields: [
-      { key: 'url', label: 'ChromaDB URL', type: 'url', required: true, placeholder: 'http://localhost:8000' }
-    ]
+      {
+        key: 'url',
+        label: 'ChromaDB URL',
+        type: 'url',
+        required: true,
+        placeholder: 'http://localhost:8000',
+      },
+    ],
   },
 
   // ============================================
@@ -965,18 +1054,14 @@ gmail: {
     id: 'suno',
     name: 'Suno AI',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   mubert: {
     id: 'mubert',
     name: 'Mubert',
     category: 'AI',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   // ============================================
@@ -988,8 +1073,8 @@ gmail: {
     category: 'E-commerce',
     fields: [
       { key: 'api_key', label: 'API Key', type: 'text', required: true },
-      { key: 'shop_id', label: 'Shop ID', type: 'text', required: true }
-    ]
+      { key: 'shop_id', label: 'Shop ID', type: 'text', required: true },
+    ],
   },
 
   ebay: {
@@ -999,8 +1084,8 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
+      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
+    ],
   },
 
   amazonsp: {
@@ -1010,17 +1095,15 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
+      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
+    ],
   },
 
   printful: {
     id: 'printful',
     name: 'Printful',
     category: 'E-commerce',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   // ============================================
@@ -1033,8 +1116,8 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
+      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
+    ],
   },
 
   xero: {
@@ -1044,8 +1127,8 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
+      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
+    ],
   },
 
   freshbooks: {
@@ -1055,8 +1138,8 @@ gmail: {
     fields: [
       { key: 'client_id', label: 'Client ID', type: 'text', required: true },
       { key: 'client_secret', label: 'Client Secret', type: 'password', required: true },
-      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true }
-    ]
+      { key: 'refresh_token', label: 'Refresh Token', type: 'password', required: true },
+    ],
   },
 
   docusign: {
@@ -1066,17 +1149,15 @@ gmail: {
     fields: [
       { key: 'integration_key', label: 'Integration Key', type: 'text', required: true },
       { key: 'user_id', label: 'User ID', type: 'text', required: true },
-      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true }
-    ]
+      { key: 'private_key', label: 'Private Key', type: 'textarea', required: true },
+    ],
   },
 
   hellosign: {
     id: 'hellosign',
     name: 'HelloSign',
     category: 'Business',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   // ============================================
@@ -1086,18 +1167,14 @@ gmail: {
     id: 'heroku',
     name: 'Heroku',
     category: 'Developer Tools',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   circleci: {
     id: 'circleci',
     name: 'CircleCI',
     category: 'Developer Tools',
-    fields: [
-      { key: 'token', label: 'Personal API Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'token', label: 'Personal API Token', type: 'password', required: true }],
   },
 
   jenkins: {
@@ -1107,8 +1184,8 @@ gmail: {
     fields: [
       { key: 'url', label: 'Jenkins URL', type: 'url', required: true },
       { key: 'user', label: 'Username', type: 'text', required: true },
-      { key: 'token', label: 'API Token', type: 'password', required: true }
-    ]
+      { key: 'token', label: 'API Token', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -1119,8 +1196,8 @@ gmail: {
     name: 'Firebase',
     category: 'Communication',
     fields: [
-      { key: 'service_account', label: 'Service Account JSON', type: 'textarea', required: true }
-    ]
+      { key: 'service_account', label: 'Service Account JSON', type: 'textarea', required: true },
+    ],
   },
 
   onesignal: {
@@ -1129,8 +1206,8 @@ gmail: {
     category: 'Communication',
     fields: [
       { key: 'app_id', label: 'App ID', type: 'text', required: true },
-      { key: 'rest_api_key', label: 'REST API Key', type: 'password', required: true }
-    ]
+      { key: 'rest_api_key', label: 'REST API Key', type: 'password', required: true },
+    ],
   },
 
   // ============================================
@@ -1142,8 +1219,8 @@ gmail: {
     category: 'Data',
     fields: [
       { key: 'project_id', label: 'Project ID', type: 'text', required: true },
-      { key: 'credentials', label: 'Service Account JSON', type: 'textarea', required: true }
-    ]
+      { key: 'credentials', label: 'Service Account JSON', type: 'textarea', required: true },
+    ],
   },
 
   snowflake: {
@@ -1154,8 +1231,8 @@ gmail: {
       { key: 'account', label: 'Account', type: 'text', required: true },
       { key: 'username', label: 'Username', type: 'text', required: true },
       { key: 'password', label: 'Password', type: 'password', required: true },
-      { key: 'warehouse', label: 'Warehouse', type: 'text', required: true }
-    ]
+      { key: 'warehouse', label: 'Warehouse', type: 'text', required: true },
+    ],
   },
 
   redshift: {
@@ -1167,8 +1244,8 @@ gmail: {
       { key: 'port', label: 'Port', type: 'text', required: false, placeholder: '5439' },
       { key: 'database', label: 'Database', type: 'text', required: true },
       { key: 'user', label: 'User', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true }
-    ]
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
   },
 
   kafka: {
@@ -1176,9 +1253,15 @@ gmail: {
     name: 'Apache Kafka',
     category: 'Data',
     fields: [
-      { key: 'brokers', label: 'Brokers (comma-separated)', type: 'text', required: true, placeholder: 'broker1:9092,broker2:9092' },
-      { key: 'client_id', label: 'Client ID', type: 'text', required: true }
-    ]
+      {
+        key: 'brokers',
+        label: 'Brokers (comma-separated)',
+        type: 'text',
+        required: true,
+        placeholder: 'broker1:9092,broker2:9092',
+      },
+      { key: 'client_id', label: 'Client ID', type: 'text', required: true },
+    ],
   },
 
   rabbitmq: {
@@ -1186,8 +1269,14 @@ gmail: {
     name: 'RabbitMQ',
     category: 'Data',
     fields: [
-      { key: 'url', label: 'Connection URL', type: 'password', required: true, placeholder: 'amqp://localhost:5672' }
-    ]
+      {
+        key: 'url',
+        label: 'Connection URL',
+        type: 'password',
+        required: true,
+        placeholder: 'amqp://localhost:5672',
+      },
+    ],
   },
 
   // ============================================
@@ -1200,35 +1289,29 @@ gmail: {
     fields: [
       { key: 'api_key', label: 'API Key', type: 'password', required: true },
       { key: 'username', label: 'Username', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'password', required: true }
-    ]
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
   },
 
   proxycurl: {
     id: 'proxycurl',
     name: 'Proxycurl',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   phantombuster: {
     id: 'phantombuster',
     name: 'PhantomBuster',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   apify: {
     id: 'apify',
     name: 'Apify',
     category: 'Lead Generation',
-    fields: [
-      { key: 'api_key', label: 'API Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Token', type: 'password', required: true }],
   },
 
   // ============================================
@@ -1244,7 +1327,7 @@ gmail: {
         label: 'Service Account JSON',
         type: 'textarea',
         required: true,
-        description: 'Service account credentials from Google Cloud Console'
+        description: 'Service account credentials from Google Cloud Console',
       },
       {
         key: 'property_id',
@@ -1252,9 +1335,9 @@ gmail: {
         type: 'text',
         required: true,
         placeholder: '123456789',
-        description: 'Your GA4 property ID (found in Admin > Property Settings)'
-      }
-    ]
+        description: 'Your GA4 property ID (found in Admin > Property Settings)',
+      },
+    ],
   },
 
   algolia: {
@@ -1269,9 +1352,9 @@ gmail: {
         label: 'Default Index Name',
         type: 'text',
         required: false,
-        description: 'Optional default index (can be overridden per operation)'
-      }
-    ]
+        description: 'Optional default index (can be overridden per operation)',
+      },
+    ],
   },
 
   // ============================================
@@ -1289,9 +1372,9 @@ gmail: {
         type: 'text',
         required: true,
         placeholder: 'us1',
-        description: 'Server prefix from your API key (e.g., us1, us2, etc.)'
-      }
-    ]
+        description: 'Server prefix from your API key (e.g., us1, us2, etc.)',
+      },
+    ],
   },
 
   // ============================================
@@ -1307,9 +1390,9 @@ gmail: {
         label: 'API Key',
         type: 'password',
         required: true,
-        description: 'Personal API key from Linear Settings'
-      }
-    ]
+        description: 'Personal API key from Linear Settings',
+      },
+    ],
   },
 
   typeform: {
@@ -1322,9 +1405,9 @@ gmail: {
         label: 'API Key',
         type: 'password',
         required: true,
-        description: 'Personal access token from Typeform account'
-      }
-    ]
+        description: 'Personal access token from Typeform account',
+      },
+    ],
   },
 
   calendly: {
@@ -1337,16 +1420,16 @@ gmail: {
         label: 'API Key',
         type: 'password',
         required: true,
-        description: 'Personal access token from Calendly integrations'
-      }
-    ]
+        description: 'Personal access token from Calendly integrations',
+      },
+    ],
   },
 
   calcom: {
     id: 'calcom',
     name: 'Cal.com',
     category: 'Calendar',
-    fields: []
+    fields: [],
   },
 
   // ============================================
@@ -1362,9 +1445,9 @@ gmail: {
         label: 'Service Account JSON',
         type: 'textarea',
         required: true,
-        description: 'Service account credentials from Google Cloud Console'
-      }
-    ]
+        description: 'Service account credentials from Google Cloud Console',
+      },
+    ],
   },
 
   // ============================================
@@ -1380,9 +1463,9 @@ gmail: {
         label: 'Personal Access Token',
         type: 'password',
         required: true,
-        description: 'Personal access token from Figma account settings'
-      }
-    ]
+        description: 'Personal access token from Figma account settings',
+      },
+    ],
   },
 
   // ============================================
@@ -1398,9 +1481,9 @@ gmail: {
         label: 'Access Token',
         type: 'password',
         required: true,
-        description: 'OAuth 2.0 access token for LinkedIn API'
-      }
-    ]
+        description: 'OAuth 2.0 access token for LinkedIn API',
+      },
+    ],
   },
 
   // ============================================
@@ -1410,7 +1493,7 @@ gmail: {
     id: 'microsoft_teams',
     name: 'Microsoft Teams',
     category: 'Communication',
-    fields: []  // OAuth platform - uses Microsoft Graph OAuth
+    fields: [], // OAuth platform - uses Microsoft Graph OAuth
   },
 
   microsoftteams: {
@@ -1425,9 +1508,9 @@ gmail: {
         label: 'Tenant ID',
         type: 'text',
         required: true,
-        description: 'Azure AD tenant ID'
-      }
-    ]
+        description: 'Azure AD tenant ID',
+      },
+    ],
   },
 
   // ============================================
@@ -1437,7 +1520,7 @@ gmail: {
     id: 'microsoft_onedrive',
     name: 'Microsoft OneDrive',
     category: 'Cloud Storage',
-    fields: []  // OAuth platform - uses Microsoft Graph OAuth
+    fields: [], // OAuth platform - uses Microsoft Graph OAuth
   },
 
   // ============================================
@@ -1447,18 +1530,14 @@ gmail: {
     id: 'rapidapi',
     name: 'RapidAPI',
     category: 'General',
-    fields: [
-      { key: 'api_key', label: 'API Key', type: 'password', required: true }
-    ]
+    fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 
   custom: {
     id: 'custom',
     name: 'Custom',
     category: 'General',
-    fields: [
-      { key: 'value', label: 'API Key / Token', type: 'password', required: true }
-    ]
+    fields: [{ key: 'value', label: 'API Key / Token', type: 'password', required: true }],
   },
 
   // ============================================
@@ -1475,9 +1554,9 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'tvly-...',
-        description: 'Your Tavily API key from tavily.com'
-      }
-    ]
+        description: 'Your Tavily API key from tavily.com',
+      },
+    ],
   },
 
   brave: {
@@ -1490,9 +1569,9 @@ gmail: {
         label: 'API Key',
         type: 'password',
         required: true,
-        description: 'Your Brave Search API key from brave.com/search/api'
-      }
-    ]
+        description: 'Your Brave Search API key from brave.com/search/api',
+      },
+    ],
   },
 
   postgres_connection: {
@@ -1506,9 +1585,9 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'postgresql://user:pass@host:5432/dbname',
-        description: 'PostgreSQL connection string'
-      }
-    ]
+        description: 'PostgreSQL connection string',
+      },
+    ],
   },
 
   github_token: {
@@ -1522,9 +1601,9 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'ghp_...',
-        description: 'GitHub Personal Access Token with repo permissions'
-      }
-    ]
+        description: 'GitHub Personal Access Token with repo permissions',
+      },
+    ],
   },
 
   slack_bot: {
@@ -1538,7 +1617,7 @@ gmail: {
         type: 'password',
         required: true,
         placeholder: 'xoxb-...',
-        description: 'Slack Bot User OAuth Token'
+        description: 'Slack Bot User OAuth Token',
       },
       {
         key: 'team_id',
@@ -1546,11 +1625,10 @@ gmail: {
         type: 'text',
         required: true,
         placeholder: 'T0123456789',
-        description: 'Your Slack Team/Workspace ID'
-      }
-    ]
+        description: 'Your Slack Team/Workspace ID',
+      },
+    ],
   },
-
 };
 
 /**
@@ -1564,9 +1642,21 @@ export function getPlatformConfig(platformId: string): PlatformConfig | undefine
  * Get all platforms grouped by category
  */
 export function getPlatformsByCategory(): Record<string, PlatformConfig[]> {
+  // OAuth app credential entries are managed via the Keys dialog now
+  const hiddenPlatforms = [
+    'google_oauth_app',
+    'outlook_oauth_app',
+    'youtube_oauth_app',
+    'twitter_oauth2_app',
+    'discord_oauth',
+    'notion_oauth',
+    'hubspot_oauth',
+    'github_oauth',
+  ];
   const grouped: Record<string, PlatformConfig[]> = {};
 
-  Object.values(PLATFORM_CONFIGS).forEach(config => {
+  Object.values(PLATFORM_CONFIGS).forEach((config) => {
+    if (hiddenPlatforms.includes(config.id)) return;
     if (!grouped[config.category]) {
       grouped[config.category] = [];
     }
@@ -1574,7 +1664,7 @@ export function getPlatformsByCategory(): Record<string, PlatformConfig[]> {
   });
 
   // Sort platforms within each category
-  Object.keys(grouped).forEach(category => {
+  Object.keys(grouped).forEach((category) => {
     grouped[category].sort((a, b) => a.name.localeCompare(b.name));
   });
 
@@ -1586,6 +1676,6 @@ export function getPlatformsByCategory(): Record<string, PlatformConfig[]> {
  */
 export function getCategories(): string[] {
   const categories = new Set<string>();
-  Object.values(PLATFORM_CONFIGS).forEach(config => categories.add(config.category));
+  Object.values(PLATFORM_CONFIGS).forEach((config) => categories.add(config.category));
   return Array.from(categories).sort();
 }

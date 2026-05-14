@@ -41,6 +41,42 @@ const ENV_VAR_MAP: Record<string, { clientId: string; clientSecret: string; tena
     clientId: 'GOOGLE_CLIENT_ID',
     clientSecret: 'GOOGLE_CLIENT_SECRET',
   },
+  twitter: {
+    clientId: 'TWITTER_CLIENT_ID',
+    clientSecret: 'TWITTER_CLIENT_SECRET',
+  },
+  slack: {
+    clientId: 'SLACK_CLIENT_ID',
+    clientSecret: 'SLACK_CLIENT_SECRET',
+  },
+  discord: {
+    clientId: 'DISCORD_CLIENT_ID',
+    clientSecret: 'DISCORD_CLIENT_SECRET',
+  },
+  airtable: {
+    clientId: 'AIRTABLE_CLIENT_ID',
+    clientSecret: 'AIRTABLE_CLIENT_SECRET',
+  },
+  notion: {
+    clientId: 'NOTION_CLIENT_ID',
+    clientSecret: 'NOTION_CLIENT_SECRET',
+  },
+  gohighlevel: {
+    clientId: 'GOHIGHLEVEL_CLIENT_ID',
+    clientSecret: 'GOHIGHLEVEL_CLIENT_SECRET',
+  },
+  hubspot: {
+    clientId: 'HUBSPOT_CLIENT_ID',
+    clientSecret: 'HUBSPOT_CLIENT_SECRET',
+  },
+  salesforce: {
+    clientId: 'SALESFORCE_CLIENT_ID',
+    clientSecret: 'SALESFORCE_CLIENT_SECRET',
+  },
+  github: {
+    clientId: 'GITHUB_CLIENT_ID',
+    clientSecret: 'GITHUB_CLIENT_SECRET',
+  },
 };
 
 /**
@@ -91,7 +127,9 @@ export function getOAuthAppCredentials(
     metadata = appCred.metadata;
   } else {
     logger.error({ platform }, 'OAuth app credentials missing metadata');
-    throw new Error(`Invalid ${platform} OAuth app credentials. Please re-add using the multi-field format.`);
+    throw new Error(
+      `Invalid ${platform} OAuth app credentials. Please re-add using the multi-field format.`
+    );
   }
 
   // Get fields from metadata
@@ -103,7 +141,9 @@ export function getOAuthAppCredentials(
   const fields = metadata.fields as Record<string, string>;
   if (!fields.client_id || !fields.client_secret) {
     logger.error({ platform }, 'OAuth app credentials missing client_id or client_secret fields');
-    throw new Error(`Invalid ${platform} OAuth app credentials. Missing client_id or client_secret.`);
+    throw new Error(
+      `Invalid ${platform} OAuth app credentials. Missing client_id or client_secret.`
+    );
   }
 
   // Decrypt credentials

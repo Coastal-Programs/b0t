@@ -19,13 +19,23 @@ import { logger } from '../logger';
  */
 
 export const WORKFLOW_QUEUE_NAME = 'workflows-execution';
-export const WORKFLOW_QUEUE_PREFIX = 'workflows-execution:';
+export const WORKFLOW_QUEUE_PREFIX = 'wf-exec_';
 
 export interface WorkflowJobData {
   workflowId: string;
   userId: string;
-  organizationId: string | null;  // null = admin workflows
-  triggerType: 'manual' | 'cron' | 'webhook' | 'telegram' | 'discord' | 'chat' | 'chat-input' | 'gmail' | 'outlook';
+  organizationId: string | null; // null = admin workflows
+  triggerType:
+    | 'manual'
+    | 'cron'
+    | 'webhook'
+    | 'telegram'
+    | 'discord'
+    | 'chat'
+    | 'chat-input'
+    | 'gmail'
+    | 'outlook'
+    | 'airtable';
   triggerData?: Record<string, unknown>;
 }
 
@@ -66,14 +76,13 @@ let globalQueueOptions: {
  * - Production (horizontal): 50 concurrent per org per worker (multiple worker instances)
  */
 export async function initializeWorkflowQueue(options?: {
-  concurrency?: number;  // How many workflows to run simultaneously PER ORG
-  maxJobsPerMinute?: number;  // Rate limit PER ORG (default: 300)
+  concurrency?: number; // How many workflows to run simultaneously PER ORG
+  maxJobsPerMinute?: number; // Rate limit PER ORG (default: 300)
 }) {
   // Environment-based concurrency defaults
   // Development: 20, Production vertical: 100, Production horizontal: 50 per worker
   const defaultConcurrency = parseInt(
-    process.env.WORKFLOW_CONCURRENCY ||
-    (process.env.NODE_ENV === 'production' ? '100' : '20'),
+    process.env.WORKFLOW_CONCURRENCY || (process.env.NODE_ENV === 'production' ? '100' : '20'),
     10
   );
 
@@ -92,33 +101,36 @@ export async function initializeWorkflowQueue(options?: {
     if (process.env.NODE_ENV === 'development') {
       console.log(
         `🔄 Workflow queue ready (per-org concurrency: ${globalQueueOptions.concurrency}, ` +
-        `rate: ${globalQueueOptions.maxJobsPerMinute}/min per org)`
+          `rate: ${globalQueueOptions.maxJobsPerMinute}/min per org)`
       );
     } else {
-      logger.info(
-        globalQueueOptions,
-        'Initializing per-org workflow queue system'
-      );
+      logger.info(globalQueueOptions, 'Initializing per-org workflow queue system');
     }
 
     // Always log optimization status
-    logger.info({
-      ...globalQueueOptions,
-      environment: process.env.NODE_ENV || 'development',
-      optimization: 'PER_ORG_QUEUE_PARTITIONING',
-      overridden: !!options?.concurrency
-    }, `✅ Per-org workflow queue: ${globalQueueOptions.concurrency} parallel workflows per org`);
+    logger.info(
+      {
+        ...globalQueueOptions,
+        environment: process.env.NODE_ENV || 'development',
+        optimization: 'PER_ORG_QUEUE_PARTITIONING',
+        overridden: !!options?.concurrency,
+      },
+      `✅ Per-org workflow queue: ${globalQueueOptions.concurrency} parallel workflows per org`
+    );
 
     return true;
   } catch (error) {
     // Provide detailed error logging
     logger.error(
       {
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : error
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
       },
       'Failed to initialize workflow queue system'
     );
@@ -147,23 +159,24 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
     // Create queue for this organization
     createQueue(queueName, {
       defaultJobOptions: {
-        attempts: 3,  // Retry failed workflows 3 times
+        attempts: 3, // Retry failed workflows 3 times
         backoff: {
           type: 'exponential',
-          delay: 10000,  // Start with 10s delay between retries
+          delay: 10000, // Start with 10s delay between retries
         },
         removeOnComplete: {
-          age: 86400,  // Keep completed jobs for 24 hours
+          age: 86400, // Keep completed jobs for 24 hours
           count: 1000,
         },
         removeOnFail: {
-          age: 604800,  // Keep failed jobs for 7 days
+          age: 604800, // Keep failed jobs for 7 days
           count: 5000,
         },
       },
     });
 
     // Create worker to process workflows for this organization
+    // Override autorun: true so on-demand workers start immediately
     const worker = createWorker<WorkflowJobData>(
       queueName,
       async (job) => {
@@ -178,7 +191,7 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
             triggerType,
             attempt: job.attemptsMade + 1,
             action: 'workflow_execution_started',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           },
           'Executing workflow from queue'
         );
@@ -201,7 +214,7 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
               organizationId: organizationId || 'admin',
               action: 'workflow_execution_completed',
               timestamp: new Date().toISOString(),
-              metadata: { triggerType, duration: Date.now() - job.timestamp }
+              metadata: { triggerType, duration: Date.now() - job.timestamp },
             },
             'Workflow executed successfully from queue'
           );
@@ -218,8 +231,11 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
               timestamp: new Date().toISOString(),
               attempt: job.attemptsMade + 1,
               maxAttempts: 3,
-              error: error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error,
-              metadata: { triggerType }
+              error:
+                error instanceof Error
+                  ? { message: error.message, stack: error.stack, name: error.name }
+                  : error,
+              metadata: { triggerType },
             },
             `Workflow execution failed (attempt ${job.attemptsMade + 1}/3)`
           );
@@ -227,17 +243,22 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
         }
       },
       {
-        concurrency: globalQueueOptions.concurrency,  // Run N workflows concurrently per org
+        autorun: true, // Override default autorun: false — start processing immediately
+        concurrency: globalQueueOptions.concurrency, // Run N workflows concurrently per org
         limiter: {
-          max: globalQueueOptions.maxJobsPerMinute,  // Max jobs per minute per org
+          max: globalQueueOptions.maxJobsPerMinute, // Max jobs per minute per org
           duration: 60000,
         },
       }
     );
 
-    // Log retry attempts
-    worker.on('failed', (job) => {
-      if (job && job.attemptsMade < 3) {
+    // Log retry attempts and handle permanent failures
+    worker.on('failed', async (job, error) => {
+      if (!job) return;
+
+      const maxAttempts = job.opts?.attempts || 3;
+
+      if (job.attemptsMade < maxAttempts) {
         logger.info(
           {
             jobId: job.id,
@@ -246,11 +267,67 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
             organizationId: job.data.organizationId || 'admin',
             action: 'workflow_retry_scheduled',
             timestamp: new Date().toISOString(),
-            attempt: job.attemptsMade + 1,
-            nextRetryIn: `${Math.pow(2, job.attemptsMade) * 10}s`
+            attempt: job.attemptsMade,
+            maxAttempts,
+            nextRetryIn: `${Math.pow(2, job.attemptsMade) * 10}s`,
           },
-          `Workflow will retry (attempt ${job.attemptsMade + 1}/3)`
+          `Workflow will retry (attempt ${job.attemptsMade}/${maxAttempts})`
         );
+      } else {
+        // Permanent failure — all retries exhausted
+        logger.error(
+          {
+            jobId: job.id,
+            workflowId: job.data.workflowId,
+            userId: job.data.userId,
+            organizationId: job.data.organizationId || 'admin',
+            action: 'workflow_permanently_failed',
+            timestamp: new Date().toISOString(),
+            totalAttempts: job.attemptsMade,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          `Workflow permanently failed after ${job.attemptsMade} attempts — marking as failed`
+        );
+
+        // Mark workflow as failed in database to stop re-triggering
+        try {
+          const { db } = await import('../db');
+          const { workflowsTable } = await import('../schema');
+          const { eq } = await import('drizzle-orm');
+
+          await db
+            .update(workflowsTable)
+            .set({
+              lastRunStatus: 'failed',
+              lastRunError: `Permanently failed after ${job.attemptsMade} attempts: ${error instanceof Error ? error.message : String(error)}`,
+            })
+            .where(eq(workflowsTable.id, job.data.workflowId));
+        } catch (dbError) {
+          logger.error(
+            { dbError, workflowId: job.data.workflowId },
+            'Failed to mark workflow as permanently failed'
+          );
+        }
+
+        // Notify user of permanent failure
+        try {
+          const { createNotification } = await import('../notifications');
+          await createNotification({
+            userId: job.data.userId,
+            organizationId: job.data.organizationId || undefined,
+            type: 'workflow_failure',
+            title: `Workflow permanently failed after ${job.attemptsMade} retries`,
+            message: error instanceof Error ? error.message : String(error),
+            link: `/dashboard/workflows/${job.data.workflowId}`,
+            metadata: {
+              workflowId: job.data.workflowId,
+              permanent: true,
+              attempts: job.attemptsMade,
+            },
+          });
+        } catch (notifError) {
+          logger.error({ error: notifError }, 'Failed to send permanent failure notification');
+        }
       }
     });
 
@@ -267,11 +344,14 @@ async function initializeQueueForOrg(organizationId: string | null): Promise<boo
     // Provide detailed error logging
     logger.error(
       {
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : error
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
       },
       'Failed to initialize workflow queue'
     );
@@ -291,9 +371,9 @@ export async function queueWorkflowExecution(
   triggerType: WorkflowJobData['triggerType'],
   triggerData?: Record<string, unknown>,
   options?: {
-    priority?: number;  // Lower number = higher priority (default: 5)
-    delay?: number;     // Delay execution by N milliseconds
-    organizationId?: string | null;  // Optional: provide if already known to avoid DB query
+    priority?: number; // Lower number = higher priority (default: 5)
+    delay?: number; // Delay execution by N milliseconds
+    organizationId?: string | null; // Optional: provide if already known to avoid DB query
   }
 ): Promise<{ jobId: string; queued: boolean }> {
   try {
@@ -305,13 +385,19 @@ export async function queueWorkflowExecution(
           userId,
           action: 'workflow_direct_execution',
           timestamp: new Date().toISOString(),
-          metadata: { triggerType, reason: 'redis_not_configured' }
+          metadata: { triggerType, reason: 'redis_not_configured' },
         },
         'No Redis - executing workflow directly (not queued)'
       );
 
       // Execute immediately without queue
-      await executeWorkflow(workflowId, userId, triggerType, triggerData);
+      const result = await executeWorkflow(workflowId, userId, triggerType, triggerData);
+
+      if (!result.success) {
+        throw new Error(
+          `Workflow execution failed: ${result.error}${result.errorStep ? ` (step: ${result.errorStep})` : ''}`
+        );
+      }
 
       return { jobId: 'direct-execution', queued: false };
     }
@@ -345,8 +431,19 @@ export async function queueWorkflowExecution(
     const queue = queues.get(queueName);
 
     if (!queue) {
-      throw new Error(`Workflow queue not initialized for organization: ${organizationId || 'admin'}`);
+      throw new Error(
+        `Workflow queue not initialized for organization: ${organizationId || 'admin'}`
+      );
     }
+
+    // Generate deduplication jobId based on trigger type
+    // Cron-triggered runs use a stable ID so duplicate cron fires are deduplicated
+    // One-off runs use a timestamp-based ID to allow multiple manual triggers
+    const triggerId = triggerData?.triggerId as string | undefined;
+    const jobId =
+      triggerType === 'cron' && triggerId
+        ? `cron-${workflowId}-${triggerId}`
+        : `workflow-${workflowId}-${Date.now()}`;
 
     // Add workflow to org-specific queue
     const job = await addJob<WorkflowJobData>(
@@ -362,6 +459,7 @@ export async function queueWorkflowExecution(
       {
         priority: options?.priority || 5,
         delay: options?.delay,
+        jobId,
       }
     );
 
@@ -377,8 +475,8 @@ export async function queueWorkflowExecution(
         metadata: {
           triggerType,
           priority: options?.priority || 5,
-          delay: options?.delay || 0
-        }
+          delay: options?.delay || 0,
+        },
       },
       'Workflow queued for execution successfully'
     );
@@ -391,8 +489,11 @@ export async function queueWorkflowExecution(
         userId,
         action: 'workflow_queue_failed',
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? { message: error.message, stack: error.stack, name: error.name } : error,
-        metadata: { triggerType }
+        error:
+          error instanceof Error
+            ? { message: error.message, stack: error.stack, name: error.name }
+            : error,
+        metadata: { triggerType },
       },
       'Failed to queue workflow for execution'
     );
@@ -423,11 +524,11 @@ export async function getWorkflowQueueStats(organizationId?: string | null) {
 
     return {
       organizationId: organizationId || 'admin',
-      waiting,    // Jobs waiting to be processed
-      active,     // Currently executing workflows
-      completed,  // Successfully completed
-      failed,     // Failed after retries
-      delayed,    // Scheduled for future execution
+      waiting, // Jobs waiting to be processed
+      active, // Currently executing workflows
+      completed, // Successfully completed
+      failed, // Failed after retries
+      delayed, // Scheduled for future execution
       total: waiting + active + delayed,
     };
   }

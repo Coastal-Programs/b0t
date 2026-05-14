@@ -39,6 +39,7 @@ class WorkflowScheduler {
   private readonly LEADER_LOCK_KEY = 'workflow-scheduler:leader';
   private readonly LEADER_LOCK_TTL = 30; // 30 seconds
   private readonly LEADER_CHECK_INTERVAL = 20000; // Check every 20 seconds
+  private leaderLockValue: string | null = null; // Our unique lock value for ownership verification
 
   /**
    * Initialize scheduler - scan database and schedule all active cron workflows
@@ -64,7 +65,9 @@ class WorkflowScheduler {
         // Initialize Airtable trigger polling (only leader does this)
         await airtableTriggerPoller.initialize();
       } else {
-        logger.info('Not scheduler leader - skipping cron scheduling (another worker is handling it)');
+        logger.info(
+          'Not scheduler leader - skipping cron scheduling (another worker is handling it)'
+        );
       }
 
       // Start leader election loop to handle leader failures
@@ -97,9 +100,10 @@ class WorkflowScheduler {
       }
 
       // Try to acquire lock with NX (only set if not exists) and EX (expiration)
+      this.leaderLockValue = `${process.pid}-${Date.now()}`;
       const result = await redis.set(
         this.LEADER_LOCK_KEY,
-        `${process.pid}-${Date.now()}`,
+        this.leaderLockValue,
         'EX',
         this.LEADER_LOCK_TTL,
         'NX'
@@ -127,6 +131,7 @@ class WorkflowScheduler {
 
   /**
    * Renew leader lock to maintain leadership
+   * Verifies ownership before extending TTL to prevent stealing another worker's lock
    */
   private async renewLeaderLock(): Promise<boolean> {
     try {
@@ -135,14 +140,25 @@ class WorkflowScheduler {
         return true; // No Redis, always leader
       }
 
-      // Extend the lock expiration
+      // Verify we still own the lock before extending TTL
+      const currentValue = await redis.get(this.LEADER_LOCK_KEY);
+      if (currentValue !== this.leaderLockValue) {
+        // Lock was taken by another worker or expired
+        logger.warn(
+          { expected: this.leaderLockValue, actual: currentValue },
+          'Leader lock ownership lost — another worker may have taken over'
+        );
+        return false;
+      }
+
+      // Extend the lock expiration (safe — we verified ownership)
       const result = await redis.expire(this.LEADER_LOCK_KEY, this.LEADER_LOCK_TTL);
 
       if (result === 1) {
         return true;
       } else {
-        // Lock expired, try to reacquire
-        logger.warn('Leader lock expired, attempting to reacquire');
+        // Lock expired between GET and EXPIRE, try to reacquire
+        logger.warn('Leader lock expired during renewal, attempting to reacquire');
         return await this.tryBecomeLeader();
       }
     } catch (error) {
@@ -254,10 +270,7 @@ class WorkflowScheduler {
 
         const cronPattern = trigger.config.schedule;
         if (!cronPattern) {
-          logger.warn(
-            { workflowId: workflow.id },
-            'Workflow has cron trigger but no schedule'
-          );
+          logger.warn({ workflowId: workflow.id }, 'Workflow has cron trigger but no schedule');
           continue;
         }
 
@@ -284,10 +297,7 @@ class WorkflowScheduler {
 
       // Only log if there are scheduled workflows
       if (this.scheduledWorkflows.size > 0) {
-        logger.info(
-          { scheduled: this.scheduledWorkflows.size },
-          'Workflow sync completed'
-        );
+        logger.info({ scheduled: this.scheduledWorkflows.size }, 'Workflow sync completed');
       }
     } catch (error) {
       // Only log error, don't throw (handled by caller)
@@ -306,69 +316,45 @@ class WorkflowScheduler {
     workflowName?: string
   ) {
     if (!cron.validate(cronPattern)) {
-      logger.error(
-        { workflowId, cronPattern },
-        'Invalid cron pattern'
-      );
+      logger.error({ workflowId, cronPattern }, 'Invalid cron pattern');
       return;
     }
 
-    logger.info(
-      { workflowId, cronPattern, workflowName },
-      'Scheduling workflow'
-    );
+    logger.info({ workflowId, cronPattern, workflowName }, 'Scheduling workflow');
 
-    const task = cron.schedule(
-      cronPattern,
-      async () => {
-        logger.info(
-          { workflowId, userId, workflowName },
-          'Executing scheduled workflow'
-        );
+    const task = cron.schedule(cronPattern, async () => {
+      logger.info({ workflowId, userId, workflowName }, 'Executing scheduled workflow');
 
-        try {
-          // Use queue if available, otherwise execute directly
-          if (isWorkflowQueueAvailable()) {
-            await queueWorkflowExecution(
-              workflowId,
-              userId,
-              'cron',
-              { scheduledAt: new Date().toISOString() },
-              { organizationId }  // Pass organizationId to avoid DB query
-            );
-            logger.info(
-              { workflowId, organizationId: organizationId || 'admin' },
-              'Workflow queued via cron trigger'
-            );
-          } else {
-            // Direct execution fallback
-            const result = await executeWorkflow(
-              workflowId,
-              userId,
-              'cron',
-              { scheduledAt: new Date().toISOString() }
-            );
-
-            if (result.success) {
-              logger.info(
-                { workflowId },
-                'Scheduled workflow completed successfully'
-              );
-            } else {
-              logger.error(
-                { workflowId, error: result.error },
-                'Scheduled workflow failed'
-              );
-            }
-          }
-        } catch (error) {
-          logger.error(
-            { workflowId, error },
-            'Error executing scheduled workflow'
+      try {
+        // Use queue if available, otherwise execute directly
+        if (isWorkflowQueueAvailable()) {
+          await queueWorkflowExecution(
+            workflowId,
+            userId,
+            'cron',
+            { scheduledAt: new Date().toISOString() },
+            { organizationId } // Pass organizationId to avoid DB query
           );
+          logger.info(
+            { workflowId, organizationId: organizationId || 'admin' },
+            'Workflow queued via cron trigger'
+          );
+        } else {
+          // Direct execution fallback
+          const result = await executeWorkflow(workflowId, userId, 'cron', {
+            scheduledAt: new Date().toISOString(),
+          });
+
+          if (result.success) {
+            logger.info({ workflowId }, 'Scheduled workflow completed successfully');
+          } else {
+            logger.error({ workflowId, error: result.error }, 'Scheduled workflow failed');
+          }
         }
+      } catch (error) {
+        logger.error({ workflowId, error }, 'Error executing scheduled workflow');
       }
-    );
+    });
 
     // Start the task
     task.start();
@@ -381,10 +367,7 @@ class WorkflowScheduler {
       task,
     });
 
-    logger.info(
-      { workflowId, cronPattern, workflowName },
-      'Workflow scheduled successfully'
-    );
+    logger.info({ workflowId, cronPattern, workflowName }, 'Workflow scheduled successfully');
   }
 
   /**
@@ -404,10 +387,24 @@ class WorkflowScheduler {
 
   /**
    * Manually trigger a re-sync (useful after workflow updates)
+   * Refreshes cron workflows AND restarts email/airtable trigger pollers
+   * so newly created Gmail/Airtable-triggered workflows are picked up immediately.
    */
   async refresh() {
-    logger.info('Refreshing workflow schedules');
+    logger.info('Refreshing workflow schedules and trigger pollers');
     await this.syncWorkflows();
+
+    // Restart email trigger poller to pick up new Gmail/Outlook workflows
+    if (this.isSchedulerLeader) {
+      emailTriggerPoller.stop();
+      await emailTriggerPoller.initialize();
+
+      // Restart Airtable trigger poller to pick up new Airtable workflows
+      airtableTriggerPoller.stop();
+      await airtableTriggerPoller.initialize();
+
+      logger.info('Email and Airtable trigger pollers restarted');
+    }
   }
 
   /**
@@ -429,6 +426,9 @@ class WorkflowScheduler {
 
     // Stop email trigger polling
     emailTriggerPoller.stop();
+
+    // Stop Airtable trigger polling
+    airtableTriggerPoller.stop();
 
     // Release leader lock
     await this.releaseLeaderLock();

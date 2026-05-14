@@ -1,14 +1,16 @@
-"use client";
+'use client';
 
 import React, { useEffect, memo } from 'react';
 import { MessageItem } from './message/MessageItem';
 
 interface ContentBlock {
-  type: 'text' | 'tool_use';
+  type: 'text' | 'tool_use' | 'workflow_created';
   text?: string;
   id?: string;
   name?: string;
   input?: Record<string, unknown>;
+  workflowId?: string;
+  workflowName?: string;
 }
 
 interface Message {
@@ -25,7 +27,12 @@ interface MessageListProps {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const MessageListComponent = ({ messages, isLoading, isLoadingSession, scrollContainerRef }: MessageListProps) => {
+const MessageListComponent = ({
+  messages,
+  isLoading,
+  isLoadingSession,
+  scrollContainerRef,
+}: MessageListProps) => {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -61,8 +68,10 @@ const MessageListComponent = ({ messages, isLoading, isLoadingSession, scrollCon
       ) : messages.length === 0 ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-center space-y-4">
-            <h2 className="text-2xl font-semibold text-foreground">Chat with Odin</h2>
-            <p className="text-muted-foreground">Ask me anything about your workflows and automations</p>
+            <h2 className="text-2xl font-semibold text-foreground">Chat with b0t</h2>
+            <p className="text-muted-foreground">
+              Ask me anything about your workflows and automations
+            </p>
           </div>
         </div>
       ) : (
@@ -74,15 +83,24 @@ const MessageListComponent = ({ messages, isLoading, isLoadingSession, scrollCon
           ))}
           {isLoading && (
             <div className="flex gap-1">
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></span>
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></span>
+              <span
+                className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                style={{ animationDelay: '0s' }}
+              ></span>
+              <span
+                className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                style={{ animationDelay: '0.15s' }}
+              ></span>
+              <span
+                className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                style={{ animationDelay: '0.3s' }}
+              ></span>
             </div>
           )}
         </div>
       )}
     </div>
   );
-}
+};
 
 export const MessageList = memo(MessageListComponent);

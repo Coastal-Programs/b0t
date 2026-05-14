@@ -1,7 +1,8 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { MemoryManager } from '@/lib/memory/memory-manager';
 import { logger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,24 +12,24 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResult = await checkRateLimit(request);
+    if (rateLimitResult) return rateLimitResult;
+
     const session = await auth();
 
     if (!session?.user?.id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { query, topK = 6, organizationId } = body;
 
     if (!query) {
-      return Response.json(
-        { error: 'Missing required field: query' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required field: query' }, { status: 400 });
     }
 
     if (typeof topK !== 'number' || topK < 1 || topK > 50) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'topK must be a number between 1 and 50' },
         { status: 400 }
       );
@@ -47,9 +48,9 @@ export async function POST(request: NextRequest) {
       'Memory search completed'
     );
 
-    return Response.json({ results });
+    return NextResponse.json({ results });
   } catch (error) {
     logger.error({ error }, 'Failed to search memory');
-    return Response.json({ error: 'Failed to search memory' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to search memory' }, { status: 500 });
   }
 }

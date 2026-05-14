@@ -110,7 +110,7 @@ class RedditClient {
     logger.info('Refreshing Reddit access token');
 
     const { clientId, clientSecret, username, password } = this.credentials;
-    const userAgent = this.credentials.userAgent || 'odin:v1.0.0 (by /u/odinbot)';
+    const userAgent = this.credentials.userAgent || 'b0t:v1.0.0 (by /u/b0tbot)';
 
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const params = new URLSearchParams();
@@ -121,7 +121,7 @@ class RedditClient {
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'User-Agent': userAgent,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -146,18 +146,17 @@ class RedditClient {
     return this.accessToken!;
   }
 
-   
   async request(endpoint: string, options: RequestInit = {}): Promise<any> {
     const token = await this.getAccessToken();
 
     const url = endpoint.startsWith('http') ? endpoint : `https://oauth.reddit.com${endpoint}`;
-    const userAgent = this.credentials.userAgent || 'odin:v1.0.0 (by /u/odinbot)';
+    const userAgent = this.credentials.userAgent || 'b0t:v1.0.0 (by /u/b0tbot)';
 
     const response = await fetch(url, {
       ...options,
       headers: {
         ...options.headers,
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'User-Agent': userAgent,
       },
     });
@@ -170,7 +169,6 @@ class RedditClient {
     return response.json();
   }
 
-   
   async post(endpoint: string, form: Record<string, any>): Promise<any> {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(form)) {
@@ -192,9 +190,7 @@ class RedditClient {
 /**
  * Internal submit post function (unprotected)
  */
-async function submitPostInternal(
-  options: RedditSubmitOptions
-): Promise<RedditPost> {
+async function submitPostInternal(options: RedditSubmitOptions): Promise<RedditPost> {
   if (!options.credentials) {
     throw new Error('Reddit credentials are required');
   }
@@ -255,9 +251,7 @@ const submitPostRateLimited = withRateLimit(
   redditRateLimiter
 );
 
-export async function submitPost(
-  options: RedditSubmitOptions
-): Promise<RedditPost> {
+export async function submitPost(options: RedditSubmitOptions): Promise<RedditPost> {
   return (await submitPostRateLimited(options)) as unknown as RedditPost;
 }
 
@@ -273,7 +267,10 @@ async function commentOnPostInternal(
 
   const client = new RedditClient(options.credentials);
 
-  logger.info({ postId: options.postId, textLength: options.text.length }, 'Commenting on Reddit post');
+  logger.info(
+    { postId: options.postId, textLength: options.text.length },
+    'Commenting on Reddit post'
+  );
 
   // Ensure postId has kind prefix (e.g., t3_)
   const thingId = options.postId.includes('_') ? options.postId : `t3_${options.postId}`;
@@ -315,7 +312,10 @@ async function replyToCommentInternal(
 
   const client = new RedditClient(options.credentials);
 
-  logger.info({ commentId: options.commentId, textLength: options.text.length }, 'Replying to Reddit comment');
+  logger.info(
+    { commentId: options.commentId, textLength: options.text.length },
+    'Replying to Reddit comment'
+  );
 
   // Ensure commentId has kind prefix (e.g., t1_)
   const thingId = options.commentId.includes('_') ? options.commentId : `t1_${options.commentId}`;
@@ -348,9 +348,7 @@ export const replyToComment = withRateLimit(replyToCommentInternal, redditRateLi
 /**
  * Get posts from subreddit (works without authentication using public API)
  */
-export async function getSubredditPosts(
-  options: RedditGetPostsOptions
-): Promise<RedditPost[]> {
+export async function getSubredditPosts(options: RedditGetPostsOptions): Promise<RedditPost[]> {
   const { subreddit, sort = 'hot', limit = 25, credentials } = options;
   logger.info({ subreddit, sort, limit }, 'Fetching Reddit posts');
 
@@ -362,7 +360,6 @@ export async function getSubredditPosts(
 
     logger.info({ postCount: posts.length }, 'Reddit posts fetched (authenticated)');
 
-     
     return posts.map((item: any) => {
       const post = item.data;
       return {
@@ -386,8 +383,9 @@ export async function getSubredditPosts(
 
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/html',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'application/json, text/html',
     },
   });
 
@@ -395,13 +393,11 @@ export async function getSubredditPosts(
     throw new Error(`Reddit API error: ${response.status} ${response.statusText}`);
   }
 
-   
   const data: any = await response.json();
   const posts = data.data.children;
 
   logger.info({ postCount: posts.length }, 'Reddit posts fetched (public API)');
 
-   
   return posts.map((item: any) => {
     const post = item.data;
     return {
@@ -421,9 +417,7 @@ export async function getSubredditPosts(
 /**
  * Search posts
  */
-export async function searchPosts(
-  options: RedditSearchOptions
-): Promise<RedditPost[]> {
+export async function searchPosts(options: RedditSearchOptions): Promise<RedditPost[]> {
   const { query, subreddit, limit = 25, credentials } = options;
 
   if (!credentials) {
@@ -435,13 +429,14 @@ export async function searchPosts(
   logger.info({ query, subreddit, limit }, 'Searching Reddit posts');
 
   const path = subreddit ? `/r/${subreddit}/search` : '/search';
-  const response = await client.request(`${path}?q=${encodeURIComponent(query)}&limit=${limit}&restrict_sr=${!!subreddit}`);
+  const response = await client.request(
+    `${path}?q=${encodeURIComponent(query)}&limit=${limit}&restrict_sr=${!!subreddit}`
+  );
 
   const results = response.data.children;
 
   logger.info({ resultCount: results.length }, 'Reddit search completed');
 
-   
   return results.map((item: any) => {
     const post = item.data;
     return {
@@ -461,9 +456,7 @@ export async function searchPosts(
 /**
  * Upvote post
  */
-export async function upvotePost(
-  options: RedditVoteOptions
-): Promise<void> {
+export async function upvotePost(options: RedditVoteOptions): Promise<void> {
   if (!options.credentials) {
     throw new Error('Reddit credentials are required');
   }
@@ -485,9 +478,7 @@ export async function upvotePost(
 /**
  * Downvote post
  */
-export async function downvotePost(
-  options: RedditVoteOptions
-): Promise<void> {
+export async function downvotePost(options: RedditVoteOptions): Promise<void> {
   if (!options.credentials) {
     throw new Error('Reddit credentials are required');
   }

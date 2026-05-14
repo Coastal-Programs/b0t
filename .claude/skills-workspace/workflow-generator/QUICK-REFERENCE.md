@@ -4,12 +4,12 @@
 
 ### Project Version (this location)
 **When to use:** Working directly in the main odin project
-**Location:** `/Users/kenkai/Documents/UnstableMind/odin/`
+**Location:** `<project-root>/`
 **Method:** npm scripts
 
 ### Build Mode Version
 **When to use:** Interactive agent building in Documents/odin
-**Location:** `/Users/kenkai/Documents/odin/`
+**Location:** `<project-root>/`
 **Method:** HTTP API calls
 
 ---
@@ -20,8 +20,8 @@
 |------|----------------|-------------------|
 | **Search Modules** | `curl "http://localhost:3123/api/modules/search?q=&limit=5"<keyword>` | `curl "http://localhost:3123/api/modules/search?q=<keyword>&limit=5"` |
 | **Build Workflow** | `curl -X POST http://localhost:3123/api/workflows/build-from-plan -H "Content-Type: application/json" -d '{"planPath": "plans/file.yaml"}'` | `curl -X POST http://localhost:3123/api/workflows/build-from-plan -H "Content-Type: application/json" -d '{"planPath": "plans/file.yaml"}'` |
-| **Plans Location** | `plans/` | `/Users/kenkai/Documents/odin/plans/` |
-| **Reference Paths** | Relative (`~/Documents/odin/.claude/skills/...`) | Absolute (`/Users/kenkai/Documents/odin/.claude/skills/...`) |
+| **Plans Location** | `plans/` | `<project-root>/plans/` |
+| **Reference Paths** | Relative (`~/Documents/odin/.claude/skills/...`) | Absolute (`<project-root>/.claude/skills/...`) |
 
 ---
 

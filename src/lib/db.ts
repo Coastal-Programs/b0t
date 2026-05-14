@@ -7,7 +7,9 @@ import * as schema from './schema';
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL environment variable is required. Make sure Docker PostgreSQL is running.');
+  throw new Error(
+    'DATABASE_URL environment variable is required. Make sure Docker PostgreSQL is running.'
+  );
 }
 
 // Only log in production or if explicitly requested
@@ -69,26 +71,17 @@ pool.on('error', (err) => {
 // Pool monitoring (optional, useful for debugging)
 if (process.env.DB_POOL_LOGGING === 'true') {
   pool.on('connect', () => {
-    logger.debug(
-      { action: 'db_pool_connect' },
-      'Database pool client connected'
-    );
+    logger.debug({ action: 'db_pool_connect' }, 'Database pool client connected');
   });
   pool.on('acquire', () => {
-    logger.debug(
-      { action: 'db_pool_acquire' },
-      'Connection acquired from pool'
-    );
+    logger.debug({ action: 'db_pool_acquire' }, 'Connection acquired from pool');
   });
   pool.on('release', () => {
-    logger.debug(
-      { action: 'db_pool_release' },
-      'Connection released back to pool'
-    );
+    logger.debug({ action: 'db_pool_release' }, 'Connection released back to pool');
   });
 }
 
-export const db = drizzle(pool, { schema });
+export const db = drizzle({ client: pool, schema });
 
 // Export pool for monitoring
 export { pool };

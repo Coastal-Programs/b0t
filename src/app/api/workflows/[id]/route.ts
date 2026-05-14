@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getAuthUserId } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 import { workflowsTable } from '@/lib/schema';
 import { eq, and } from 'drizzle-orm';
@@ -12,14 +12,11 @@ export const dynamic = 'force-dynamic';
  * PATCH /api/workflows/[id]
  * Update workflow trigger configuration
  */
-export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
+    const userId = await getAuthUserId(request);
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -30,12 +27,7 @@ export async function PATCH(
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, id),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -53,16 +45,11 @@ export async function PATCH(
       await db
         .update(workflowsTable)
         .set(updates)
-        .where(
-          and(
-            eq(workflowsTable.id, id),
-            eq(workflowsTable.userId, session.user.id)
-          )
-        );
+        .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
 
       logger.info(
         {
-          userId: session.user.id,
+          userId,
           workflowId: id,
           updates,
         },
@@ -74,24 +61,27 @@ export async function PATCH(
 
     // Update status
     if (body.status !== undefined) {
+      const validStatuses = ['draft', 'active', 'inactive'] as const;
+      if (!validStatuses.includes(body.status)) {
+        return NextResponse.json(
+          { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
+          { status: 400 }
+        );
+      }
+
       await db
         .update(workflowsTable)
         .set({
           status: body.status,
         })
-        .where(
-          and(
-            eq(workflowsTable.id, id),
-            eq(workflowsTable.userId, session.user.id)
-          )
-        );
+        .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
 
       // Refresh scheduler to pick up status changes for cron/email triggers
       await workflowScheduler.refresh();
 
       logger.info(
         {
-          userId: session.user.id,
+          userId,
           workflowId: id,
           status: body.status,
         },
@@ -125,9 +115,8 @@ export async function PATCH(
       // Update trigger config
       if (body.trigger !== undefined) {
         // Parse trigger from database (may be string or object depending on DB)
-        const existingTrigger = typeof workflow.trigger === 'string'
-          ? JSON.parse(workflow.trigger)
-          : workflow.trigger;
+        const existingTrigger =
+          typeof workflow.trigger === 'string' ? JSON.parse(workflow.trigger) : workflow.trigger;
 
         updates.trigger = {
           type: existingTrigger.type,
@@ -141,12 +130,7 @@ export async function PATCH(
       await db
         .update(workflowsTable)
         .set(updates)
-        .where(
-          and(
-            eq(workflowsTable.id, id),
-            eq(workflowsTable.userId, session.user.id)
-          )
-        );
+        .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
 
       // Refresh scheduler if trigger was updated (for cron/email triggers)
       if (body.trigger !== undefined) {
@@ -155,7 +139,7 @@ export async function PATCH(
 
       logger.info(
         {
-          userId: session.user.id,
+          userId,
           workflowId: id,
           hasConfigUpdate: body.config !== undefined,
           hasTriggerUpdate: body.trigger !== undefined,
@@ -169,11 +153,15 @@ export async function PATCH(
     return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
   } catch (error) {
     logger.error({ error }, '❌ PATCH /api/workflows/[id] error');
-    logger.error({ error, stack: error instanceof Error ? error.stack : undefined, message: error instanceof Error ? error.message : String(error) }, 'Failed to update workflow');
-    return NextResponse.json(
-      { error: 'Failed to update workflow', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+    logger.error(
+      {
+        error,
+        stack: error instanceof Error ? error.stack : undefined,
+        message: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to update workflow'
     );
+    return NextResponse.json({ error: 'Failed to update workflow' }, { status: 500 });
   }
 }
 
@@ -181,14 +169,11 @@ export async function PATCH(
  * DELETE /api/workflows/[id]
  * Delete a workflow
  */
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
+    const userId = await getAuthUserId(request);
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -198,12 +183,7 @@ export async function DELETE(
     const workflows = await db
       .select()
       .from(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, id),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      )
+      .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)))
       .limit(1);
 
     if (workflows.length === 0) {
@@ -212,16 +192,11 @@ export async function DELETE(
 
     await db
       .delete(workflowsTable)
-      .where(
-        and(
-          eq(workflowsTable.id, id),
-          eq(workflowsTable.userId, session.user.id)
-        )
-      );
+      .where(and(eq(workflowsTable.id, id), eq(workflowsTable.userId, userId)));
 
     logger.info(
       {
-        userId: session.user.id,
+        userId,
         workflowId: id,
       },
       'Workflow deleted'
@@ -230,9 +205,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error({ error }, 'Failed to delete workflow');
-    return NextResponse.json(
-      { error: 'Failed to delete workflow' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete workflow' }, { status: 500 });
   }
 }

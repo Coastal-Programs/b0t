@@ -60,7 +60,7 @@ In the workspace version, update reference paths:
 cd .claude/skills-workspace/SKILL_NAME/
 
 # Update paths in skill.md
-sed -i '' 's|`.claude/skills/|`/Users/kenkai/Documents/odin/.claude/skills/|g' skill.md
+sed -i '' 's|`.claude/skills/|`<project-root>/.claude/skills/|g' skill.md
 ```
 
 ### Step 5: Verify
@@ -97,11 +97,11 @@ Files in `.claude/skills-workspace/` automatically deploy to users' `~/Documents
 
 **For any skill referencing other files:**
 - Project: Relative paths like `.claude/skills/SKILL_NAME/references/file.md`
-- Workspace: Absolute paths like `/Users/kenkai/Documents/odin/.claude/skills/SKILL_NAME/references/file.md`
+- Workspace: Absolute paths like `<project-root>/.claude/skills/SKILL_NAME/references/file.md`
 
 **For plans directory:**
 - Project: `plans/`
-- Workspace: `/Users/kenkai/Documents/odin/plans/`
+- Workspace: `<project-root>/plans/`
 
 ## Checklist
 

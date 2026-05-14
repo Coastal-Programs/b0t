@@ -22,7 +22,7 @@ const redisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   maxRetriesPerRequest: null, // Required for BullMQ
-  enableReadyCheck: false,    // Recommended for BullMQ
+  enableReadyCheck: false, // Recommended for BullMQ
   // Optional: Add password if Redis requires auth
   ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
 };
@@ -65,7 +65,9 @@ const createRedisConnection = (): Redis => {
   }
 
   // No Redis configured - throw error to prevent silent failures
-  throw new Error('Redis not configured. Set REDIS_URL or REDIS_HOST/REDIS_PORT environment variables.');
+  throw new Error(
+    'Redis not configured. Set REDIS_URL or REDIS_HOST/REDIS_PORT environment variables.'
+  );
 };
 
 // Get or create Redis connection for queues (singleton pattern)
@@ -96,18 +98,18 @@ const getWorkerRedisConnection = (): Redis => {
 const getDefaultQueueOptions = (): QueueOptions => ({
   connection: getQueueRedisConnection() as ConnectionOptions,
   defaultJobOptions: {
-    attempts: 3,               // Retry failed jobs 3 times
+    attempts: 3, // Retry failed jobs 3 times
     backoff: {
-      type: 'exponential',     // Exponential backoff (2^n * delay)
-      delay: 5000,             // Initial delay: 5 seconds
+      type: 'exponential', // Exponential backoff (2^n * delay)
+      delay: 5000, // Initial delay: 5 seconds
     },
     removeOnComplete: {
-      age: 86400,              // Keep completed jobs for 24 hours
-      count: 1000,             // Keep max 1000 completed jobs
+      age: 86400, // Keep completed jobs for 24 hours
+      count: 1000, // Keep max 1000 completed jobs
     },
     removeOnFail: {
-      age: 604800,             // Keep failed jobs for 7 days
-      count: 5000,             // Keep max 5000 failed jobs
+      age: 604800, // Keep failed jobs for 7 days
+      count: 5000, // Keep max 5000 failed jobs
     },
   },
 });
@@ -118,20 +120,23 @@ const getDefaultQueueOptions = (): QueueOptions => ({
 const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || '25', 10);
 
 const defaultWorkerOptions: Omit<WorkerOptions, 'connection'> = {
-  autorun: false,              // Start workers manually
+  autorun: false, // Start workers manually
   concurrency: WORKER_CONCURRENCY, // Reduced from 50 to 25 to match DB pool capacity
   limiter: {
-    max: 600,                  // Max 600 jobs per minute (10/sec rate limit)
-    duration: 60000,           // Per minute (rate limiting)
+    max: 600, // Max 600 jobs per minute (10/sec rate limit)
+    duration: 60000, // Per minute (rate limiting)
   },
 };
 
 // Log queue configuration on startup
-logger.info({
-  concurrency: WORKER_CONCURRENCY,
-  maxJobsPerMinute: 600,
-  optimization: 'WORKER_CONCURRENCY_BALANCED'
-}, `✅ BullMQ default worker config: ${WORKER_CONCURRENCY} concurrent jobs, 600/min rate limit`);
+logger.info(
+  {
+    concurrency: WORKER_CONCURRENCY,
+    maxJobsPerMinute: 600,
+    optimization: 'WORKER_CONCURRENCY_BALANCED',
+  },
+  `✅ BullMQ default worker config: ${WORKER_CONCURRENCY} concurrent jobs, 600/min rate limit`
+);
 
 /**
  * Queue Registry
@@ -143,10 +148,7 @@ export const workers = new Map<string, Worker>();
 /**
  * Create a new queue for job processing
  */
-export function createQueue(
-  name: string,
-  options?: Partial<QueueOptions>
-): Queue {
+export function createQueue(name: string, options?: Partial<QueueOptions>): Queue {
   if (queues.has(name)) {
     logger.warn({ queue: name }, 'Queue already exists, returning existing queue');
     return queues.get(name)!;
@@ -184,10 +186,7 @@ export function createWorker<T = unknown, R = unknown>(
 
       try {
         const result = await processor(job);
-        logger.info(
-          { jobId: job.id, jobName: job.name },
-          `Completed job: ${job.name}`
-        );
+        logger.info({ jobId: job.id, jobName: job.name }, `Completed job: ${job.name}`);
         return result;
       } catch (error) {
         logger.error(
@@ -237,11 +236,13 @@ export async function addJob<T>(
   jobName: string,
   data: T,
   options?: {
-    delay?: number;           // Delay in milliseconds before processing
-    priority?: number;        // Lower number = higher priority
-    repeat?: {               // Cron-style repeating jobs
-      pattern?: string;      // Cron pattern (e.g., '0 */2 * * *')
-      every?: number;        // Repeat every N milliseconds
+    delay?: number; // Delay in milliseconds before processing
+    priority?: number; // Lower number = higher priority
+    jobId?: string; // Unique job ID for deduplication
+    repeat?: {
+      // Cron-style repeating jobs
+      pattern?: string; // Cron pattern (e.g., '0 */2 * * *')
+      every?: number; // Repeat every N milliseconds
     };
   }
 ) {
@@ -251,10 +252,7 @@ export async function addJob<T>(
   }
 
   const job = await queue.add(jobName, data, options);
-  logger.info(
-    { queueName, jobId: job.id, jobName },
-    'Added job to queue'
-  );
+  logger.info({ queueName, jobId: job.id, jobName }, 'Added job to queue');
 
   return job;
 }
